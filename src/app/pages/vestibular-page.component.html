@@ -1,0 +1,46 @@
+<section class="vestibular-page" aria-labelledby="vestibular-title">
+  <div class="vestibular-heading">
+    <p class="hero-eyebrow">Portal UniCore</p>
+    <h1 id="vestibular-title">Corrigir avaliação</h1>
+    <p>Escolha a prova e o gabarito para enviar a avaliação ao serviço de correção.</p>
+  </div>
+
+  <form class="vestibular-form" (submit)="$event.preventDefault(); submit()">
+    <div class="file-picker-grid">
+      <div class="file-picker card card-outlined">
+        <label class="field-label" for="vestibular-prova">Prova em PDF</label>
+        <input id="vestibular-prova" class="field-control" type="file" accept="application/pdf,.pdf" (change)="onFileSelected($event, 'prova')" />
+        @if (prova) {
+          <p class="selected-file" aria-live="polite"><strong>Selecionada:</strong> {{ prova.name }} ({{ prova.size | number }} bytes)</p>
+          <button class="button button-text file-remove" type="button" (click)="removeFile('prova')">Escolher outra prova</button>
+        } @else {
+          <p class="field-help">O arquivo fica disponível novamente neste navegador até você escolher outro.</p>
+        }
+      </div>
+
+      <div class="file-picker card card-outlined">
+        <label class="field-label" for="vestibular-gabarito">Gabarito em PDF</label>
+        <input id="vestibular-gabarito" class="field-control" type="file" accept="application/pdf,.pdf" (change)="onFileSelected($event, 'gabarito')" />
+        @if (gabarito) {
+          <p class="selected-file" aria-live="polite"><strong>Selecionado:</strong> {{ gabarito.name }} ({{ gabarito.size | number }} bytes)</p>
+          <button class="button button-text file-remove" type="button" (click)="removeFile('gabarito')">Escolher outro gabarito</button>
+        } @else {
+          <p class="field-help">O gabarito persistido será usado nas próximas correções.</p>
+        }
+      </div>
+    </div>
+
+    @if (storageMessage) { <p class="error-message" role="alert">{{ storageMessage }}</p> }
+    @if (errorMessage) { <p class="error-message" role="alert">{{ errorMessage }}</p> }
+    @if (status === 'success') {
+      <div class="success-message" role="status" aria-live="polite">
+        <strong>Correção concluída.</strong>
+        <pre>{{ responseMessage }}</pre>
+      </div>
+    }
+
+    <button class="button button-primary" type="submit" [disabled]="status === 'submitting'">
+      {{ status === 'submitting' ? 'Corrigindo…' : 'Corrigir avaliação' }}
+    </button>
+  </form>
+</section>

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core'
+import { Component, HostListener, Input } from '@angular/core'
 import { RouterLink, RouterLinkActive } from '@angular/router'
 
 export interface LayoutNavigationItem {
@@ -18,6 +18,8 @@ export interface LayoutFooterLink {
   templateUrl: './layout-shell.component.html',
 })
 export class LayoutShellComponent {
+  menuOpen = false
+
   @Input() portalLabel = 'UniCore'
   @Input() mainId = 'main-content'
   @Input() footerDescription = 'UniCore · Sistema de experiência digital'
@@ -25,9 +27,23 @@ export class LayoutShellComponent {
   @Input() navigation: readonly LayoutNavigationItem[] = [
     { href: '/', label: 'Início' },
     { href: '/inscricao', label: 'Inscrição' },
+    { href: '/vestibular', label: 'Vestibular' },
   ]
   @Input() footerLinks: readonly LayoutFooterLink[] = [
     { href: '/', label: 'Acessibilidade' },
     { href: '/', label: 'Ajuda' },
   ]
+
+  toggleMenu(): void {
+    this.menuOpen = !this.menuOpen
+  }
+
+  closeMenu(): void {
+    this.menuOpen = false
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    this.closeMenu()
+  }
 }

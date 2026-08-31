@@ -3,7 +3,18 @@
   <header class="site-header">
     <div class="page-container header-inner">
       <a class="portal-mark" routerLink="/" [attr.aria-label]="portalLabel + ', início'">{{ portalLabel }}</a>
-      <nav aria-label="Navegação principal">
+      <button
+        class="menu-toggle"
+        type="button"
+        aria-controls="portal-menu"
+        [attr.aria-expanded]="menuOpen"
+        aria-label="Abrir menu principal"
+        (click)="toggleMenu()"
+      >
+        <span class="menu-toggle-icon" aria-hidden="true">☰</span>
+        <span>Menu</span>
+      </button>
+      <nav id="portal-menu" class="portal-menu" [class.is-open]="menuOpen" aria-label="Navegação principal">
         <ul class="primary-navigation">
           @for (item of navigation; track item.href) {
             <li>
@@ -14,6 +25,7 @@
                 [routerLinkActiveOptions]="{ exact: true }"
                 [attr.aria-current]="activeLink.isActive ? 'page' : null"
                 [attr.data-active]="activeLink.isActive ? 'true' : null"
+                (click)="closeMenu()"
               >{{ item.label }}</a>
             </li>
           }
