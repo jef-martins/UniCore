@@ -1,0 +1,29 @@
+<section
+  [id]="id"
+  [class]="className ? 'hero-section ' + className : 'hero-section'"
+  [attr.aria-labelledby]="titleId"
+>
+  <div class="hero-promo">
+    <div class="hero-content">
+      @if (eyebrow) { <p class="hero-eyebrow">{{ eyebrow }}</p> }
+      <h1 [id]="titleId">{{ title }}</h1>
+      <p class="hero-description">{{ description }}</p>
+      <div class="hero-actions">
+        @if (destination && isInternalDestination) {
+          <a class="button button-primary hero-cta" data-hero-cta="true" [attr.data-destination]="destination" [routerLink]="destination">{{ cta.label }}</a>
+        } @else if (destination) {
+          <a class="button button-primary hero-cta" data-hero-cta="true" [attr.data-destination]="destination" [href]="destination">{{ cta.label }}</a>
+        } @else {
+          <button class="button button-primary hero-cta" data-hero-cta="true" type="button">{{ cta.label }}</button>
+        }
+      </div>
+    </div>
+    <div class="hero-media" [attr.data-media-purpose]="resolvedMediaPurpose">
+      <figure class="media">
+        <img class="media-image" [src]="media.src" [alt]="mediaAlt" [attr.aria-hidden]="mediaAlt ? null : 'true'" [width]="media.width || null" [height]="media.height || null" [loading]="media.loading || 'eager'" />
+        @if (media.caption) { <figcaption>{{ media.caption }}</figcaption> }
+      </figure>
+    </div>
+  </div>
+  <span class="hero-accent" aria-hidden="true"></span>
+</section>

@@ -1,0 +1,41 @@
+<div class="layout-shell">
+  <a class="skip-link" [href]="'#' + mainId">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="page-container header-inner">
+      <a class="portal-mark" routerLink="/" [attr.aria-label]="portalLabel + ', início'">{{ portalLabel }}</a>
+      <nav aria-label="Navegação principal">
+        <ul class="primary-navigation">
+          @for (item of navigation; track item.href) {
+            <li>
+              <a
+                [routerLink]="item.href"
+                routerLinkActive="is-active"
+                #activeLink="routerLinkActive"
+                [routerLinkActiveOptions]="{ exact: true }"
+                [attr.aria-current]="activeLink.isActive ? 'page' : null"
+                [attr.data-active]="activeLink.isActive ? 'true' : null"
+              >{{ item.label }}</a>
+            </li>
+          }
+        </ul>
+      </nav>
+      <div class="header-actions">
+        <button class="action-link" type="button" data-layout-action="search" [attr.aria-label]="searchLabel">Buscar</button>
+        <a class="button button-primary" routerLink="/inscricao">Começar</a>
+      </div>
+    </div>
+  </header>
+  <main [id]="mainId" class="page-container page-main" tabindex="-1">
+    <ng-content></ng-content>
+  </main>
+  <footer class="site-footer">
+    <div class="page-container footer-inner">
+      <p>{{ footerDescription }}</p>
+      <nav aria-label="Links complementares">
+        @for (link of footerLinks; track link.href + link.label) {
+          <a [routerLink]="link.href">{{ link.label }}</a>
+        }
+      </nav>
+    </div>
+  </footer>
+</div>
