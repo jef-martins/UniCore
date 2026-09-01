@@ -1,0 +1,30 @@
+<section class="module-page" [attr.aria-labelledby]="'module-' + title">
+  <div class="module-heading">
+    <p class="hero-eyebrow">{{ eyebrow }}</p>
+    <h1 [id]="'module-' + title">{{ title }}</h1>
+    <p>{{ description }}</p>
+  </div>
+
+  <div class="module-placeholder card card-outlined">
+    <h2>Estrutura preparada</h2>
+    <p>Esta tela já está isolada por perfil e pronta para receber os serviços do backend.</p>
+    <ul>
+      <li>Rota protegida por autenticação.</li>
+      <li>Permissão validada antes da ativação da tela.</li>
+      <li>Menu exibido de acordo com o perfil do usuário.</li>
+    </ul>
+  </div>
+
+  @if (isAdministration) {
+    <div class="module-placeholder card card-elevated">
+      <h2>Configurações de acesso</h2>
+      <p>A futura administração poderá cadastrar usuários, perfis, telas e permissões.</p>
+      <div class="configuration-grid">
+        <span>Usuários</span>
+        <span>Perfis</span>
+        <span>Permissões</span>
+        <span>Auditoria</span>
+      </div>
+    </div>
+  }
+</section>

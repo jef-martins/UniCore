@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ServeStaticModule } from '@nestjs/serve-static'
 import { join } from 'node:path'
 import configuration from './config/configuration'
+import { DatabaseModule } from './modules/database/database.module'
 import { HealthModule } from './modules/health/health.module'
 
 @Module({
@@ -13,6 +14,7 @@ import { HealthModule } from './modules/health/health.module'
       serveRoot: '/',
       exclude: ['/api/(.*)'],
     }),
+    DatabaseModule,
     HealthModule,
   ],
 })
