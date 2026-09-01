@@ -11,6 +11,7 @@ export class LoginPageComponent implements OnInit {
   username = ''
   password = ''
   errorMessage = ''
+  loginInProgress = false
 
   constructor(
     private readonly authService: AuthService,
@@ -32,15 +33,25 @@ export class LoginPageComponent implements OnInit {
 
   submit(event: Event): void {
     event.preventDefault()
-    this.errorMessage = ''
+    if (this.loginInProgress) return
 
-    if (!this.authService.login(this.username, this.password)) {
-      this.errorMessage = 'Informe usuário e senha para continuar.'
+    this.errorMessage = ''
+    if (!this.username.trim() || !this.password) {
+      this.errorMessage = 'Informe usuário/e-mail e senha para continuar.'
       return
     }
 
-    const requestedUrl = this.activatedRoute.snapshot.queryParamMap.get('returnUrl')
-    const returnUrl = requestedUrl?.startsWith('/') && !requestedUrl.startsWith('//') ? requestedUrl : '/'
-    void this.router.navigateByUrl(returnUrl)
+    this.loginInProgress = true
+    this.authService.login(this.username, this.password).subscribe((success) => {
+      this.loginInProgress = false
+      if (!success) {
+        this.errorMessage = 'Usuário/e-mail ou senha inválidos.'
+        return
+      }
+
+      const requestedUrl = this.activatedRoute.snapshot.queryParamMap.get('returnUrl')
+      const returnUrl = requestedUrl?.startsWith('/') && !requestedUrl.startsWith('//') ? requestedUrl : '/'
+      void this.router.navigateByUrl(returnUrl)
+    })
   }
 }

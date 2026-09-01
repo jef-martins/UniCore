@@ -32,18 +32,23 @@ export const appRoutes: Routes = [
         data: { roles: ['vestibular', 'admin', 'master'] },
         title: 'UniCore | Vestibular',
       },
-      {
-        path: 'financeiro',
+      ...[
+        ['tesouraria', 'tesouraria', 'Tesouraria', ['tesouraria', 'admin', 'master']],
+        ['secretaria', 'secretaria', 'Secretaria', ['secretaria', 'admin', 'master']],
+        ['coordenacao', 'coordenacao', 'Coordenação', ['coordenacao', 'admin', 'master']],
+        ['registro-academico', 'registro_academico', 'Registro Acadêmico', ['registro_academico', 'admin', 'master']],
+      ].map(([path, module, moduleTitle, roles]) => ({
+        path: path as string,
         component: ModulePageComponent,
         canActivate: [roleGuard],
         data: {
-          roles: ['financeiro', 'admin', 'master'],
-          module: 'financeiro',
-          moduleTitle: 'Financeiro',
-          moduleDescription: 'Área financeira do portal, preparada para os fluxos do backend.',
+          roles,
+          module,
+          moduleTitle,
+          moduleDescription: `Área de ${moduleTitle}, preparada para os fluxos do backend.`,
         },
-        title: 'UniCore | Financeiro',
-      },
+        title: `UniCore | ${moduleTitle}`,
+      })),
       {
         path: 'administracao',
         component: ModulePageComponent,
@@ -70,6 +75,5 @@ export const appRoutes: Routes = [
       },
     ],
   },
-  // Caminhos desconhecidos preservam o fallback da home do router legado.
   { path: '**', redirectTo: '' },
 ]

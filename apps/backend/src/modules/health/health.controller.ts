@@ -1,5 +1,5 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
-import { DatabaseService } from '../database/database.service'
+import { PrismaService } from '../database/prisma.service'
 
 interface HealthResponse {
   status: 'ok'
@@ -10,12 +10,12 @@ interface HealthResponse {
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   @Get()
   async getHealth(): Promise<HealthResponse> {
     try {
-      await this.databaseService.checkConnection()
+      await this.prisma.$queryRaw`SELECT 1`
     } catch {
       throw new ServiceUnavailableException({
         status: 'error',

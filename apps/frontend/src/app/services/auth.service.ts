@@ -1,55 +1,91 @@
 import { Injectable } from '@angular/core'
+import { HttpClient } from '@angular/common/http'
+import { catchError, map, of, tap, type Observable } from 'rxjs'
 
-export type UserRole = 'vestibular' | 'financeiro' | 'admin' | 'master'
+export type UserRole =
+  | 'vestibular'
+  | 'admin'
+  | 'master'
+  | 'tesouraria'
+  | 'secretaria'
+  | 'coordenacao'
+  | 'registro_academico'
 
 export interface AuthUser {
+  id: string
   username: string
+  email: string
   role: UserRole
+}
+
+interface LoginResponse {
+  accessToken: string
+  user: AuthUser
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
   vestibular: ['/vestibular', '/inscricao', '/agenda'],
-  financeiro: ['/financeiro', '/agenda'],
-  admin: ['/vestibular', '/financeiro', '/inscricao', '/administracao', '/agenda'],
-  master: ['/vestibular', '/financeiro', '/inscricao', '/administracao', '/desenvolvedor', '/agenda'],
+  tesouraria: ['/tesouraria', '/agenda'],
+  secretaria: ['/secretaria', '/agenda'],
+  coordenacao: ['/coordenacao', '/agenda'],
+  registro_academico: ['/registro-academico', '/agenda'],
+  admin: [
+    '/vestibular', '/inscricao', '/tesouraria', '/secretaria',
+    '/coordenacao', '/registro-academico', '/administracao', '/agenda',
+  ],
+  master: [
+    '/vestibular', '/inscricao', '/tesouraria', '/secretaria',
+    '/coordenacao', '/registro-academico', '/administracao', '/desenvolvedor', '/agenda',
+  ],
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly sessionKey = 'unicore.auth.session'
-  private readonly legacyKey = 'unicore.authenticated'
+  private userValue: AuthUser | null = null
+  private accessTokenValue: string | null = null
+
+  constructor(private readonly http: HttpClient) {}
 
   get currentUser(): AuthUser | null {
-    return this.readSession()
+    return this.userValue
+  }
+
+  get accessToken(): string | null {
+    return this.accessTokenValue
   }
 
   isAuthenticated(): boolean {
-    return this.readSession() !== null
+    return this.accessTokenValue !== null && this.userValue !== null
   }
 
-  login(username: string, password: string): boolean {
-    if (!username.trim() || !password.trim()) return false
-    return this.setSession({ username: username.trim(), role: this.resolveLocalRole(username) })
-  }
+  login(identifier: string, password: string): Observable<boolean> {
+    if (!identifier.trim() || !password) return of(false)
 
-  setSession(user: AuthUser): boolean {
-    if (!user.username.trim() || !this.isRole(user.role)) return false
-    return this.saveSession({ username: user.username.trim(), role: user.role })
+    return this.http.post<LoginResponse>('/api/auth/login', {
+      identifier: identifier.trim(),
+      password,
+    }).pipe(
+      tap((response) => {
+        this.accessTokenValue = response.accessToken
+        this.userValue = response.user
+      }),
+      map(() => true),
+      catchError(() => {
+        this.logout()
+        return of(false)
+      }),
+    )
   }
 
   logout(): void {
-    try {
-      localStorage.removeItem(this.sessionKey)
-      localStorage.removeItem(this.legacyKey)
-    } catch {
-      // A navegação para login ainda remove o acesso nesta execução.
-    }
+    this.accessTokenValue = null
+    this.userValue = null
   }
 
   canAccess(path: string): boolean {
     const user = this.currentUser
     if (!user) return false
-    return ROLE_PERMISSIONS[user.role].includes(this.normalizePath(path))
+    return ROLE_PERMISSIONS[user.role]?.includes(this.normalizePath(path)) ?? false
   }
 
   hasAnyRole(roles: readonly UserRole[]): boolean {
@@ -61,49 +97,24 @@ export class AuthService {
     switch (this.currentUser?.role) {
       case 'master': return '/desenvolvedor'
       case 'admin': return '/administracao'
-      case 'financeiro': return '/financeiro'
+      case 'tesouraria': return '/tesouraria'
+      case 'secretaria': return '/secretaria'
+      case 'coordenacao': return '/coordenacao'
+      case 'registro_academico': return '/registro-academico'
       default: return '/vestibular'
     }
   }
 
   roleLabel(role = this.currentUser?.role): string {
-    return { vestibular: 'Vestibular', financeiro: 'Financeiro', admin: 'Administrador', master: 'Master' }[role ?? 'vestibular']
-  }
-
-  private resolveLocalRole(username: string): UserRole {
-    const normalized = username.trim().toLowerCase()
-    if (normalized.includes('master') || normalized.includes('desenvolvedor')) return 'master'
-    if (normalized === 'admin' || normalized.includes('administrador')) return 'admin'
-    if (normalized.includes('financeiro')) return 'financeiro'
-    return 'vestibular'
-  }
-
-  private readSession(): AuthUser | null {
-    try {
-      const raw = localStorage.getItem(this.sessionKey)
-      if (raw) {
-        const session = JSON.parse(raw) as Partial<AuthUser>
-        if (typeof session.username === 'string' && this.isRole(session.role)) return { username: session.username, role: session.role }
-      }
-      if (localStorage.getItem(this.legacyKey) === 'true') return { username: 'legacy', role: 'vestibular' }
-    } catch {
-      return null
-    }
-    return null
-  }
-
-  private saveSession(user: AuthUser): boolean {
-    try {
-      localStorage.setItem(this.sessionKey, JSON.stringify(user))
-      localStorage.removeItem(this.legacyKey)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  private isRole(value: unknown): value is UserRole {
-    return value === 'vestibular' || value === 'financeiro' || value === 'admin' || value === 'master'
+    return {
+      vestibular: 'Vestibular',
+      tesouraria: 'Tesouraria',
+      secretaria: 'Secretaria',
+      coordenacao: 'Coordenação',
+      registro_academico: 'Registro Acadêmico',
+      admin: 'Administrador',
+      master: 'Master',
+    }[role ?? 'vestibular']
   }
 
   private normalizePath(path: string): string {

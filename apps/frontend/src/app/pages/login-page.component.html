@@ -2,12 +2,11 @@
   <section class="auth-card card card-elevated">
     <p class="hero-eyebrow">Portal UniCore</p>
     <h1 id="login-title">Acessar o Portal UniCore</h1>
-    <p class="auth-description">Faça login para acessar sua jornada e as ferramentas de avaliação.</p>
-    <p class="auth-hint">Modo local: use <strong>vestibular</strong>, <strong>financeiro</strong>, <strong>admin</strong> ou <strong>master</strong> como usuário. Qualquer senha preenchida é aceita.</p>
+    <p class="auth-description">Entre com seu usuário ou e-mail para acessar as ferramentas autorizadas para o seu perfil.</p>
 
     <form class="auth-form" (submit)="submit($event)">
       <div class="field">
-        <label class="field-label" for="login-username">Usuário</label>
+        <label class="field-label" for="login-username">Usuário ou e-mail</label>
         <input
           id="login-username"
           class="field-control"
@@ -33,7 +32,9 @@
       @if (errorMessage) {
         <p class="error-message" role="alert">{{ errorMessage }}</p>
       }
-      <button class="button button-primary auth-submit" type="submit">Entrar</button>
+      <button class="button button-primary auth-submit" type="submit" [disabled]="loginInProgress">
+        {{ loginInProgress ? 'Entrando…' : 'Entrar' }}
+      </button>
     </form>
   </section>
 </main>

@@ -1,6 +1,6 @@
 # UniCore
 
-Monólito modular com frontend Angular standalone, backend NestJS e PostgreSQL no mesmo repositório.
+Monólito modular com frontend Angular standalone, backend NestJS, Prisma e PostgreSQL no mesmo repositório.
 
 ## Requisitos
 
@@ -12,27 +12,46 @@ Monólito modular com frontend Angular standalone, backend NestJS e PostgreSQL n
 
 ## Configuração do banco
 
-O backend usa `pg` diretamente, sem ORM. A configuração da imagem indica o banco `unicore` com o proprietário `postgres`.
+O backend usa Prisma como único cliente de banco. A imagem indica o banco `unicore`, com proprietário `postgres`, disponível localmente na porta `5433`.
 
-Copie o arquivo de exemplo e informe a senha local sem versionar o arquivo:
+Copie o arquivo de exemplo e informe os segredos localmente:
 
 ```bash
 cp .env.example .env
 ```
 
-Para a instância PostgreSQL apresentada, configure:
+Configure a URL do Prisma:
 
 ```dotenv
-DB_HOST=localhost
-DB_PORT=5433
-DB_NAME=unicore
-DB_USER=postgres
-DB_PASSWORD=SUA_SENHA
+DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5433/unicore
 ```
 
-Também é possível usar uma única variável `DATABASE_URL`, por exemplo `postgresql://postgres:SUA_SENHA@localhost:5433/unicore`. A senha real deve permanecer apenas no arquivo `.env` ou em um secret manager.
+Crie/aplique migrations e gere o client:
 
-O endpoint `GET /api/health` executa `SELECT 1` no PostgreSQL. Ele retorna `200` com `database: "up"` quando a conexão está funcionando e `503` com `database: "down"` quando o banco não está disponível.
+```bash
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+```
+
+O seed inicial cria, de forma idempotente, os usuários `master`, `admin`, `tesouraria` e `vestibular`. A senha usada pelo seed vem de `SEED_DEFAULT_PASSWORD` e nunca é armazenada em texto puro; o banco recebe somente o hash Argon2id.
+
+O endpoint `GET /api/health` executa `SELECT 1` via Prisma. Ele retorna `200` com `database: "up"` quando a conexão está funcionando e `503` com `database: "down"` quando o banco não está disponível.
+
+## Autenticação
+
+O login está disponível em `POST /api/auth/login` e aceita `identifier` como nome de usuário ou e-mail:
+
+```json
+{
+  "identifier": "tesouraria",
+  "password": "sua-senha"
+}
+```
+
+A resposta contém um JWT com validade de 9 horas e os dados públicos do usuário. O Angular mantém o token somente em memória e o interceptor envia `Authorization: Bearer ...` nas requisições da API. A rota `GET /api/auth/me` exige um token válido.
+
+Os perfis disponíveis são `vestibular`, `admin`, `master`, `tesouraria`, `secretaria`, `coordenacao` e `registro_academico`. A autorização também deve ser aplicada nos endpoints do backend com `JwtAuthGuard` e `@Roles`; os guards do Angular servem apenas para navegação e experiência do usuário.
 
 ## Desenvolvimento
 
@@ -48,7 +67,7 @@ Execute Angular e NestJS juntos:
 npm run dev
 ```
 
-O frontend fica em `http://localhost:4200` e encaminha `/api/*` para o backend em `http://localhost:3000`. O health-check está disponível em `http://localhost:3000/api/health`.
+O frontend fica em `http://localhost:4200` e encaminha `/api/*` para o backend em `http://localhost:3000`.
 
 Para executar cada parte separadamente:
 
@@ -68,11 +87,13 @@ O build gera o Angular em `dist/apps/frontend/browser` e o NestJS em `dist/apps/
 
 ## Segurança
 
-O arquivo `.env` nunca deve ser versionado. `JWT_SECRET` permanece somente no backend. Não coloque senhas, URLs com credenciais ou segredos em código-fonte, no frontend ou em commits.
+O arquivo `.env` nunca deve ser versionado. `JWT_SECRET`, `SEED_DEFAULT_PASSWORD` e credenciais do PostgreSQL permanecem somente no backend. Não coloque senhas, URLs com credenciais ou tokens em código-fonte, no frontend ou em commits.
 
 ## Organização
 
 - `apps/frontend`: aplicação Angular e proxy de desenvolvimento.
 - `apps/backend`: aplicação NestJS modular e API.
-- `apps/backend/src/modules/database`: pool e ciclo de vida da conexão PostgreSQL.
+- `apps/backend/src/modules/auth`: login, JWT, guard de autenticação e guard de perfis.
+- `apps/backend/src/modules/database`: Prisma client e ciclo de vida da conexão PostgreSQL.
+- `prisma`: schema, migrations e seed.
 - `libs/shared`: contratos TypeScript sem dependências de Angular ou NestJS.

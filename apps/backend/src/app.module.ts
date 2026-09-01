@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ServeStaticModule } from '@nestjs/serve-static'
 import { join } from 'node:path'
 import configuration from './config/configuration'
+import { AuthModule } from './modules/auth/auth.module'
 import { DatabaseModule } from './modules/database/database.module'
 import { HealthModule } from './modules/health/health.module'
 
@@ -15,6 +16,7 @@ import { HealthModule } from './modules/health/health.module'
       exclude: ['/api/(.*)'],
     }),
     DatabaseModule,
+    AuthModule,
     HealthModule,
   ],
 })

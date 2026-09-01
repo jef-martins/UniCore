@@ -34,7 +34,10 @@ export class LayoutShellComponent {
     { href: '/vestibular', label: 'Vestibular' },
     { href: '/inscricao', label: 'Inscrição' },
     { href: '/agenda', label: 'Agenda' },
-    { href: '/financeiro', label: 'Financeiro' },
+    { href: '/tesouraria', label: 'Tesouraria' },
+    { href: '/secretaria', label: 'Secretaria' },
+    { href: '/coordenacao', label: 'Coordenação' },
+    { href: '/registro-academico', label: 'Registro Acadêmico' },
     { href: '/administracao', label: 'Administração' },
     { href: '/desenvolvedor', label: 'Desenvolvedor' },
   ]
