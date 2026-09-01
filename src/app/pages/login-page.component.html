@@ -1,0 +1,38 @@
+<main class="auth-page" aria-labelledby="login-title">
+  <section class="auth-card card card-elevated">
+    <p class="hero-eyebrow">Portal UniCore</p>
+    <h1 id="login-title">Acessar o Portal UniCore</h1>
+    <p class="auth-description">Faça login para acessar sua jornada e as ferramentas de avaliação.</p>
+
+    <form class="auth-form" (submit)="submit($event)">
+      <div class="field">
+        <label class="field-label" for="login-username">Usuário</label>
+        <input
+          id="login-username"
+          class="field-control"
+          type="text"
+          autocomplete="username"
+          required
+          [value]="username"
+          (input)="onUsernameInput($event)"
+        />
+      </div>
+      <div class="field">
+        <label class="field-label" for="login-password">Senha</label>
+        <input
+          id="login-password"
+          class="field-control"
+          type="password"
+          autocomplete="current-password"
+          required
+          [value]="password"
+          (input)="onPasswordInput($event)"
+        />
+      </div>
+      @if (errorMessage) {
+        <p class="error-message" role="alert">{{ errorMessage }}</p>
+      }
+      <button class="button button-primary auth-submit" type="submit">Entrar</button>
+    </form>
+  </section>
+</main>

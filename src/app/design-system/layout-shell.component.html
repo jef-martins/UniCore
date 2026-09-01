@@ -34,11 +34,12 @@
       <div class="header-actions">
         <button class="action-link" type="button" data-layout-action="search" [attr.aria-label]="searchLabel">Buscar</button>
         <a class="button button-primary" routerLink="/inscricao">Começar</a>
+        <button class="action-link logout-link" type="button" (click)="logout()">Sair</button>
       </div>
     </div>
   </header>
   <main [id]="mainId" class="page-container page-main" tabindex="-1">
-    <ng-content></ng-content>
+    <router-outlet></router-outlet>
   </main>
   <footer class="site-footer">
     <div class="page-container footer-inner">

@@ -1,5 +1,6 @@
 import { Component, HostListener, Input } from '@angular/core'
-import { RouterLink, RouterLinkActive } from '@angular/router'
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
+import { AuthService } from '../services/auth.service'
 
 export interface LayoutNavigationItem {
   href: string
@@ -14,11 +15,16 @@ export interface LayoutFooterLink {
 @Component({
   selector: 'app-layout-shell',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './layout-shell.component.html',
 })
 export class LayoutShellComponent {
   menuOpen = false
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) {}
 
   @Input() portalLabel = 'UniCore'
   @Input() mainId = 'main-content'
@@ -40,6 +46,12 @@ export class LayoutShellComponent {
 
   closeMenu(): void {
     this.menuOpen = false
+  }
+
+  logout(): void {
+    this.authService.logout()
+    this.closeMenu()
+    void this.router.navigateByUrl('/login')
   }
 
   @HostListener('document:keydown.escape')
