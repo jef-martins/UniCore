@@ -1,0 +1,74 @@
+<section class="agenda-page" aria-labelledby="agenda-title">
+  <header class="agenda-heading">
+    <div>
+      <p class="hero-eyebrow">Portal UniCore</p>
+      <h1 id="agenda-title">Agenda</h1>
+      <p>Organize suas tarefas e acompanhe os compromissos do mês.</p>
+    </div>
+    <div class="agenda-month-controls" aria-label="Navegação do calendário">
+      <button class="button button-secondary" type="button" aria-label="Mês anterior" (click)="changeMonth(-1)">‹</button>
+      <h2 aria-live="polite">{{ monthLabel }}</h2>
+      <button class="button button-secondary" type="button" aria-label="Próximo mês" (click)="changeMonth(1)">›</button>
+      <button class="button button-text" type="button" (click)="goToToday()">Hoje</button>
+    </div>
+  </header>
+
+  <section class="agenda-filters card card-outlined" aria-labelledby="agenda-filters-title">
+    <h2 id="agenda-filters-title">Filtros</h2>
+    <div class="agenda-filter-grid">
+      <div class="field">
+        <label class="field-label" for="agenda-start-date">A partir de</label>
+        <input id="agenda-start-date" class="field-control" type="date" [(ngModel)]="startDate" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-end-date">Até</label>
+        <input id="agenda-end-date" class="field-control" type="date" [(ngModel)]="endDate" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-task-query">Tarefa</label>
+        <input id="agenda-task-query" class="field-control" type="search" placeholder="Buscar tarefa" [(ngModel)]="taskQuery" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-task-type">Tipo</label>
+        <select id="agenda-task-type" class="field-control" [(ngModel)]="taskType">
+          @for (type of taskTypes; track type) { <option [value]="type">{{ type }}</option> }
+        </select>
+      </div>
+    </div>
+    <button class="button button-text agenda-clear-filters" type="button" (click)="clearFilters()">Limpar filtros</button>
+  </section>
+
+  <p class="agenda-result-count" role="status" aria-live="polite">
+    {{ filteredTasks.length }} {{ filteredTasks.length === 1 ? 'tarefa encontrada' : 'tarefas encontradas' }}
+  </p>
+
+  <div class="agenda-calendar" role="grid" [attr.aria-label]="'Calendário de ' + monthLabel">
+    @for (weekDay of weekDays; track weekDay) {
+      <div class="agenda-weekday" role="columnheader">{{ weekDay }}</div>
+    }
+    @for (day of calendarDays; track day.key) {
+      <article
+        class="agenda-day"
+        [class.agenda-day-outside]="!day.isCurrentMonth"
+        [class.agenda-day-today]="isToday(day)"
+        role="gridcell"
+        [attr.aria-label]="accessibleDayLabel(day)"
+      >
+        <header class="agenda-day-header">
+          <span>{{ day.number }}</span>
+          @if (isToday(day)) { <span class="agenda-today-label">Hoje</span> }
+        </header>
+        <ul class="agenda-task-list">
+          @for (task of tasksForDay(day.key); track task.id) {
+            <li class="agenda-task" [class.agenda-task-completed]="task.status === 'Concluída'">
+              <strong>{{ task.title }}</strong>
+              <span>{{ task.type }} · {{ task.status }}</span>
+            </li>
+          } @empty {
+            <li class="agenda-empty-day">Sem tarefas</li>
+          }
+        </ul>
+      </article>
+    }
+  </div>
+</section>
