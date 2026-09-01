@@ -1,6 +1,9 @@
+import { HttpClient } from '@angular/common/http'
 import { Injectable } from '@angular/core'
+import { map, type Observable } from 'rxjs'
 
 export type AgendaTaskType = 'Reunião' | 'Prazo' | 'Estudo'
+type ApiTaskType = 'REUNIAO' | 'PRAZO' | 'ESTUDO'
 export type AgendaTaskStatus = 'Pendente' | 'Concluída'
 
 export interface AgendaTask {
@@ -10,24 +13,73 @@ export interface AgendaTask {
   date: string
   type: AgendaTaskType
   status: AgendaTaskStatus
+  completed: boolean
+  createdAt: string
+  completedAt: string | null
+}
+
+export interface CreateAgendaTask {
+  title: string
+  description: string
+  date: string
+  type: AgendaTaskType
+}
+
+interface ApiTask {
+  id: string
+  title: string
+  description: string | null
+  date: string
+  type: ApiTaskType
+  completed: boolean
+  createdAt: string
+  completedAt: string | null
 }
 
 @Injectable({ providedIn: 'root' })
 export class AgendaService {
-  getTasks(): readonly AgendaTask[] {
-    const today = new Date()
-    const date = (offset: number): string => this.toDateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset))
+  constructor(private readonly http: HttpClient) {}
 
-    return [
-      { id: 'task-1', title: 'Revisar documentos', description: 'Conferir os arquivos recebidos.', date: date(0), type: 'Prazo', status: 'Pendente' },
-      { id: 'task-2', title: 'Reunião de alinhamento', description: 'Alinhar as próximas etapas do portal.', date: date(2), type: 'Reunião', status: 'Pendente' },
-      { id: 'task-3', title: 'Estudar conteúdo', description: 'Organizar o material da avaliação.', date: date(5), type: 'Estudo', status: 'Concluída' },
-      { id: 'task-4', title: 'Enviar relatório', description: 'Compartilhar o relatório mensal.', date: date(10), type: 'Prazo', status: 'Pendente' },
-      { id: 'task-5', title: 'Planejamento mensal', description: 'Definir as prioridades do próximo ciclo.', date: date(18), type: 'Reunião', status: 'Pendente' },
-    ]
+  getTasks(): Observable<AgendaTask[]> {
+    return this.http.get<ApiTask[]>('/api/tasks').pipe(
+      map((tasks) => tasks.map((task) => this.toAgendaTask(task))),
+    )
   }
 
-  private toDateKey(date: Date): string {
-    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+  createTask(input: CreateAgendaTask): Observable<AgendaTask> {
+    return this.http.post<ApiTask>('/api/tasks', {
+      ...input,
+      type: this.toApiType(input.type),
+    }).pipe(map((task) => this.toAgendaTask(task)))
+  }
+
+  updateTaskStatus(task: AgendaTask, completed: boolean): Observable<AgendaTask> {
+    return this.http.patch<ApiTask>(`/api/tasks/${task.id}/status`, { completed }).pipe(
+      map((updatedTask) => this.toAgendaTask(updatedTask)),
+    )
+  }
+
+  private toAgendaTask(task: ApiTask): AgendaTask {
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description ?? '',
+      date: task.date.slice(0, 10),
+      type: this.toAgendaType(task.type),
+      status: task.completed ? 'Concluída' : 'Pendente',
+      completed: task.completed,
+      createdAt: task.createdAt,
+      completedAt: task.completedAt,
+    }
+  }
+
+  private toApiType(type: AgendaTaskType): ApiTaskType {
+    const typeMap: Record<AgendaTaskType, ApiTaskType> = { 'Reunião': 'REUNIAO', 'Prazo': 'PRAZO', 'Estudo': 'ESTUDO' }
+    return typeMap[type]
+  }
+
+  private toAgendaType(type: ApiTaskType): AgendaTaskType {
+    const typeMap: Record<ApiTaskType, AgendaTaskType> = { REUNIAO: 'Reunião', PRAZO: 'Prazo', ESTUDO: 'Estudo' }
+    return typeMap[type]
   }
 }

@@ -6,6 +6,7 @@ import configuration from './config/configuration'
 import { AuthModule } from './modules/auth/auth.module'
 import { DatabaseModule } from './modules/database/database.module'
 import { HealthModule } from './modules/health/health.module'
+import { TasksModule } from './modules/tasks/tasks.module'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { HealthModule } from './modules/health/health.module'
     DatabaseModule,
     AuthModule,
     HealthModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

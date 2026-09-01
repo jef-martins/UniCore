@@ -13,6 +13,41 @@
     </div>
   </header>
 
+  <section class="agenda-new-task card card-outlined" aria-labelledby="agenda-new-task-title">
+    <div>
+      <h2 id="agenda-new-task-title">Nova tarefa</h2>
+      <p>Salve uma tarefa na sua agenda pessoal.</p>
+    </div>
+    <form class="agenda-task-form" (ngSubmit)="createTask()">
+      <div class="field">
+        <label class="field-label" for="agenda-new-task-title-input">Título</label>
+        <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-new-task-description">Descrição</label>
+        <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-new-task-date">Data</label>
+        <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="agenda-new-task-type">Tipo</label>
+        <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
+          @for (type of taskTypes.slice(1); track type) { <option [value]="type">{{ type }}</option> }
+        </select>
+      </div>
+      <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
+    </form>
+  </section>
+
+  @if (errorMessage) {
+    <p class="error-message" role="alert">{{ errorMessage }}</p>
+  }
+  @if (isLoading) {
+    <p class="agenda-result-count" role="status">Carregando tarefas…</p>
+  }
+
   <section class="agenda-filters card card-outlined" aria-labelledby="agenda-filters-title">
     <h2 id="agenda-filters-title">Filtros</h2>
     <div class="agenda-filter-grid">
@@ -60,9 +95,15 @@
         </header>
         <ul class="agenda-task-list">
           @for (task of tasksForDay(day.key); track task.id) {
-            <li class="agenda-task" [class.agenda-task-completed]="task.status === 'Concluída'">
-              <strong>{{ task.title }}</strong>
+            <li class="agenda-task" [class.agenda-task-completed]="task.completed">
+              <label class="agenda-task-toggle">
+                <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
+                <strong>{{ task.title }}</strong>
+              </label>
               <span>{{ task.type }} · {{ task.status }}</span>
+              @if (task.description) { <span>{{ task.description }}</span> }
+              <small>Criada em {{ formatDateTime(task.createdAt) }}</small>
+              @if (task.completedAt) { <small>Concluída em {{ formatDateTime(task.completedAt) }}</small> }
             </li>
           } @empty {
             <li class="agenda-empty-day">Sem tarefas</li>

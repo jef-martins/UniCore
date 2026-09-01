@@ -41,10 +41,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly storageKey = 'unicore.auth'
   private userValue: AuthUser | null = null
   private accessTokenValue: string | null = null
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {
+    this.restoreSession()
+  }
 
   get currentUser(): AuthUser | null {
     return this.userValue
@@ -68,6 +71,7 @@ export class AuthService {
       tap((response) => {
         this.accessTokenValue = response.accessToken
         this.userValue = response.user
+        this.persistSession()
       }),
       map(() => true),
       catchError(() => {
@@ -80,12 +84,15 @@ export class AuthService {
   logout(): void {
     this.accessTokenValue = null
     this.userValue = null
+    localStorage.removeItem(this.storageKey)
   }
 
   canAccess(path: string): boolean {
     const user = this.currentUser
     if (!user) return false
-    return ROLE_PERMISSIONS[user.role]?.includes(this.normalizePath(path)) ?? false
+    const normalizedPath = this.normalizePath(path)
+    if (normalizedPath === '/agenda') return true
+    return ROLE_PERMISSIONS[user.role]?.includes(normalizedPath) ?? false
   }
 
   hasAnyRole(roles: readonly UserRole[]): boolean {
@@ -119,5 +126,29 @@ export class AuthService {
 
   private normalizePath(path: string): string {
     return path.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || '/'
+  }
+
+  private persistSession(): void {
+    localStorage.setItem(this.storageKey, JSON.stringify({
+      accessToken: this.accessTokenValue,
+      user: this.userValue,
+    }))
+  }
+
+  private restoreSession(): void {
+    const rawSession = localStorage.getItem(this.storageKey)
+    if (!rawSession) return
+
+    try {
+      const session = JSON.parse(rawSession) as { accessToken?: unknown; user?: unknown }
+      if (typeof session.accessToken === 'string' && session.user && typeof session.user === 'object') {
+        this.accessTokenValue = session.accessToken
+        this.userValue = session.user as AuthUser
+      } else {
+        localStorage.removeItem(this.storageKey)
+      }
+    } catch {
+      localStorage.removeItem(this.storageKey)
+    }
   }
 }

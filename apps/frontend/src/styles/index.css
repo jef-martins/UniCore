@@ -1098,3 +1098,62 @@ main:focus-visible {
     overflow-x: auto;
   }
 }
+.agenda-new-task {
+  gap: var(--space-16);
+}
+
+.agenda-new-task h2,
+.agenda-new-task p {
+  margin: var(--space-0);
+}
+
+.agenda-new-task p {
+  margin-block-start: var(--space-8);
+  color: var(--color-text-secondary);
+}
+
+.agenda-task-form {
+  display: grid;
+  grid-template-columns: 1.2fr 1.5fr repeat(2, minmax(140px, 0.7fr) auto);
+  align-items: end;
+  gap: var(--space-16);
+}
+
+.agenda-task-form .button {
+  white-space: nowrap;
+}
+
+.agenda-task-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.agenda-task-toggle .checkbox-control {
+  width: var(--space-16);
+  height: var(--space-16);
+  margin-block-start: var(--space-2);
+}
+
+.agenda-task small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-12);
+}
+
+@media (max-width: 1100px) {
+  .agenda-task-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agenda-task-form .button {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 767px) {
+  .agenda-task-form {
+    grid-template-columns: 1fr;
+  }
+}
