@@ -4,27 +4,42 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "ng serve",
-    "start": "ng serve",
+    "dev": "concurrently -k -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "ng serve --configuration development --proxy-config apps/frontend/proxy.conf.json",
+    "dev:backend": "npm run build:backend && node dist/apps/backend/main.js",
+    "start": "node dist/apps/backend/main.js",
     "test": "vitest run",
-    "build": "ng build",
-    "preview": "ng serve --configuration production"
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "ng build",
+    "build:backend": "tsc -p tsconfig.backend.json && cp apps/backend/package.json dist/apps/backend/package.json",
+    "preview": "ng serve --configuration production --proxy-config apps/frontend/proxy.conf.json"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "19.2.15",
     "@angular/cli": "19.2.15",
     "@angular/compiler-cli": "19.2.15",
+    "@types/node": "22.13.10",
+    "concurrently": "9.1.2",
     "fast-check": "4.0.0",
-    "jsdom": "^25.0.1",
+    "jsdom": "25.0.1",
     "typescript": "5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "2.1.8"
   },
   "dependencies": {
     "@angular/common": "19.2.15",
     "@angular/compiler": "19.2.15",
     "@angular/core": "19.2.15",
+    "@angular/forms": "19.2.15",
     "@angular/platform-browser": "19.2.15",
     "@angular/router": "19.2.15",
+    "@nestjs/common": "11.0.11",
+    "@nestjs/config": "4.0.2",
+    "@nestjs/core": "11.0.11",
+    "@nestjs/platform-express": "11.0.11",
+    "@nestjs/serve-static": "5.0.3",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.1",
+    "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zone.js": "0.15.0"
   }

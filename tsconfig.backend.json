@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist/apps/backend",
+    "rootDir": "./apps/backend/src",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["apps/backend/src/**/*.ts"]
+}
