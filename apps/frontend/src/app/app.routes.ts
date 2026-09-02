@@ -3,6 +3,7 @@ import { LayoutShellComponent } from './design-system/layout-shell.component'
 import { authGuard, roleGuard } from './guards/auth.guard'
 import { AgendaPageComponent } from './pages/agenda-page.component'
 import { AccessRedirectPageComponent } from './pages/access-redirect-page.component'
+import { AdminPageComponent } from './pages/admin-page.component'
 import { DashboardPageComponent } from './pages/dashboard-page.component'
 import { LoginPageComponent } from './pages/login-page.component'
 import { ModulePageComponent } from './pages/module-page.component'
@@ -18,19 +19,49 @@ export const appRoutes: Routes = [
     children: [
       { path: '', component: AccessRedirectPageComponent, title: 'UniCore | Portal' },
       {
-        path: 'dashboard',
+        path: 'administracao/dashboards',
+        component: ModulePageComponent,
+        canActivate: [roleGuard],
+        data: {
+          roles: ['admin', 'master'],
+          moduleTitle: 'Dashboards Administrativos',
+          moduleDescription: 'Dashboards e relatórios do sistema.',
+        },
+        title: 'UniCore | Dashboards Administrativos',
+      },
+      {
+        path: 'administracao/dashboards/agenda',
         component: DashboardPageComponent,
         canActivate: [roleGuard],
         data: { roles: ['admin', 'master'] },
-        title: 'UniCore | Dashboard',
+        title: 'UniCore | Relatório de Agenda',
       },
       { path: 'agenda', component: AgendaPageComponent, title: 'UniCore | Agenda' },
+      
+      { path: 'vestibular/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'tesouraria/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'secretaria/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'coordenacao/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'registro-academico/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'administracao/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'desenvolvedor/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       {
         path: 'vestibular',
+        component: ModulePageComponent,
+        canActivate: [roleGuard],
+        data: {
+          roles: ['vestibular', 'admin', 'master'],
+          moduleTitle: 'Vestibular',
+          moduleDescription: 'Central de correção de avaliações e gerência do processo seletivo.',
+        },
+        title: 'UniCore | Vestibular',
+      },
+      {
+        path: 'vestibular/corrigir',
         component: VestibularPageComponent,
         canActivate: [roleGuard],
         data: { roles: ['vestibular', 'admin', 'master'] },
-        title: 'UniCore | Vestibular',
+        title: 'UniCore | Corrigir Avaliação',
       },
       ...[
         ['tesouraria', 'tesouraria', 'Tesouraria', ['tesouraria', 'admin', 'master']],
@@ -55,11 +86,17 @@ export const appRoutes: Routes = [
         canActivate: [roleGuard],
         data: {
           roles: ['admin', 'master'],
-          module: 'administracao',
           moduleTitle: 'Administração',
-          moduleDescription: 'Gerencie usuários, perfis e permissões quando o backend estiver conectado.',
+          moduleDescription: 'Gerenciamento de integrações, relatórios em lote e recursos globais.',
         },
         title: 'UniCore | Administração',
+      },
+      {
+        path: 'administracao/classroom',
+        component: AdminPageComponent,
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Classroom Lote',
       },
       {
         path: 'desenvolvedor',

@@ -10,6 +10,8 @@ export type UserRole =
   | 'secretaria'
   | 'coordenacao'
   | 'registro_academico'
+  | 'aluno'
+  | 'professor'
 
 export interface AuthUser {
   id: string
@@ -29,12 +31,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
   secretaria: ['/secretaria', '/agenda'],
   coordenacao: ['/coordenacao', '/agenda'],
   registro_academico: ['/registro-academico', '/agenda'],
+  aluno: ['/agenda'],
+  professor: ['/agenda'],
   admin: [
-    '/dashboard', '/vestibular', '/tesouraria', '/secretaria',
+    '/dashboards', '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/agenda',
   ],
   master: [
-    '/dashboard', '/vestibular', '/tesouraria', '/secretaria',
+    '/dashboards', '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/desenvolvedor', '/agenda',
   ],
 }
@@ -91,8 +95,10 @@ export class AuthService {
     const user = this.currentUser
     if (!user) return false
     const normalizedPath = this.normalizePath(path)
-    if (normalizedPath === '/agenda') return true
-    return ROLE_PERMISSIONS[user.role]?.includes(normalizedPath) ?? false
+    if (normalizedPath === '/agenda' || normalizedPath.startsWith('/agenda/')) return true
+    
+    const permissions = ROLE_PERMISSIONS[user.role] ?? []
+    return permissions.some(p => normalizedPath === p || normalizedPath.startsWith(`${p}/`))
   }
 
   hasAnyRole(roles: readonly UserRole[]): boolean {
@@ -108,6 +114,8 @@ export class AuthService {
       case 'secretaria': return '/secretaria'
       case 'coordenacao': return '/coordenacao'
       case 'registro_academico': return '/registro-academico'
+      case 'aluno': return '/agenda'
+      case 'professor': return '/agenda'
       default: return '/vestibular'
     }
   }
@@ -119,6 +127,8 @@ export class AuthService {
       secretaria: 'Secretaria',
       coordenacao: 'Coordenação',
       registro_academico: 'Registro Acadêmico',
+      aluno: 'Aluno',
+      professor: 'Professor',
       admin: 'Administrador',
       master: 'Master',
     }[role ?? 'vestibular']

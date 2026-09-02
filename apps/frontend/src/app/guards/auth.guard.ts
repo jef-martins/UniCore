@@ -15,12 +15,18 @@ export const authGuard: CanActivateFn = (_route, state) => {
 }
 
 
-export const roleGuard: CanActivateFn = (route) => {
+export const roleGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService)
   const router = inject(Router)
-  const roles = (route.data['roles'] ?? []) as UserRole[]
+  
+  if (authService.canAccess(state.url)) {
+    return true
+  }
 
-  return authService.hasAnyRole(roles)
-    ? true
-    : router.createUrlTree([authService.defaultRoute()])
+  const roles = (route.data['roles'] ?? []) as UserRole[]
+  if (roles.length > 0 && authService.hasAnyRole(roles)) {
+    return true
+  }
+
+  return router.createUrlTree([authService.defaultRoute()])
 }
