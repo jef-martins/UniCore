@@ -1,7 +1,6 @@
 <div class="layout-shell">
-  <a class="skip-link" [href]="'#' + mainId">Ir para o conteúdo</a>
-  <header class="site-header">
-    <div class="page-container header-inner">
+  <aside class="sidebar" [class.is-open]="menuOpen">
+    <div class="sidebar-header">
       <a class="portal-mark" routerLink="/" [attr.aria-label]="portalLabel + ', início'">{{ portalLabel }}</a>
       <button
         class="menu-toggle"
@@ -11,44 +10,81 @@
         aria-label="Abrir menu principal"
         (click)="toggleMenu()"
       >
-        <span class="menu-toggle-icon" aria-hidden="true">☰</span>
-        <span>Menu</span>
+        <span aria-hidden="true">☰</span>
       </button>
-      <nav id="portal-menu" class="portal-menu" [class.is-open]="menuOpen" aria-label="Navegação principal">
-        <ul class="primary-navigation">
-          @for (item of visibleNavigation; track item.href) {
-            <li>
-              <a
-                [routerLink]="item.href"
-                routerLinkActive="is-active"
-                #activeLink="routerLinkActive"
-                [routerLinkActiveOptions]="{ exact: true }"
-                [attr.aria-current]="activeLink.isActive ? 'page' : null"
-                [attr.data-active]="activeLink.isActive ? 'true' : null"
-                (click)="closeMenu()"
-              >{{ item.label }}</a>
-            </li>
-          }
-        </ul>
-      </nav>
-      <div class="header-actions">
-        <span class="role-badge" aria-label="Perfil atual">{{ currentRoleLabel }}</span>
-        <button class="action-link" type="button" data-layout-action="search" [attr.aria-label]="searchLabel">Buscar</button>
-        <button class="action-link logout-link" type="button" (click)="logout()">Sair</button>
-      </div>
     </div>
-  </header>
-  <main [id]="mainId" class="page-container page-main" tabindex="-1">
-    <router-outlet></router-outlet>
-  </main>
-  <footer class="site-footer">
-    <div class="page-container footer-inner">
+
+    <nav id="portal-menu" class="sidebar-nav" aria-label="Navegação principal">
+      <ul class="primary-navigation">
+        @for (item of visibleNavigation; track item.href) {
+          <li>
+            <a
+              [routerLink]="item.href"
+              routerLinkActive="is-active"
+              #activeLink="routerLinkActive"
+              [routerLinkActiveOptions]="{ exact: true }"
+              [attr.aria-current]="activeLink.isActive ? 'page' : null"
+              [class.parent-link]="item.children?.length"
+              (click)="!item.children ? closeMenu() : null"
+            >{{ item.label }}</a>
+            
+            @if (item.children) {
+              <ul class="sub-navigation">
+                @for (child of item.children; track child.href) {
+                  <li>
+                    <a
+                      [routerLink]="child.href"
+                      routerLinkActive="is-active"
+                      #activeChild="routerLinkActive"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      [attr.aria-current]="activeChild.isActive ? 'page' : null"
+                      [class.parent-link]="child.children?.length"
+                      (click)="!child.children ? closeMenu() : null"
+                    >{{ child.label }}</a>
+                    
+                    @if (child.children) {
+                      <ul class="sub-navigation level-3">
+                        @for (subchild of child.children; track subchild.href) {
+                          <li>
+                            <a
+                              [routerLink]="subchild.href"
+                              routerLinkActive="is-active"
+                              #activeSub="routerLinkActive"
+                              [routerLinkActiveOptions]="{ exact: true }"
+                              [attr.aria-current]="activeSub.isActive ? 'page' : null"
+                              (click)="closeMenu()"
+                            >{{ subchild.label }}</a>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        }
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="role-badge" aria-label="Perfil atual">{{ currentRoleLabel }}</span>
+      <button class="action-link logout-link" type="button" (click)="logout()">Sair do Sistema</button>
+    </div>
+  </aside>
+
+  <div class="main-wrapper">
+    <main [id]="mainId" class="page-main" tabindex="-1">
+      <router-outlet></router-outlet>
+    </main>
+
+    <footer class="site-footer">
       <p>{{ footerDescription }}</p>
       <nav aria-label="Links complementares">
         @for (link of footerLinks; track link.href + link.label) {
           <a [routerLink]="link.href">{{ link.label }}</a>
         }
       </nav>
-    </div>
-  </footer>
+    </footer>
+  </div>
 </div>
