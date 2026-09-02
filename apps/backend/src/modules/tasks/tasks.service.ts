@@ -42,11 +42,26 @@ export class TasksService {
   }
 
   async getDashboardStats() {
-    const [totalCreated, totalResolved] = await Promise.all([
-      this.prisma.task.count(),
-      this.prisma.task.count({ where: { completed: true } })
-    ])
-    return { totalCreated, totalResolved }
+    const tasks = await this.prisma.task.findMany({
+      orderBy: [{ createdAt: 'desc' }],
+      include: { user: { select: { username: true } } }
+    })
+
+    const totalCreated = tasks.length
+    const totalResolved = tasks.filter(t => t.completed).length
+
+    const byType = tasks.reduce((acc, task) => {
+      if (!acc[task.type]) {
+        acc[task.type] = { created: 0, resolved: 0 }
+      }
+      acc[task.type].created++
+      if (task.completed) {
+        acc[task.type].resolved++
+      }
+      return acc
+    }, {} as Record<string, { created: number, resolved: number }>)
+
+    return { totalCreated, totalResolved, byType, tasks }
   }
 
   private parseDate(value: string): Date {
