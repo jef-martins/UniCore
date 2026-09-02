@@ -41,6 +41,14 @@ export class TasksService {
     })
   }
 
+  async getDashboardStats() {
+    const [totalCreated, totalResolved] = await Promise.all([
+      this.prisma.task.count(),
+      this.prisma.task.count({ where: { completed: true } })
+    ])
+    return { totalCreated, totalResolved }
+  }
+
   private parseDate(value: string): Date {
     const date = new Date(`${value}T00:00:00.000Z`)
     if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {

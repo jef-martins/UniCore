@@ -31,6 +31,7 @@ export class LayoutShellComponent {
   @Input() footerDescription = 'UniCore · Sistema de experiência digital'
   @Input() searchLabel = 'Buscar no portal'
   @Input() navigation: readonly LayoutNavigationItem[] = [
+    { href: '/dashboard', label: 'Dashboard' },
     { href: '/vestibular', label: 'Vestibular' },
     { href: '/agenda', label: 'Agenda' },
     { href: '/tesouraria', label: 'Tesouraria' },

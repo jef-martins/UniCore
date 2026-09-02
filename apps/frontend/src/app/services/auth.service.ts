@@ -30,11 +30,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
   coordenacao: ['/coordenacao', '/agenda'],
   registro_academico: ['/registro-academico', '/agenda'],
   admin: [
-    '/vestibular', '/tesouraria', '/secretaria',
+    '/dashboard', '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/agenda',
   ],
   master: [
-    '/vestibular', '/tesouraria', '/secretaria',
+    '/dashboard', '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/desenvolvedor', '/agenda',
   ],
 }
