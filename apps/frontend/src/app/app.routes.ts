@@ -3,7 +3,6 @@ import { LayoutShellComponent } from './design-system/layout-shell.component'
 import { authGuard, roleGuard } from './guards/auth.guard'
 import { AgendaPageComponent } from './pages/agenda-page.component'
 import { AccessRedirectPageComponent } from './pages/access-redirect-page.component'
-import { CampaignPageComponent } from './pages/campaign-page.component'
 import { LoginPageComponent } from './pages/login-page.component'
 import { ModulePageComponent } from './pages/module-page.component'
 import { VestibularPageComponent } from './pages/vestibular-page.component'
@@ -18,13 +17,6 @@ export const appRoutes: Routes = [
     children: [
       { path: '', component: AccessRedirectPageComponent, title: 'UniCore | Portal' },
       { path: 'agenda', component: AgendaPageComponent, title: 'UniCore | Agenda' },
-      {
-        path: 'inscricao',
-        component: CampaignPageComponent,
-        canActivate: [roleGuard],
-        data: { roles: ['vestibular', 'admin', 'master'] },
-        title: 'UniCore | Inscrição',
-      },
       {
         path: 'vestibular',
         component: VestibularPageComponent,

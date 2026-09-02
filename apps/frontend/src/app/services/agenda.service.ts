@@ -2,8 +2,8 @@ import { HttpClient } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 import { map, type Observable } from 'rxjs'
 
-export type AgendaTaskType = 'Reunião' | 'Prazo' | 'Estudo'
-type ApiTaskType = 'REUNIAO' | 'PRAZO' | 'ESTUDO'
+export type AgendaTaskType = 'Vestibular' | 'Administração' | 'Tesouraria' | 'Coordenação' | 'Registro Acadêmico' | 'Alunos' | 'Professores'
+type ApiTaskType = 'VESTIBULAR' | 'ADMINISTRACAO' | 'TESOURARIA' | 'COORDENACAO' | 'REGISTRO_ACADEMICO' | 'ALUNOS' | 'PROFESSORES'
 export type AgendaTaskStatus = 'Pendente' | 'Concluída'
 
 export interface AgendaTask {
@@ -74,12 +74,28 @@ export class AgendaService {
   }
 
   private toApiType(type: AgendaTaskType): ApiTaskType {
-    const typeMap: Record<AgendaTaskType, ApiTaskType> = { 'Reunião': 'REUNIAO', 'Prazo': 'PRAZO', 'Estudo': 'ESTUDO' }
+    const typeMap: Record<AgendaTaskType, ApiTaskType> = {
+      'Vestibular': 'VESTIBULAR',
+      'Administração': 'ADMINISTRACAO',
+      'Tesouraria': 'TESOURARIA',
+      'Coordenação': 'COORDENACAO',
+      'Registro Acadêmico': 'REGISTRO_ACADEMICO',
+      'Alunos': 'ALUNOS',
+      'Professores': 'PROFESSORES',
+    }
     return typeMap[type]
   }
 
   private toAgendaType(type: ApiTaskType): AgendaTaskType {
-    const typeMap: Record<ApiTaskType, AgendaTaskType> = { REUNIAO: 'Reunião', PRAZO: 'Prazo', ESTUDO: 'Estudo' }
+    const typeMap: Record<ApiTaskType, AgendaTaskType> = {
+      VESTIBULAR: 'Vestibular',
+      ADMINISTRACAO: 'Administração',
+      TESOURARIA: 'Tesouraria',
+      COORDENACAO: 'Coordenação',
+      REGISTRO_ACADEMICO: 'Registro Acadêmico',
+      ALUNOS: 'Alunos',
+      PROFESSORES: 'Professores',
+    }
     return typeMap[type]
   }
 }

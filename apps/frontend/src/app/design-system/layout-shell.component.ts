@@ -32,7 +32,6 @@ export class LayoutShellComponent {
   @Input() searchLabel = 'Buscar no portal'
   @Input() navigation: readonly LayoutNavigationItem[] = [
     { href: '/vestibular', label: 'Vestibular' },
-    { href: '/inscricao', label: 'Inscrição' },
     { href: '/agenda', label: 'Agenda' },
     { href: '/tesouraria', label: 'Tesouraria' },
     { href: '/secretaria', label: 'Secretaria' },

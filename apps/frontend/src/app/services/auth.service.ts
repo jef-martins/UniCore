@@ -24,17 +24,17 @@ interface LoginResponse {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
-  vestibular: ['/vestibular', '/inscricao', '/agenda'],
+  vestibular: ['/vestibular', '/agenda'],
   tesouraria: ['/tesouraria', '/agenda'],
   secretaria: ['/secretaria', '/agenda'],
   coordenacao: ['/coordenacao', '/agenda'],
   registro_academico: ['/registro-academico', '/agenda'],
   admin: [
-    '/vestibular', '/inscricao', '/tesouraria', '/secretaria',
+    '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/agenda',
   ],
   master: [
-    '/vestibular', '/inscricao', '/tesouraria', '/secretaria',
+    '/vestibular', '/tesouraria', '/secretaria',
     '/coordenacao', '/registro-academico', '/administracao', '/desenvolvedor', '/agenda',
   ],
 }

@@ -21,7 +21,7 @@ interface CalendarDay {
 })
 export class AgendaPageComponent implements OnInit {
   readonly weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-  readonly taskTypes: readonly (AgendaTaskType | 'Todas')[] = ['Todas', 'Reunião', 'Prazo', 'Estudo']
+  readonly taskTypes: readonly (AgendaTaskType | 'Todas')[] = ['Todas', 'Vestibular', 'Administração', 'Tesouraria', 'Coordenação', 'Registro Acadêmico', 'Alunos', 'Professores']
   tasks: AgendaTask[] = []
   displayedMonth: Date
   startDate = ''
@@ -31,7 +31,7 @@ export class AgendaPageComponent implements OnInit {
   newTaskTitle = ''
   newTaskDescription = ''
   newTaskDate = ''
-  newTaskType: AgendaTaskType = 'Prazo'
+  newTaskType: AgendaTaskType = 'Vestibular'
   isLoading = false
   isSaving = false
   savingTaskId: string | null = null

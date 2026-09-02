@@ -34,9 +34,6 @@
       <div class="header-actions">
         <span class="role-badge" aria-label="Perfil atual">{{ currentRoleLabel }}</span>
         <button class="action-link" type="button" data-layout-action="search" [attr.aria-label]="searchLabel">Buscar</button>
-        @if (canAccess('/inscricao')) {
-          <a class="button button-primary" routerLink="/inscricao">Começar</a>
-        }
         <button class="action-link logout-link" type="button" (click)="logout()">Sair</button>
       </div>
     </div>
