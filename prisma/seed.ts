@@ -7,9 +7,13 @@ const prisma = new PrismaClient()
 
 const initialUsers = [
   { username: 'master', email: 'master@unicore.local', role: AccessRole.MASTER },
-  { username: 'admin', email: 'admin@unicore.local', role: AccessRole.ADMIN },
+  { username: 'administracao', email: 'administracao@unicore.local', role: AccessRole.ADMIN },
   { username: 'tesouraria', email: 'tesouraria@unicore.local', role: AccessRole.TESOURARIA },
   { username: 'vestibular', email: 'vestibular@unicore.local', role: AccessRole.VESTIBULAR },
+  { username: 'coordenacao', email: 'coordenacao@unicore.local', role: AccessRole.COORDENACAO },
+  { username: 'registro_academico', email: 'registro_academico@unicore.local', role: AccessRole.REGISTRO_ACADEMICO },
+  { username: 'aluno', email: 'aluno@unicore.local', role: AccessRole.ALUNO },
+  { username: 'professor', email: 'professor@unicore.local', role: AccessRole.PROFESSOR },
 ] as const
 
 async function main(): Promise<void> {

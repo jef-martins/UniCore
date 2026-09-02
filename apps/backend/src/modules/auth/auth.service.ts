@@ -13,6 +13,8 @@ export type AuthRole =
   | 'secretaria'
   | 'coordenacao'
   | 'registro_academico'
+  | 'aluno'
+  | 'professor'
 
 export interface AuthUserResponse {
   id: string
@@ -34,6 +36,8 @@ const ROLE_MAP: Record<AccessRole, AuthRole> = {
   SECRETARIA: 'secretaria',
   COORDENACAO: 'coordenacao',
   REGISTRO_ACADEMICO: 'registro_academico',
+  ALUNO: 'aluno',
+  PROFESSOR: 'professor',
 }
 
 @Injectable()
