@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { JwtAuthGuard, type AuthenticatedRequest } from '../auth/jwt-auth.guard'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
@@ -12,15 +12,15 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get()
-  findAll(@Req() request: AuthenticatedRequest) {
-    return this.tasksService.findAll(request.user.sub)
+  findAll(@Req() request: AuthenticatedRequest, @Query('sector') sector?: string) {
+    return this.tasksService.findAll(request.user, sector)
   }
 
   @Get('dashboard')
   @UseGuards(RolesGuard)
   @Roles('admin', 'master')
-  getDashboardStats() {
-    return this.tasksService.getDashboardStats()
+  getDashboardStats(@Req() request: AuthenticatedRequest) {
+    return this.tasksService.getDashboardStats(request.user)
   }
 
   @Post()

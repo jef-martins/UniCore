@@ -16,6 +16,7 @@ export interface AgendaTask {
   completed: boolean
   createdAt: string
   completedAt: string | null
+  userId: string
 }
 
 export interface CreateAgendaTask {
@@ -23,6 +24,7 @@ export interface CreateAgendaTask {
   description: string
   date: string
   type: AgendaTaskType
+  userId?: string
 }
 
 interface ApiTask {
@@ -34,15 +36,20 @@ interface ApiTask {
   completed: boolean
   createdAt: string
   completedAt: string | null
+  userId: string
 }
 
 @Injectable({ providedIn: 'root' })
 export class AgendaService {
   constructor(private readonly http: HttpClient) {}
 
-  getTasks(): Observable<AgendaTask[]> {
-    return this.http.get<ApiTask[]>('/api/tasks').pipe(
-      map((tasks) => tasks.map((task) => this.toAgendaTask(task))),
+  getTasks(sector?: string): Observable<AgendaTask[]> {
+    const params: Record<string, string> = {}
+    if (sector) {
+      params['sector'] = sector;
+    }
+    return this.http.get<ApiTask[]>('/api/tasks', { params }).pipe(
+      map((tasks: ApiTask[]) => tasks.map((task: ApiTask) => this.toAgendaTask(task))),
     )
   }
 
@@ -64,12 +71,13 @@ export class AgendaService {
       id: task.id,
       title: task.title,
       description: task.description ?? '',
-      date: task.date.slice(0, 10),
+      date: typeof task.date === 'string' ? task.date.slice(0, 10) : task.date,
       type: this.toAgendaType(task.type),
       status: task.completed ? 'Concluída' : 'Pendente',
       completed: task.completed,
       createdAt: task.createdAt,
       completedAt: task.completedAt,
+      userId: task.userId,
     }
   }
 

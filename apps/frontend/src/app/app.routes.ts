@@ -110,6 +110,20 @@ export const appRoutes: Routes = [
         },
         title: 'UniCore | Desenvolvedor',
       },
+      {
+        path: 'administracao/cadastros/usuarios',
+        loadComponent: () => import('./pages/user-registration-page.component').then(m => m.UserRegistrationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Cadastro de Usuário',
+      },
+      {
+        path: 'desenvolvedor/cadastros/usuarios',
+        loadComponent: () => import('./pages/user-registration-page.component').then(m => m.UserRegistrationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Cadastro de Usuário',
+      }
     ],
   },
   { path: '**', redirectTo: '' },

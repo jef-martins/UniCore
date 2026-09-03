@@ -138,6 +138,10 @@ export class AuthService {
     return path.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || '/'
   }
 
+  getUsers(): Observable<AuthUser[]> {
+    return this.http.get<AuthUser[]>('/api/auth/users');
+  }
+
   private persistSession(): void {
     localStorage.setItem(this.storageKey, JSON.stringify({
       accessToken: this.accessTokenValue,

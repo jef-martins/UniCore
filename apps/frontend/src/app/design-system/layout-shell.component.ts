@@ -22,7 +22,7 @@ export interface LayoutFooterLink {
     .layout-shell {
       display: flex;
       flex-direction: row;
-      min-height: 100vh;
+      height: 100vh;
       overflow: hidden;
     }
     .sidebar {
@@ -158,17 +158,6 @@ export interface LayoutFooterLink {
       padding: 2rem;
       flex: 1;
     }
-    .site-footer {
-      padding: 1.5rem 2rem;
-      border-top: 1px solid var(--border-color, #3f3f46);
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-color-secondary, #a1a1aa);
-      font-size: 0.85rem;
-    }
-    .site-footer nav { display: flex; gap: 1rem; }
-    .site-footer a { color: inherit; text-decoration: none; }
-    
     @media (max-width: 768px) {
       .layout-shell { flex-direction: column; }
       .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color, #3f3f46); }
@@ -191,7 +180,6 @@ export class LayoutShellComponent {
 
   @Input() portalLabel = 'UniCore'
   @Input() mainId = 'main-content'
-  @Input() footerDescription = 'UniCore · Sistema de experiência digital'
   @Input() searchLabel = 'Buscar no portal'
   @Input() navigation: readonly LayoutNavigationItem[] = [
     { href: '/agenda', label: 'Agenda de Tarefas' }, // Apenas Aluno/Professor
@@ -235,18 +223,30 @@ export class LayoutShellComponent {
             { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' }
           ]
         },
-        { href: '/administracao/agenda', label: 'Agenda de Tarefas' }
+        { href: '/administracao/agenda', label: 'Agenda de Tarefas' },
+        {
+          href: '/administracao/cadastros',
+          label: 'Cadastros',
+          children: [
+            { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' }
+          ]
+        }
       ]
     },
     { 
       href: '/desenvolvedor', 
       label: 'Desenvolvedor',
-      children: [{ href: '/desenvolvedor/agenda', label: 'Agenda de Tarefas' }]
+      children: [
+        { href: '/desenvolvedor/agenda', label: 'Agenda de Tarefas' },
+        {
+          href: '/desenvolvedor/cadastros',
+          label: 'Cadastros',
+          children: [
+            { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' }
+          ]
+        }
+      ]
     },
-  ]
-  @Input() footerLinks: readonly LayoutFooterLink[] = [
-    { href: '/', label: 'Acessibilidade' },
-    { href: '/', label: 'Ajuda' },
   ]
 
   get visibleNavigation(): readonly LayoutNavigationItem[] {

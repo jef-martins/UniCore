@@ -1,0 +1,84 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Cadastro de Usuário</h1>
+    <p class="page-subtitle">Crie novos usuários para o sistema.</p>
+  </div>
+</header>
+
+<section class="card card-outlined" style="max-width: 600px; margin-bottom: 2rem;">
+  <form (ngSubmit)="registerUser()">
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      
+      @if (errorMessage) {
+        <div class="alert" style="color: var(--color-danger, #ef4444); background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 4px;">
+          {{ errorMessage }}
+        </div>
+      }
+      
+      @if (successMessage) {
+        <div class="alert" style="color: var(--color-success, #10b981); background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 4px;">
+          {{ successMessage }}
+        </div>
+      }
+
+      <div class="field">
+        <label class="field-label" for="username">Nome de Usuário</label>
+        <input id="username" class="field-control" type="text" [(ngModel)]="newUser.username" name="username" required />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="email">E-mail</label>
+        <input id="email" class="field-control" type="email" [(ngModel)]="newUser.email" name="email" required />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="password">Senha Temporária</label>
+        <input id="password" class="field-control" type="password" [(ngModel)]="newUser.password" name="password" required />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="role">Setor / Papel de Acesso</label>
+        <select id="role" class="field-control" [(ngModel)]="newUser.role" name="role" required>
+          @for (role of roles; track role) {
+            <option [value]="role">{{ authService.roleLabel(role) }}</option>
+          }
+        </select>
+      </div>
+
+      <button class="button button-primary" type="submit" [disabled]="isSaving" style="align-self: flex-start;">
+        {{ isSaving ? 'Cadastrando...' : 'Cadastrar Usuário' }}
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="card card-outlined">
+  <h2 style="margin-bottom: 1rem;">Usuários Cadastrados</h2>
+  
+  @if (isLoading) {
+    <p>Carregando usuários...</p>
+  } @else {
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
+          <th style="padding: 0.75rem;">Usuário</th>
+          <th style="padding: 0.75rem;">E-mail</th>
+          <th style="padding: 0.75rem;">Setor</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users; track user.id) {
+          <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
+            <td style="padding: 0.75rem;">{{ user.username }}</td>
+            <td style="padding: 0.75rem;">{{ user.email }}</td>
+            <td style="padding: 0.75rem;"><span class="role-badge" style="margin: 0;">{{ authService.roleLabel(user.role) }}</span></td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" style="padding: 1rem; text-align: center;">Nenhum usuário encontrado.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

@@ -1114,7 +1114,7 @@ main:focus-visible {
 
 .agenda-task-form {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr repeat(2, minmax(140px, 0.7fr) auto);
+  grid-template-columns: 1fr 1.2fr repeat(3, minmax(120px, 0.7fr)) auto;
   align-items: end;
   gap: var(--space-16);
 }
@@ -1156,4 +1156,100 @@ main:focus-visible {
   .agenda-task-form {
     grid-template-columns: 1fr;
   }
+}
+
+/* Daily View Styles */
+.clickable-day {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.clickable-day:hover, .clickable-day:focus-visible {
+  background: var(--color-surface-elevated);
+}
+.hidden {
+  display: none !important;
+}
+
+.agenda-day-view {
+  display: grid;
+  gap: var(--space-24);
+  padding: var(--space-32);
+}
+
+.agenda-day-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: var(--border-width) solid var(--color-border);
+  padding-bottom: var(--space-16);
+  flex-wrap: wrap;
+  gap: var(--space-16);
+}
+
+.agenda-day-view-header h2 {
+  margin: var(--space-0);
+  font-size: var(--font-size-24);
+  color: var(--color-text-primary);
+}
+
+.agenda-day-view-controls {
+  display: flex;
+  gap: var(--space-12);
+  align-items: center;
+}
+
+.agenda-day-tasks {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.agenda-day-task-card {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-24);
+  border: var(--border-width) solid var(--color-border);
+  border-left: var(--space-4) solid var(--color-action-green);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.agenda-day-task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-raised);
+}
+
+.agenda-day-task-card.completed {
+  border-left-color: var(--color-border);
+  opacity: 0.7;
+}
+
+.agenda-day-task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.agenda-day-task-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.agenda-day-task-meta {
+  display: flex;
+  gap: var(--space-16);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-14);
+  margin-top: var(--space-8);
+}
+
+.agenda-day-task-desc {
+  margin: var(--space-8) 0 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }

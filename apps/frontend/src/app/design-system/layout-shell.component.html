@@ -78,13 +78,5 @@
       <router-outlet></router-outlet>
     </main>
 
-    <footer class="site-footer">
-      <p>{{ footerDescription }}</p>
-      <nav aria-label="Links complementares">
-        @for (link of footerLinks; track link.href + link.label) {
-          <a [routerLink]="link.href">{{ link.label }}</a>
-        }
-      </nav>
-    </footer>
   </div>
 </div>

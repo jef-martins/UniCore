@@ -10,106 +10,163 @@
       <h2 aria-live="polite">{{ monthLabel }}</h2>
       <button class="button button-secondary" type="button" aria-label="Próximo mês" (click)="changeMonth(1)">›</button>
       <button class="button button-text" type="button" (click)="goToToday()">Hoje</button>
+      
+      @if (isAdminOrMaster) {
+        <select class="field-control" style="margin-left: 1rem; width: auto; padding-right: 2rem;" [(ngModel)]="filterUserId" name="filterUserId">
+          <option value="">Todos da equipe</option>
+          @for (user of sectorUsers; track user.id) {
+            <option [value]="user.id">{{ user.username }}</option>
+          }
+        </select>
+      }
     </div>
   </header>
 
-  <section class="agenda-new-task card card-outlined" aria-labelledby="agenda-new-task-title">
-    <div>
-      <h2 id="agenda-new-task-title">Nova tarefa</h2>
-      <p>Salve uma tarefa na sua agenda pessoal.</p>
-    </div>
-    <form class="agenda-task-form" (ngSubmit)="createTask()">
-      <div class="field">
-        <label class="field-label" for="agenda-new-task-title-input">Título</label>
-        <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" />
+  @if (!selectedDay) {
+    <section class="agenda-new-task card card-outlined" aria-labelledby="agenda-new-task-title">
+      <div>
+        <h2 id="agenda-new-task-title">Nova tarefa</h2>
+        <p>Salve uma tarefa na sua agenda pessoal.</p>
       </div>
-      <div class="field">
-        <label class="field-label" for="agenda-new-task-description">Descrição</label>
-        <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription"></textarea>
-      </div>
-      <div class="field">
-        <label class="field-label" for="agenda-new-task-date">Data</label>
-        <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="agenda-new-task-type">Tipo</label>
-        <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
-          @for (type of taskTypes.slice(1); track type) { <option [value]="type">{{ type }}</option> }
-        </select>
-      </div>
-      <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
-    </form>
-  </section>
+      <form class="agenda-task-form" (ngSubmit)="createTask()">
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-title-input">Título</label>
+          <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-description">Descrição</label>
+          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription"></textarea>
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-date">Data</label>
+          <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-type">Tipo</label>
+          <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
+            @for (type of taskTypes.slice(1); track type) { <option [value]="type">{{ type }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
+          <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
+            <option value="">Atribuir a mim</option>
+            @for (user of users; track user.id) { <option [value]="user.id">{{ user.username }} ({{ user.role }})</option> }
+          </select>
+        </div>
+        <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
+      </form>
+    </section>
 
-  @if (errorMessage) {
-    <p class="error-message" role="alert">{{ errorMessage }}</p>
-  }
-  @if (isLoading) {
-    <p class="agenda-result-count" role="status">Carregando tarefas…</p>
-  }
-
-  <section class="agenda-filters card card-outlined" aria-labelledby="agenda-filters-title">
-    <h2 id="agenda-filters-title">Filtros</h2>
-    <div class="agenda-filter-grid">
-      <div class="field">
-        <label class="field-label" for="agenda-start-date">A partir de</label>
-        <input id="agenda-start-date" class="field-control" type="date" [(ngModel)]="startDate" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="agenda-end-date">Até</label>
-        <input id="agenda-end-date" class="field-control" type="date" [(ngModel)]="endDate" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="agenda-task-query">Tarefa</label>
-        <input id="agenda-task-query" class="field-control" type="search" placeholder="Buscar tarefa" [(ngModel)]="taskQuery" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="agenda-task-type">Tipo</label>
-        <select id="agenda-task-type" class="field-control" [(ngModel)]="taskType">
-          @for (type of taskTypes; track type) { <option [value]="type">{{ type }}</option> }
-        </select>
-      </div>
-    </div>
-    <button class="button button-text agenda-clear-filters" type="button" (click)="clearFilters()">Limpar filtros</button>
-  </section>
-
-  <p class="agenda-result-count" role="status" aria-live="polite">
-    {{ filteredTasks.length }} {{ filteredTasks.length === 1 ? 'tarefa encontrada' : 'tarefas encontradas' }}
-  </p>
-
-  <div class="agenda-calendar" role="grid" [attr.aria-label]="'Calendário de ' + monthLabel">
-    @for (weekDay of weekDays; track weekDay) {
-      <div class="agenda-weekday" role="columnheader">{{ weekDay }}</div>
+    @if (errorMessage) {
+      <p class="error-message" role="alert">{{ errorMessage }}</p>
     }
-    @for (day of calendarDays; track day.key) {
-      <article
-        class="agenda-day"
-        [class.agenda-day-outside]="!day.isCurrentMonth"
-        [class.agenda-day-today]="isToday(day)"
-        role="gridcell"
-        [attr.aria-label]="accessibleDayLabel(day)"
-      >
-        <header class="agenda-day-header">
-          <span>{{ day.number }}</span>
-          @if (isToday(day)) { <span class="agenda-today-label">Hoje</span> }
-        </header>
-        <ul class="agenda-task-list">
-          @for (task of tasksForDay(day.key); track task.id) {
-            <li class="agenda-task" [class.agenda-task-completed]="task.completed">
+    @if (isLoading) {
+      <p class="agenda-result-count" role="status">Carregando tarefas…</p>
+    }
+
+    <section class="agenda-filters card card-outlined" aria-labelledby="agenda-filters-title">
+      <h2 id="agenda-filters-title">Filtros</h2>
+      <div class="agenda-filter-grid">
+        <div class="field">
+          <label class="field-label" for="agenda-start-date">A partir de</label>
+          <input id="agenda-start-date" class="field-control" type="date" [(ngModel)]="startDate" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-end-date">Até</label>
+          <input id="agenda-end-date" class="field-control" type="date" [(ngModel)]="endDate" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-task-query">Tarefa</label>
+          <input id="agenda-task-query" class="field-control" type="search" placeholder="Buscar tarefa" [(ngModel)]="taskQuery" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-task-type">Tipo</label>
+          <select id="agenda-task-type" class="field-control" [(ngModel)]="taskType">
+            @for (type of taskTypes; track type) { <option [value]="type">{{ type }}</option> }
+          </select>
+        </div>
+      </div>
+      <button class="button button-text agenda-clear-filters" type="button" (click)="clearFilters()">Limpar filtros</button>
+    </section>
+
+    <p class="agenda-result-count" role="status" aria-live="polite">
+      {{ filteredTasks.length }} {{ filteredTasks.length === 1 ? 'tarefa encontrada' : 'tarefas encontradas' }}
+    </p>
+
+    <div class="agenda-calendar" role="grid" [attr.aria-label]="'Calendário de ' + monthLabel">
+      @for (weekDay of weekDays; track weekDay) {
+        <div class="agenda-weekday" role="columnheader">{{ weekDay }}</div>
+      }
+      @for (day of calendarDays; track day.key) {
+        <article
+          class="agenda-day clickable-day"
+          [class.agenda-day-outside]="!day.isCurrentMonth"
+          [class.agenda-day-today]="isToday(day)"
+          role="button"
+          tabindex="0"
+          (click)="viewDay(day)"
+          (keydown.enter)="viewDay(day)"
+          [attr.aria-label]="accessibleDayLabel(day)"
+        >
+          <header class="agenda-day-header">
+            <span>{{ day.number }}</span>
+            @if (isToday(day)) { <span class="agenda-today-label">Hoje</span> }
+          </header>
+          <ul class="agenda-task-list">
+            @for (task of tasksForDay(day.key); track task.id) {
+              <li class="agenda-task" [class.agenda-task-completed]="task.completed">
+                <label class="agenda-task-toggle" (click)="$event.stopPropagation()">
+                  <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
+                  <strong>{{ task.title }}</strong>
+                </label>
+                <span>{{ task.type }} · {{ task.status }}</span>
+                @if (task.description) { <span>{{ task.description }}</span> }
+                <small>Criada em {{ formatDateTime(task.createdAt) }}</small>
+                @if (task.completedAt) { <small>Concluída em {{ formatDateTime(task.completedAt) }}</small> }
+              </li>
+            } @empty {
+              <li class="agenda-empty-day">Sem tarefas</li>
+            }
+          </ul>
+        </article>
+      }
+    </div>
+  } @else {
+    <section class="agenda-day-view card card-outlined" aria-labelledby="agenda-day-view-title">
+      <header class="agenda-day-view-header">
+        <h2 id="agenda-day-view-title">{{ accessibleDayLabel(selectedDay) }}</h2>
+        <div class="agenda-day-view-controls">
+          <button class="button button-secondary" type="button" (click)="closeDayView()">Voltar ao calendário</button>
+          <button class="button button-primary" type="button" (click)="openNewTaskForDay(selectedDay.key)">Nova tarefa</button>
+        </div>
+      </header>
+
+      <div class="agenda-day-tasks">
+        @for (task of tasksForDay(selectedDay.key); track task.id) {
+          <article class="agenda-day-task-card" [class.completed]="task.completed">
+            <header class="agenda-day-task-header">
               <label class="agenda-task-toggle">
                 <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
-                <strong>{{ task.title }}</strong>
+                <h3 class="agenda-day-task-title" [style.text-decoration]="task.completed ? 'line-through' : 'none'">{{ task.title }}</h3>
               </label>
-              <span>{{ task.type }} · {{ task.status }}</span>
-              @if (task.description) { <span>{{ task.description }}</span> }
-              <small>Criada em {{ formatDateTime(task.createdAt) }}</small>
-              @if (task.completedAt) { <small>Concluída em {{ formatDateTime(task.completedAt) }}</small> }
-            </li>
-          } @empty {
-            <li class="agenda-empty-day">Sem tarefas</li>
-          }
-        </ul>
-      </article>
-    }
-  </div>
+              <span class="role-badge">{{ task.type }}</span>
+            </header>
+            @if (task.description) {
+              <p class="agenda-day-task-desc">{{ task.description }}</p>
+            }
+            <div class="agenda-day-task-meta">
+              <span>Status: {{ task.status }}</span>
+              <span>Criada em {{ formatDateTime(task.createdAt) }}</span>
+              @if (task.completedAt) { <span>Concluída em {{ formatDateTime(task.completedAt) }}</span> }
+            </div>
+          </article>
+        } @empty {
+          <div class="agenda-empty-day" style="text-align: center; padding: 2rem;">
+            <p>Nenhuma tarefa cadastrada para este dia.</p>
+          </div>
+        }
+      </div>
+    </section>
+  }
 </section>

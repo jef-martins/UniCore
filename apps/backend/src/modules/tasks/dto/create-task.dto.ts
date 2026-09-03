@@ -1,5 +1,5 @@
 import { TaskType } from '@prisma/client'
-import { IsDateString, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator'
 
 export class CreateTaskDto {
   @IsString()
@@ -18,4 +18,8 @@ export class CreateTaskDto {
 
   @IsEnum(TaskType)
   type!: TaskType
+
+  @IsOptional()
+  @IsUUID()
+  userId?: string
 }

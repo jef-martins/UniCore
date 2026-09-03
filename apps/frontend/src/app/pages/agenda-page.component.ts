@@ -1,10 +1,12 @@
 import { Component, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
+import { Router } from '@angular/router'
 import {
   AgendaService,
   type AgendaTask,
   type AgendaTaskType,
 } from '../services/agenda.service'
+import { AuthService, type AuthUser } from '../services/auth.service'
 
 interface CalendarDay {
   key: string
@@ -36,15 +38,45 @@ export class AgendaPageComponent implements OnInit {
   isSaving = false
   savingTaskId: string | null = null
   errorMessage = ''
+  selectedDay: CalendarDay | null = null;
+  users: AuthUser[] = []
+  newTaskUserId = ''
+  filterUserId = ''
+  currentSector: string | undefined = undefined;
 
-  constructor(private readonly agendaService: AgendaService) {
+  get isAdminOrMaster(): boolean {
+    const role = this.authService.currentUser?.role;
+    return role === 'admin' || role === 'master';
+  }
+
+  get sectorUsers(): AuthUser[] {
+    if (!this.currentSector) return [];
+    return this.users.filter((u) => u.role === this.currentSector);
+  }
+
+  constructor(
+    private readonly agendaService: AgendaService,
+    private readonly authService: AuthService,
+    private readonly router: Router
+  ) {
     const today = new Date()
     this.displayedMonth = new Date(today.getFullYear(), today.getMonth(), 1)
     this.newTaskDate = this.toDateKey(today)
+    
+    // Default to the Day View of today
+    this.selectedDay = {
+      key: this.toDateKey(today),
+      number: today.getDate(),
+      date: today,
+      isCurrentMonth: true
+    }
   }
 
   ngOnInit(): void {
     this.loadTasks()
+    this.authService.getUsers().subscribe({
+      next: (users) => { this.users = users }
+    })
   }
 
   get monthLabel(): string {
@@ -76,7 +108,8 @@ export class AgendaPageComponent implements OnInit {
       const matchesEnd = !this.endDate || task.date <= this.endDate
       const matchesQuery = !query || `${task.title} ${task.description}`.toLocaleLowerCase().includes(query)
       const matchesType = this.taskType === 'Todas' || task.type === this.taskType
-      return matchesStart && matchesEnd && matchesQuery && matchesType
+      const matchesUser = !this.filterUserId || task.userId === this.filterUserId
+      return matchesStart && matchesEnd && matchesQuery && matchesType && matchesUser
     })
   }
 
@@ -86,11 +119,13 @@ export class AgendaPageComponent implements OnInit {
 
   changeMonth(offset: number): void {
     this.displayedMonth = new Date(this.displayedMonth.getFullYear(), this.displayedMonth.getMonth() + offset, 1)
+    this.selectedDay = null;
   }
 
   goToToday(): void {
     const today = new Date()
     this.displayedMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    this.selectedDay = null;
   }
 
   clearFilters(): void {
@@ -98,6 +133,21 @@ export class AgendaPageComponent implements OnInit {
     this.endDate = ''
     this.taskQuery = ''
     this.taskType = 'Todas'
+  }
+
+  viewDay(day: CalendarDay): void {
+    this.selectedDay = day;
+  }
+
+  closeDayView(): void {
+    this.selectedDay = null;
+  }
+
+  openNewTaskForDay(dayKey: string): void {
+    this.newTaskDate = dayKey;
+    document.getElementById('agenda-new-task-title-input')?.focus();
+    // Also clear the selected day to show the form if the form is in the main view
+    this.selectedDay = null;
   }
 
   createTask(): void {
@@ -113,11 +163,16 @@ export class AgendaPageComponent implements OnInit {
       description: this.newTaskDescription,
       date: this.newTaskDate,
       type: this.newTaskType,
+      ...(this.newTaskUserId ? { userId: this.newTaskUserId } : {}),
     }).subscribe({
       next: (task) => {
-        this.tasks = [...this.tasks, task]
-        this.newTaskTitle = ''
-        this.newTaskDescription = ''
+        const isForMe = !this.newTaskUserId || this.newTaskUserId === this.authService.currentUser?.id;
+        if (isForMe) {
+          this.tasks = [...this.tasks, task];
+        }
+        this.newTaskTitle = '';
+        this.newTaskDescription = '';
+        this.newTaskUserId = '';
       },
       error: () => {
         this.errorMessage = 'Não foi possível salvar a tarefa. Tente novamente.'
@@ -157,7 +212,33 @@ export class AgendaPageComponent implements OnInit {
 
   private loadTasks(): void {
     this.isLoading = true
-    this.agendaService.getTasks().subscribe({
+    
+    const urlTree = this.router.parseUrl(this.router.url);
+    const pathParts = urlTree.root.children['primary']?.segments.map(s => s.path) || [];
+    
+    if (pathParts.length > 1 && pathParts[pathParts.length - 1] === 'agenda') {
+      const maybeSector = pathParts[pathParts.length - 2];
+      if (maybeSector === 'registro-academico') {
+        this.currentSector = 'registro_academico';
+      } else if (maybeSector === 'administracao') {
+        this.currentSector = 'admin'; // Backend uses ADMIN enum
+      } else if (maybeSector === 'desenvolvedor') {
+        this.currentSector = 'master'; // Backend uses MASTER enum
+      } else {
+        this.currentSector = maybeSector;
+      }
+    } else {
+      // If no sector in URL (e.g. root /agenda), default to the user's own sector so they can still see the dropdown
+      const role = this.authService.currentUser?.role;
+      this.currentSector = role;
+    }
+    
+    // Default to showing only their own tasks if they are in their own sector
+    const role = this.authService.currentUser?.role;
+    const isOwnSector = this.currentSector === role;
+    this.filterUserId = isOwnSector ? (this.authService.currentUser?.id || '') : '';
+
+    this.agendaService.getTasks(this.currentSector).subscribe({
       next: (tasks) => { this.tasks = tasks },
       error: () => {
         this.errorMessage = 'Não foi possível carregar as tarefas.'

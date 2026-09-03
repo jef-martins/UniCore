@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import argon2 from 'argon2'
 import { AccessRole } from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
+import { CreateUserDto } from './dto/create-user.dto'
 
 export type AuthRole =
   | 'vestibular'
@@ -85,6 +86,29 @@ export class AuthService {
     return { accessToken, user: publicUser }
   }
 
+  async findAllUsers(requestUser: { sub: string; role: AuthRole }): Promise<AuthUserResponse[]> {
+    const whereClause: any = { isActive: true }
+    
+    if (requestUser.role === 'master') {
+      // Master vê todo mundo, não aplica filtro extra de role
+    } else if (requestUser.role === 'admin') {
+      whereClause.role = { not: 'MASTER' };
+    } else {
+      const accessRole = (Object.keys(ROLE_MAP) as AccessRole[]).find(
+        (key) => ROLE_MAP[key] === requestUser.role
+      )
+      if (accessRole) {
+        whereClause.role = accessRole
+      }
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: whereClause,
+      orderBy: { username: 'asc' },
+    })
+    return users.map(u => this.toPublicUser(u))
+  }
+
   toPublicUser(user: { id: string; username: string; email: string; role: AccessRole }): AuthUserResponse {
     return {
       id: user.id,
@@ -92,5 +116,42 @@ export class AuthService {
       email: user.email,
       role: ROLE_MAP[user.role],
     }
+  }
+
+  async createUser(dto: CreateUserDto): Promise<AuthUserResponse> {
+    const accessRole = (Object.keys(ROLE_MAP) as AccessRole[]).find(
+      (key) => ROLE_MAP[key] === dto.role
+    )
+
+    if (!accessRole) {
+      throw new ConflictException('Papel de acesso inválido.')
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: dto.username },
+          { email: dto.email }
+        ]
+      }
+    })
+
+    if (existing) {
+      throw new ConflictException('Nome de usuário ou e-mail já estão em uso.')
+    }
+
+    const passwordHash = await argon2.hash(dto.password)
+
+    const user = await this.prisma.user.create({
+      data: {
+        username: dto.username,
+        email: dto.email,
+        passwordHash,
+        role: accessRole,
+        isActive: true,
+      }
+    })
+
+    return this.toPublicUser(user)
   }
 }
