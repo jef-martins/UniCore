@@ -1113,10 +1113,26 @@ main:focus-visible {
 }
 
 .agenda-task-form {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr repeat(3, minmax(120px, 0.7fr)) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: var(--space-16);
+}
+
+.agenda-task-form > .field {
+  flex: 1 1 140px;
+}
+
+.agenda-task-form > .field:nth-child(1) {
+  flex: 2 1 200px;
+}
+
+.agenda-task-form > .field:nth-child(2) {
+  flex: 3 1 300px;
+}
+
+.agenda-task-form > .agenda-priority-field {
+  flex: 0 0 auto;
 }
 
 .agenda-task-form .button {
@@ -1143,18 +1159,21 @@ main:focus-visible {
 }
 
 @media (max-width: 1100px) {
-  .agenda-task-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .agenda-task-form .button {
-    justify-self: start;
+    align-self: flex-start;
   }
 }
 
 @media (max-width: 767px) {
   .agenda-task-form {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .agenda-task-form > .field,
+  .agenda-task-form > .field:nth-child(1),
+  .agenda-task-form > .field:nth-child(2) {
+    flex: 1 1 auto;
   }
 }
 

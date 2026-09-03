@@ -50,6 +50,7 @@ model Task {
   date        DateTime  @db.Date
   type        TaskType
   completed   Boolean   @default(false)
+  isPriority  Boolean   @default(false) @map("is_priority")
   createdAt   DateTime  @default(now()) @map("created_at")
   completedAt DateTime? @map("completed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")

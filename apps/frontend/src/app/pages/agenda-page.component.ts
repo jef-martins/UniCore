@@ -37,10 +37,14 @@ export class AgendaPageComponent implements OnInit {
   isLoading = false
   isSaving = false
   savingTaskId: string | null = null
+  editingTaskId: string | null = null
+  editingTaskTitle = ''
+  editingTaskDescription = ''
   errorMessage = ''
   selectedDay: CalendarDay | null = null;
   users: AuthUser[] = []
   newTaskUserId = ''
+  newTaskIsPriority = false
   filterUserId = ''
   currentSector: string | undefined = undefined;
 
@@ -166,6 +170,7 @@ export class AgendaPageComponent implements OnInit {
       description: this.newTaskDescription,
       date: this.newTaskDate,
       type: this.newTaskType,
+      isPriority: this.newTaskIsPriority,
       ...(this.newTaskUserId ? { userId: this.newTaskUserId } : {}),
     }).subscribe({
       next: (task) => {
@@ -176,6 +181,7 @@ export class AgendaPageComponent implements OnInit {
         this.newTaskTitle = '';
         this.newTaskDescription = '';
         this.newTaskUserId = '';
+        this.newTaskIsPriority = false;
       },
       error: () => {
         this.errorMessage = 'Não foi possível salvar a tarefa. Tente novamente.'
@@ -186,18 +192,50 @@ export class AgendaPageComponent implements OnInit {
   }
 
   toggleTask(task: AgendaTask): void {
-    this.savingTaskId = task.id
-    this.errorMessage = ''
-    this.agendaService.updateTaskStatus(task, !task.completed).subscribe({
+    this.updateTask(task.id, { completed: !task.completed });
+  }
+
+  toggleTaskPriority(task: AgendaTask): void {
+    this.updateTask(task.id, { isPriority: !task.isPriority });
+  }
+
+  startEditTask(task: AgendaTask): void {
+    this.editingTaskId = task.id;
+    this.editingTaskTitle = task.title;
+    this.editingTaskDescription = task.description || '';
+  }
+
+  cancelEditTask(): void {
+    this.editingTaskId = null;
+    this.editingTaskTitle = '';
+    this.editingTaskDescription = '';
+  }
+
+  saveEditTask(task: AgendaTask): void {
+    if (!this.editingTaskTitle.trim()) {
+      this.errorMessage = 'O título não pode estar vazio.';
+      return;
+    }
+    this.updateTask(task.id, { 
+      title: this.editingTaskTitle, 
+      description: this.editingTaskDescription 
+    });
+    this.editingTaskId = null;
+  }
+
+  private updateTask(id: string, payload: Partial<AgendaTask>): void {
+    this.savingTaskId = id;
+    this.errorMessage = '';
+    this.agendaService.updateTask(id, payload).subscribe({
       next: (updatedTask) => {
-        this.tasks = this.tasks.map((currentTask) => currentTask.id === updatedTask.id ? updatedTask : currentTask)
+        this.tasks = this.tasks.map((currentTask) => currentTask.id === updatedTask.id ? updatedTask : currentTask);
       },
       error: () => {
-        this.errorMessage = 'Não foi possível atualizar o status da tarefa.'
-        this.savingTaskId = null
+        this.errorMessage = 'Não foi possível atualizar a tarefa.';
+        this.savingTaskId = null;
       },
-      complete: () => { this.savingTaskId = null },
-    })
+      complete: () => { this.savingTaskId = null; },
+    });
   }
 
   formatDateTime(value: string | null): string {

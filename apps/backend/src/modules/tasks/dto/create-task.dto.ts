@@ -22,4 +22,7 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   userId?: string
+
+  @IsOptional()
+  isPriority?: boolean
 }

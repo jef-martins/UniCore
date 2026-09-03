@@ -44,20 +44,34 @@ export class TasksService {
         date: this.parseDate(body.date),
         type: body.type,
         userId: body.userId || userId,
+        isPriority: body.isPriority || false,
       },
     })
   }
 
-  async updateStatus(userId: string, id: string, completed: boolean) {
+  async update(userId: string, id: string, body: any) {
     const task = await this.prisma.task.findFirst({ where: { id, userId } })
     if (!task) throw new NotFoundException('Tarefa não encontrada.')
 
+    const data: any = {}
+    if (body.completed !== undefined) {
+      data.completed = body.completed
+      data.completedAt = body.completed ? new Date() : null
+    }
+    if (body.isPriority !== undefined) {
+      data.isPriority = body.isPriority
+    }
+    if (body.title !== undefined) {
+      data.title = body.title.trim()
+      if (!data.title) throw new BadRequestException('O título da tarefa não pode ser vazio.')
+    }
+    if (body.description !== undefined) {
+      data.description = body.description?.trim() || null
+    }
+
     return this.prisma.task.update({
       where: { id: task.id },
-      data: {
-        completed,
-        completedAt: completed ? new Date() : null,
-      },
+      data,
     })
   }
 

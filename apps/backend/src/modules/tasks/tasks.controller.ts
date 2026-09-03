@@ -3,7 +3,7 @@ import { JwtAuthGuard, type AuthenticatedRequest } from '../auth/jwt-auth.guard'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
 import { CreateTaskDto } from './dto/create-task.dto'
-import { UpdateTaskStatusDto } from './dto/update-task-status.dto'
+import { UpdateTaskDto } from './dto/update-task.dto'
 import { TasksService } from './tasks.service'
 
 @Controller('tasks')
@@ -28,12 +28,12 @@ export class TasksController {
     return this.tasksService.create(request.user.sub, body)
   }
 
-  @Patch(':id/status')
-  updateStatus(
+  @Patch(':id')
+  update(
     @Req() request: AuthenticatedRequest,
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: UpdateTaskStatusDto,
+    @Body() body: UpdateTaskDto,
   ) {
-    return this.tasksService.updateStatus(request.user.sub, id, body.completed)
+    return this.tasksService.update(request.user.sub, id, body)
   }
 }

@@ -17,6 +17,7 @@ export interface AgendaTask {
   createdAt: string
   completedAt: string | null
   userId: string
+  isPriority: boolean
 }
 
 export interface CreateAgendaTask {
@@ -25,6 +26,7 @@ export interface CreateAgendaTask {
   date: string
   type: AgendaTaskType
   userId?: string
+  isPriority?: boolean
 }
 
 interface ApiTask {
@@ -37,6 +39,7 @@ interface ApiTask {
   createdAt: string
   completedAt: string | null
   userId: string
+  isPriority: boolean
 }
 
 @Injectable({ providedIn: 'root' })
@@ -60,8 +63,8 @@ export class AgendaService {
     }).pipe(map((task) => this.toAgendaTask(task)))
   }
 
-  updateTaskStatus(task: AgendaTask, completed: boolean): Observable<AgendaTask> {
-    return this.http.patch<ApiTask>(`/api/tasks/${task.id}/status`, { completed }).pipe(
+  updateTask(taskId: string, data: Partial<AgendaTask>): Observable<AgendaTask> {
+    return this.http.patch<ApiTask>(`/api/tasks/${taskId}`, data).pipe(
       map((updatedTask) => this.toAgendaTask(updatedTask)),
     )
   }
@@ -78,6 +81,7 @@ export class AgendaService {
       createdAt: task.createdAt,
       completedAt: task.completedAt,
       userId: task.userId,
+      isPriority: task.isPriority,
     }
   }
 
