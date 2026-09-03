@@ -11,7 +11,7 @@
       <button class="button button-secondary" type="button" aria-label="Próximo mês" (click)="changeMonth(1)">›</button>
       <button class="button button-text" type="button" (click)="goToToday()">Hoje</button>
       
-      @if (isAdminOrMaster) {
+      @if (canFilterUsers) {
         <select class="field-control" style="margin-left: 1rem; width: auto; padding-right: 2rem;" [(ngModel)]="filterUserId" name="filterUserId">
           <option value="">Todos da equipe</option>
           @for (user of sectorUsers; track user.id) {

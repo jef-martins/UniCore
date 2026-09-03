@@ -98,7 +98,13 @@ export class AuthService {
         (key) => ROLE_MAP[key] === requestUser.role
       )
       if (accessRole) {
-        whereClause.role = accessRole
+        if (requestUser.role === 'aluno') {
+          whereClause.id = requestUser.sub; // Aluno vê apenas a si mesmo
+        } else if (requestUser.role === 'coordenacao') {
+          whereClause.role = { in: [accessRole, 'ALUNO', 'PROFESSOR'] }; // Coordenação vê alunos e professores
+        } else {
+          whereClause.role = { in: [accessRole, 'ALUNO'] }; // Outros vêem seu setor + alunos
+        }
       }
     }
 

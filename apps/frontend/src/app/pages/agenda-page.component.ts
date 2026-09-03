@@ -44,9 +44,12 @@ export class AgendaPageComponent implements OnInit {
   filterUserId = ''
   currentSector: string | undefined = undefined;
 
-  get isAdminOrMaster(): boolean {
+  get canFilterUsers(): boolean {
     const role = this.authService.currentUser?.role;
-    return role === 'admin' || role === 'master';
+    if (role === 'admin' || role === 'master') return true;
+    if (this.currentSector === 'aluno' && role !== 'aluno') return true;
+    if (this.currentSector === 'professor' && role === 'coordenacao') return true;
+    return false;
   }
 
   get sectorUsers(): AuthUser[] {

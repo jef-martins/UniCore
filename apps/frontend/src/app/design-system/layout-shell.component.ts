@@ -182,34 +182,43 @@ export class LayoutShellComponent {
   @Input() mainId = 'main-content'
   @Input() searchLabel = 'Buscar no portal'
   @Input() navigation: readonly LayoutNavigationItem[] = [
-    { href: '/agenda', label: 'Agenda de Tarefas' }, // Apenas Aluno/Professor
     { 
       href: '/vestibular', 
       label: 'Vestibular',
       children: [
         { href: '/vestibular/corrigir', label: 'Corrigir Avaliação' },
-        { href: '/vestibular/agenda', label: 'Agenda de Tarefas' }
+        { href: '/vestibular/agenda', label: 'Agenda' }
       ]
     },
     { 
       href: '/tesouraria', 
       label: 'Tesouraria',
-      children: [{ href: '/tesouraria/agenda', label: 'Agenda de Tarefas' }]
+      children: [{ href: '/tesouraria/agenda', label: 'Agenda' }]
     },
     { 
       href: '/secretaria', 
       label: 'Secretaria',
-      children: [{ href: '/secretaria/agenda', label: 'Agenda de Tarefas' }]
+      children: [{ href: '/secretaria/agenda', label: 'Agenda' }]
     },
     { 
       href: '/coordenacao', 
       label: 'Coordenação',
-      children: [{ href: '/coordenacao/agenda', label: 'Agenda de Tarefas' }]
+      children: [{ href: '/coordenacao/agenda', label: 'Agenda' }]
     },
     { 
       href: '/registro-academico', 
       label: 'Registro Acadêmico',
-      children: [{ href: '/registro-academico/agenda', label: 'Agenda de Tarefas' }]
+      children: [{ href: '/registro-academico/agenda', label: 'Agenda' }]
+    },
+    { 
+      href: '/professor', 
+      label: 'Professor',
+      children: [{ href: '/professor/agenda', label: 'Agenda' }]
+    },
+    { 
+      href: '/aluno', 
+      label: 'Aluno',
+      children: [{ href: '/aluno/agenda', label: 'Agenda' }]
     },
     {
       href: '/administracao',
@@ -223,7 +232,7 @@ export class LayoutShellComponent {
             { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' }
           ]
         },
-        { href: '/administracao/agenda', label: 'Agenda de Tarefas' },
+        { href: '/administracao/agenda', label: 'Agenda' },
         {
           href: '/administracao/cadastros',
           label: 'Cadastros',
@@ -237,7 +246,7 @@ export class LayoutShellComponent {
       href: '/desenvolvedor', 
       label: 'Desenvolvedor',
       children: [
-        { href: '/desenvolvedor/agenda', label: 'Agenda de Tarefas' },
+        { href: '/desenvolvedor/agenda', label: 'Agenda' },
         {
           href: '/desenvolvedor/cadastros',
           label: 'Cadastros',
@@ -250,12 +259,7 @@ export class LayoutShellComponent {
   ]
 
   get visibleNavigation(): readonly LayoutNavigationItem[] {
-    return this.navigation.filter((item) => {
-      if (item.href === '/agenda') {
-        return this.authService.hasAnyRole(['aluno', 'professor']);
-      }
-      return this.authService.canAccess(item.href);
-    })
+    return this.navigation.filter((item) => this.authService.canAccess(item.href))
   }
 
   get currentRoleLabel(): string {

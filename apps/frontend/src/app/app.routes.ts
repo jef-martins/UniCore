@@ -45,6 +45,8 @@ export const appRoutes: Routes = [
       { path: 'registro-academico/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       { path: 'administracao/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       { path: 'desenvolvedor/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'professor/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+      { path: 'aluno/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       {
         path: 'vestibular',
         component: ModulePageComponent,
@@ -68,6 +70,8 @@ export const appRoutes: Routes = [
         ['secretaria', 'secretaria', 'Secretaria', ['secretaria', 'admin', 'master']],
         ['coordenacao', 'coordenacao', 'Coordenação', ['coordenacao', 'admin', 'master']],
         ['registro-academico', 'registro_academico', 'Registro Acadêmico', ['registro_academico', 'admin', 'master']],
+        ['professor', 'professor', 'Professor', ['professor', 'admin', 'master', 'coordenacao']],
+        ['aluno', 'aluno', 'Aluno', ['aluno', 'admin', 'master', 'vestibular', 'tesouraria', 'secretaria', 'coordenacao', 'registro_academico', 'professor']],
       ].map(([path, module, moduleTitle, roles]) => ({
         path: path as string,
         component: ModulePageComponent,

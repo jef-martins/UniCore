@@ -7,15 +7,23 @@ export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
   findAll(user: { sub: string; role: string }, sector?: string) {
-    if (sector && (user.role === 'admin' || user.role === 'master')) {
+    if (sector) {
       const accessRole = sector.toUpperCase() as any;
-      if (accessRole === 'MASTER' && user.role === 'admin') {
-        // Ignora query se admin tentar buscar MASTER
-      } else {
-        return this.prisma.task.findMany({
-          where: { user: { role: accessRole } },
-          orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
-        })
+      const canAccessSector = 
+        user.role === 'admin' || 
+        user.role === 'master' || 
+        (accessRole === 'ALUNO' && user.role !== 'aluno') ||
+        (accessRole === 'PROFESSOR' && user.role === 'coordenacao');
+
+      if (canAccessSector) {
+        if (accessRole === 'MASTER' && user.role === 'admin') {
+          // Ignora query se admin tentar buscar MASTER
+        } else {
+          return this.prisma.task.findMany({
+            where: { user: { role: accessRole } },
+            orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+          })
+        }
       }
     }
 
