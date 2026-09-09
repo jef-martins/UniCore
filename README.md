@@ -36,6 +36,25 @@ npm run db:seed
 
 O seed inicial cria, de forma idempotente, os usuários `master`, `admin`, `tesouraria` e `vestibular`. A senha usada pelo seed vem de `SEED_DEFAULT_PASSWORD` e nunca é armazenada em texto puro; o banco recebe somente o hash Argon2id.
 
+## Google Workspace e Classroom
+
+A tela administrativa `/administracao/classroom` permite criar salas, incluir o professor e sincronizar alunos por e-mail institucional. Ela registra localmente a combinação de período, curso, disciplina e turma, juntamente com o ID e o link retornados pelo Google Classroom, impedindo duplicidade.
+
+Use uma conta de serviço exclusiva, com a **Google Classroom API** habilitada. Armazene o JSON da chave fora do repositório e configure somente seu caminho:
+
+```dotenv
+GOOGLE_SERVICE_ACCOUNT_FILE=/caminho/privado/google-service-account.json
+GOOGLE_ADMIN_SUBJECT=administrador@exemplo.edu.br
+```
+
+Para operar em nome da conta administrativa do Workspace, habilite a Domain-Wide Delegation para o Client ID da conta de serviço e autorize apenas os escopos `classroom.courses` e `classroom.rosters`. Nunca exponha a chave, tokens ou credenciais ao frontend.
+
+## Integração Unimestre
+
+A tela administrativa `/administracao/unimestre` consulta exclusivamente em modo leitura as bases MySQL Unimestre e FAIP. Ela exibe conexões, cursos ativos, turmas, disciplinas, docentes, número de alunos e os vínculos institucionais da tabela `faip_contas_google`. Não são executados comandos de escrita em nenhum banco externo.
+
+Configure conexões com usuários de banco que tenham permissão `SELECT` somente. Em instalações com firewall, libere o IP do servidor que executa o backend para os hosts MySQL configurados.
+
 O endpoint `GET /api/health` executa `SELECT 1` via Prisma. Ele retorna `200` com `database: "up"` quando a conexão está funcionando e `503` com `database: "down"` quando o banco não está disponível.
 
 ## Autenticação
