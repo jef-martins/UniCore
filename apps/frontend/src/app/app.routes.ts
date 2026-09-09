@@ -4,6 +4,7 @@ import { authGuard, roleGuard } from './guards/auth.guard'
 import { AgendaPageComponent } from './pages/agenda-page.component'
 import { AccessRedirectPageComponent } from './pages/access-redirect-page.component'
 import { ClassroomPageComponent } from './pages/classroom-page.component'
+import { UnimestrePageComponent } from './pages/unimestre-page.component'
 import { DashboardPageComponent } from './pages/dashboard-page.component'
 import { LoginPageComponent } from './pages/login-page.component'
 import { ModulePageComponent } from './pages/module-page.component'
@@ -94,6 +95,13 @@ export const appRoutes: Routes = [
           moduleDescription: 'Gerenciamento de integrações, relatórios em lote e recursos globais.',
         },
         title: 'UniCore | Administração',
+      },
+      {
+        path: 'administracao/unimestre',
+        component: UnimestrePageComponent,
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Integração Unimestre',
       },
       {
         path: 'administracao/classroom',

@@ -8,6 +8,7 @@ import { DatabaseModule } from './modules/database/database.module'
 import { HealthModule } from './modules/health/health.module'
 import { TasksModule } from './modules/tasks/tasks.module'
 import { ClassroomModule } from './modules/classroom/classroom.module'
+import { UnimestreModule } from './modules/unimestre/unimestre.module'
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ClassroomModule } from './modules/classroom/classroom.module'
     HealthModule,
     TasksModule,
     ClassroomModule,
+    UnimestreModule,
   ],
 })
 export class AppModule {}

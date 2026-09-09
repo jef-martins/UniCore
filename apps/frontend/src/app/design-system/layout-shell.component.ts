@@ -224,6 +224,7 @@ export class LayoutShellComponent {
       href: '/administracao',
       label: 'Administração',
       children: [
+        { href: '/administracao/unimestre', label: 'Integração Unimestre' },
         { href: '/administracao/classroom', label: 'Google Classroom' },
         {
           href: '/administracao/dashboards',

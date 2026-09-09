@@ -8,4 +8,18 @@ export default () => ({
   googleClientEmail: process.env['GOOGLE_CLIENT_EMAIL'] ?? '',
   googlePrivateKey: process.env['GOOGLE_PRIVATE_KEY'] ?? '',
   googleAdminSubject: process.env['GOOGLE_ADMIN_SUBJECT'] ?? '',
+  unimestre: {
+    host: process.env['DB_HOST_UNIMESTRE'] ?? '',
+    port: Number.parseInt(process.env['DB_PORT_UNIMESTRE'] ?? '3306', 10),
+    database: process.env['DB_NAME_UNIMESTRE'] ?? '',
+    user: process.env['DB_USER_UNIMESTRE'] ?? '',
+    password: process.env['DB_PASS_UNIMESTRE'] ?? '',
+  },
+  faip: {
+    host: process.env['DB_HOST_FAIP'] ?? '',
+    port: Number.parseInt(process.env['DB_PORT_FAIP'] ?? '3306', 10),
+    database: process.env['DB_NAME_FAIP'] ?? '',
+    user: process.env['DB_USER_FAIP'] ?? '',
+    password: process.env['DB_PASS_FAIP'] ?? '',
+  },
 })
