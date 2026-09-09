@@ -3,7 +3,7 @@ import { LayoutShellComponent } from './design-system/layout-shell.component'
 import { authGuard, roleGuard } from './guards/auth.guard'
 import { AgendaPageComponent } from './pages/agenda-page.component'
 import { AccessRedirectPageComponent } from './pages/access-redirect-page.component'
-import { AdminPageComponent } from './pages/admin-page.component'
+import { ClassroomPageComponent } from './pages/classroom-page.component'
 import { DashboardPageComponent } from './pages/dashboard-page.component'
 import { LoginPageComponent } from './pages/login-page.component'
 import { ModulePageComponent } from './pages/module-page.component'
@@ -97,10 +97,10 @@ export const appRoutes: Routes = [
       },
       {
         path: 'administracao/classroom',
-        component: AdminPageComponent,
+        component: ClassroomPageComponent,
         canActivate: [roleGuard],
         data: { roles: ['admin', 'master'] },
-        title: 'UniCore | Classroom Lote',
+        title: 'UniCore | Google Classroom',
       },
       {
         path: 'desenvolvedor',

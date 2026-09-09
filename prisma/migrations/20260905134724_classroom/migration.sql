@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "classroom_rooms_academic_course_id_subject_id_class_group_semes" RENAME TO "classroom_rooms_academic_course_id_subject_id_class_group_s_key";

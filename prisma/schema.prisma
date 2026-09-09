@@ -29,6 +29,14 @@ enum TaskType {
   PROFESSORES
 }
 
+enum ClassroomRoomStatus {
+  PENDING
+  PROCESSING
+  CREATED
+  CREATED_WITH_WARNINGS
+  FAILED
+}
+
 model User {
   id           String     @id @default(uuid()) @db.Uuid
   username     String     @unique
@@ -59,4 +67,24 @@ model Task {
 
   @@index([userId, date])
   @@map("tasks")
+}
+
+model ClassroomRoom {
+  id               String              @id @default(uuid()) @db.Uuid
+  academicCourseId String              @map("academic_course_id")
+  subjectId        String              @map("subject_id")
+  classGroup       String              @map("class_group")
+  semester         String
+  subjectName      String              @map("subject_name")
+  teacherEmail     String              @map("teacher_email")
+  googleCourseId   String?             @unique @map("google_course_id")
+  alternateLink    String?             @map("alternate_link")
+  status           ClassroomRoomStatus @default(PENDING)
+  lastMessage      String?             @map("last_message")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  @@unique([academicCourseId, subjectId, classGroup, semester])
+  @@index([semester, academicCourseId])
+  @@map("classroom_rooms")
 }
