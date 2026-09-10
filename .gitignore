@@ -6,3 +6,7 @@ dist/
 !.env.example
 .DS_Store
 ftp/
+*.token.json
+*google-token*.json
+*credentials*.json
+*service-account*.json

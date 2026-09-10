@@ -1,5 +1,6 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
-import { existsSync } from 'node:fs'
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { google, type classroom_v1 } from 'googleapis'
 import { ConfigService } from '@nestjs/config'
 
@@ -8,43 +9,155 @@ const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.rosters',
 ]
 
+export type GoogleAuthType = 'oauth2' | 'service_account' | null
+
 @Injectable()
 export class GoogleClassroomService {
   private readonly logger = new Logger(GoogleClassroomService.name)
-  private readonly classroom: classroom_v1.Classroom | null
-  private readonly configurationMessage: string | null
+  private classroom: classroom_v1.Classroom | null = null
+  private authType: GoogleAuthType = null
+  private configurationMessage: string | null = null
 
-  constructor(config: ConfigService) {
-    const serviceAccountFile = config.get<string>('googleServiceAccountFile')
-    const clientEmail = config.get<string>('googleClientEmail')
-    const privateKey = config.get<string>('googlePrivateKey')?.replace(/\\n/g, '\n')
-    const subject = config.get<string>('googleAdminSubject') || undefined
+  constructor(private readonly config: ConfigService) {
+    this.initClient()
+  }
 
+  initClient(): void {
+    const serviceAccountFile = this.config.get<string>('googleServiceAccountFile')
+    const clientEmail = this.config.get<string>('googleClientEmail')
+    const privateKey = this.config.get<string>('googlePrivateKey')?.replace(/\\n/g, '\n')
+    const subject = this.config.get<string>('googleAdminSubject') || undefined
+
+    const clientId = this.config.get<string>('googleClientId')
+    const clientSecret = this.config.get<string>('googleClientSecret')
+    const redirectUri = this.config.get<string>('googleRedirectUri') || 'http://localhost:3000/api/classroom/google/callback'
+    const refreshToken = this.getPersistedRefreshToken()
+
+    // 1. Tenta OAuth 2.0 se tiver refresh token
+    if (clientId && clientSecret && refreshToken) {
+      const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+      oauth2Client.setCredentials({ refresh_token: refreshToken })
+      oauth2Client.on('tokens', (tokens) => {
+        if (tokens.refresh_token) {
+          this.persistRefreshToken(tokens.refresh_token)
+        }
+      })
+      this.classroom = google.classroom({ version: 'v1', auth: oauth2Client })
+      this.authType = 'oauth2'
+      this.configurationMessage = null
+      this.logger.log('Google Classroom inicializado via OAuth 2.0.')
+      return
+    }
+
+    // 2. Tenta Conta de Serviço via arquivo JSON
     if (serviceAccountFile) {
       if (!existsSync(serviceAccountFile)) {
         this.configurationMessage = 'O arquivo da conta de serviço Google não foi encontrado no caminho configurado.'
         this.classroom = null
+        this.authType = null
         return
       }
       const auth = new google.auth.JWT({ keyFile: serviceAccountFile, scopes: CLASSROOM_SCOPES, subject })
       this.classroom = google.classroom({ version: 'v1', auth })
+      this.authType = 'service_account'
       this.configurationMessage = null
+      this.logger.log('Google Classroom inicializado via Conta de Serviço (arquivo JSON).')
       return
     }
 
+    // 3. Tenta Conta de Serviço via Client Email + Private Key
     if (clientEmail && privateKey) {
       const auth = new google.auth.JWT({ email: clientEmail, key: privateKey, scopes: CLASSROOM_SCOPES, subject })
       this.classroom = google.classroom({ version: 'v1', auth })
+      this.authType = 'service_account'
       this.configurationMessage = null
+      this.logger.log('Google Classroom inicializado via Conta de Serviço (variáveis de ambiente).')
       return
     }
 
-    this.configurationMessage = 'Configure GOOGLE_SERVICE_ACCOUNT_FILE ou GOOGLE_CLIENT_EMAIL e GOOGLE_PRIVATE_KEY no backend.'
+    // 4. Se tiver OAuth configurado mas sem token ainda
+    if (clientId && clientSecret) {
+      this.configurationMessage = 'Credenciais OAuth 2.0 configuradas. Conecte sua conta do Google Workspace para concluir a integração.'
+      this.classroom = null
+      this.authType = 'oauth2'
+      return
+    }
+
+    this.configurationMessage = 'Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET (OAuth 2.0) ou GOOGLE_SERVICE_ACCOUNT_FILE no backend.'
     this.classroom = null
+    this.authType = null
   }
 
   getStatus() {
-    return { configured: this.classroom !== null, message: this.configurationMessage }
+    let authUrl: string | null = null
+    if (!this.classroom && this.authType === 'oauth2') {
+      try {
+        authUrl = this.getAuthUrl()
+      } catch {
+        authUrl = null
+      }
+    }
+
+    return {
+      configured: this.classroom !== null,
+      authType: this.authType,
+      authUrl,
+      message: this.configurationMessage,
+    }
+  }
+
+  getAuthUrl(redirectUriOverride?: string): string {
+    const clientId = this.config.get<string>('googleClientId')
+    const clientSecret = this.config.get<string>('googleClientSecret')
+    const redirectUri = redirectUriOverride || this.config.get<string>('googleRedirectUri') || 'http://localhost:3000/api/classroom/google/callback'
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não estão configurados.')
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+    return oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: CLASSROOM_SCOPES,
+    })
+  }
+
+  async exchangeCode(code: string, redirectUriOverride?: string) {
+    const clientId = this.config.get<string>('googleClientId')
+    const clientSecret = this.config.get<string>('googleClientSecret')
+    const redirectUri = redirectUriOverride || this.config.get<string>('googleRedirectUri') || 'http://localhost:3000/api/classroom/google/callback'
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não estão configurados.')
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+    try {
+      const { tokens } = await oauth2Client.getToken(code.trim())
+      if (tokens.refresh_token) {
+        this.persistRefreshToken(tokens.refresh_token)
+      }
+      oauth2Client.setCredentials(tokens)
+      oauth2Client.on('tokens', (newTokens) => {
+        if (newTokens.refresh_token) {
+          this.persistRefreshToken(newTokens.refresh_token)
+        }
+      })
+      this.classroom = google.classroom({ version: 'v1', auth: oauth2Client })
+      this.authType = 'oauth2'
+      this.configurationMessage = null
+      this.logger.log('Google Classroom autenticado com sucesso via código OAuth 2.0.')
+
+      return {
+        success: true,
+        hasRefreshToken: Boolean(tokens.refresh_token),
+        message: 'Conta Google autenticada com sucesso no UniCore.',
+      }
+    } catch (error) {
+      this.logger.error(`Falha ao trocar código de autorização Google: ${(error as Error).message}`)
+      throw new BadRequestException('Código de autorização inválido ou expirado.')
+    }
   }
 
   async listCourses(): Promise<classroom_v1.Schema$Course[]> {
@@ -97,6 +210,48 @@ export class GoogleClassroomService {
       if (this.getStatusCode(error) === 409) return 'already-exists'
       this.throwGoogleError('adicionar o aluno', error)
     }
+  }
+
+  private persistRefreshToken(refreshToken: string) {
+    const tokenPath = join(process.cwd(), '.google-token.json')
+    try {
+      writeFileSync(tokenPath, JSON.stringify({ refresh_token: refreshToken, updatedAt: new Date().toISOString() }, null, 2))
+    } catch (err) {
+      this.logger.warn(`Não foi possível salvar .google-token.json: ${(err as Error).message}`)
+    }
+
+    const envPath = join(process.cwd(), '.env')
+    if (existsSync(envPath)) {
+      try {
+        let content = readFileSync(envPath, 'utf8')
+        if (/^GOOGLE_REFRESH_TOKEN=.*$/m.test(content)) {
+          content = content.replace(/^GOOGLE_REFRESH_TOKEN=.*$/m, `GOOGLE_REFRESH_TOKEN=${refreshToken}`)
+        } else {
+          content += `\nGOOGLE_REFRESH_TOKEN=${refreshToken}\n`
+        }
+        writeFileSync(envPath, content, 'utf8')
+      } catch (err) {
+        this.logger.warn(`Não foi possível atualizar .env: ${(err as Error).message}`)
+      }
+    }
+  }
+
+  private getPersistedRefreshToken(): string | null {
+    const envToken = this.config.get<string>('googleRefreshToken')?.trim()
+    if (envToken) return envToken
+
+    const tokenPath = join(process.cwd(), '.google-token.json')
+    if (existsSync(tokenPath)) {
+      try {
+        const data = JSON.parse(readFileSync(tokenPath, 'utf8'))
+        if (typeof data.refresh_token === 'string' && data.refresh_token.trim()) {
+          return data.refresh_token.trim()
+        }
+      } catch {
+        // ignora erro de leitura/parse
+      }
+    }
+    return null
   }
 
   private getClient(): classroom_v1.Classroom {

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core'
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute } from '@angular/router'
 import { finalize } from 'rxjs'
@@ -20,7 +20,12 @@ interface ClassroomRoom {
   updatedAt: string
 }
 
-interface GoogleStatus { configured: boolean; message: string | null }
+interface GoogleStatus {
+  configured: boolean
+  authType?: 'oauth2' | 'service_account' | null
+  authUrl?: string | null
+  message: string | null
+}
 interface ImportResponse { total: number; sucesso: number; ignorados: number; erros: number }
 
 @Component({
@@ -35,16 +40,45 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
           <h1 id="classroom-title">Google Classroom</h1>
           <p>Crie salas e sincronize docentes e alunos usando a integração institucional do Google Workspace.</p>
         </div>
-        <button class="button button-secondary" type="button" (click)="testConnection()" [disabled]="isTesting">
+        <button class="button button-secondary" type="button" (click)="testConnection()" [disabled]="isTesting || !googleStatus?.configured">
           {{ isTesting ? 'Verificando…' : 'Verificar conexão Google' }}
         </button>
       </header>
 
-      <p class="classroom-connection" [class.classroom-connection-ok]="googleStatus?.configured" [class.error-message]="googleStatus && !googleStatus.configured" role="status">
-        @if (googleStatus?.configured) { Integração Google configurada. A verificação consulta os cursos ativos do Classroom. }
-        @else { {{ googleStatus?.message || 'Verificando a configuração Google…' }} }
-      </p>
-      @if (connectionMessage) { <p class="classroom-connection" role="status">{{ connectionMessage }}</p> }
+      <div class="classroom-connection" [class.classroom-connection-ok]="googleStatus?.configured" [class.error-message]="googleStatus && !googleStatus.configured" role="status">
+        <div class="classroom-connection-info">
+          @if (googleStatus?.configured) {
+            Integração Google configurada {{ googleStatus?.authType === 'oauth2' ? '(via OAuth 2.0)' : '(via Conta de Serviço)' }}. A verificação consulta os cursos ativos do Classroom.
+          } @else {
+            {{ googleStatus?.message || 'Verificando a configuração Google…' }}
+          }
+        </div>
+        @if (!googleStatus?.configured && googleStatus?.authUrl) {
+          <div class="classroom-oauth-actions">
+            <button class="button button-primary" type="button" (click)="connectGoogle()">
+              Conectar conta Google Workspace
+            </button>
+            <button class="button button-text" type="button" (click)="toggleCodeInput()">
+              {{ showCodeInput ? 'Ocultar código manual' : 'Inserir código manualmente' }}
+            </button>
+          </div>
+        }
+      </div>
+
+      @if (showCodeInput && !googleStatus?.configured) {
+        <div class="card card-outlined classroom-code-box">
+          <h3>Autorização manual do Google</h3>
+          <p>Clique em "Conectar conta Google Workspace", faça login com a conta institucional e cole o código de autorização abaixo:</p>
+          <div class="classroom-code-form">
+            <input class="field-control" placeholder="Cole o código de autorização aqui (ex: 4/0A...)" [(ngModel)]="authCode" />
+            <button class="button button-secondary" type="button" (click)="submitAuthCode()" [disabled]="isSubmittingCode || !authCode.trim()">
+              {{ isSubmittingCode ? 'Validando…' : 'Vincular código' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (connectionMessage) { <p class="classroom-connection classroom-connection-ok" role="status">{{ connectionMessage }}</p> }
       @if (errorMessage) { <p class="error-message" role="alert">{{ errorMessage }}</p> }
 
       <section class="card card-outlined classroom-section" aria-labelledby="create-room-title">
@@ -108,8 +142,15 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     .classroom-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; }
     .classroom-form-wide { grid-column: span 2; }
     .classroom-submit { justify-self: start; }
-    .classroom-connection { margin: 0; padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 8px; }
+    .classroom-connection { margin: 0; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+    .classroom-connection-info { flex: 1; min-width: 260px; }
     .classroom-connection-ok { border-color: var(--color-action-green); }
+    .classroom-oauth-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .classroom-code-box { display: grid; gap: 12px; padding: 16px; margin-top: -12px; border-color: var(--color-border); }
+    .classroom-code-box h3 { margin: 0; font-size: 16px; }
+    .classroom-code-box p { margin: 0; font-size: 14px; color: var(--color-text-secondary); }
+    .classroom-code-form { display: flex; gap: 10px; max-width: 650px; }
+    .classroom-code-form input { flex: 1; }
     .classroom-room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
     .classroom-room { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: 8px; }
     .classroom-room h3 { font-size: 18px; }.classroom-room-title p { color: var(--color-text-secondary); font-size: 14px; }
@@ -120,7 +161,7 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     @media (max-width: 520px) { .classroom-form { grid-template-columns: 1fr; }.classroom-list-header, .classroom-room-title { flex-direction: column; }.classroom-submit { width: 100%; } }
   `],
 })
-export class ClassroomPageComponent implements OnInit {
+export class ClassroomPageComponent implements OnInit, OnDestroy {
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>
   readonly roomForm = {
     semester: this.currentSemester(), academicCourseId: '', subjectId: '', classGroup: '', subjectName: '', teacherEmail: '',
@@ -137,6 +178,10 @@ export class ClassroomPageComponent implements OnInit {
   isUploading = false
   isTesting = false
   syncingRoomId: string | null = null
+  showCodeInput = false
+  authCode = ''
+  isSubmittingCode = false
+  private messageListener?: (event: MessageEvent) => void
 
   constructor(
     private readonly http: HttpClient,
@@ -151,8 +196,59 @@ export class ClassroomPageComponent implements OnInit {
     this.roomForm.classGroup = params.get('classGroup') || ''
     this.roomForm.subjectName = params.get('subjectName') || ''
     this.roomForm.teacherEmail = params.get('teacherEmail') || ''
+
+    if (params.get('googleConnected') === 'true') {
+      this.connectionMessage = 'Conta Google vinculada com sucesso ao UniCore!'
+    }
+
+    this.messageListener = (event: MessageEvent) => {
+      if (event.data?.type === 'google-auth-success') {
+        this.connectionMessage = 'Conta Google vinculada com sucesso!'
+        this.loadStatus()
+        this.loadRooms()
+      } else if (event.data?.type === 'google-auth-error') {
+        this.errorMessage = `Erro ao autorizar Google: ${event.data.error}`
+      }
+    }
+    window.addEventListener('message', this.messageListener)
+
     this.loadStatus()
     this.loadRooms()
+  }
+
+  ngOnDestroy(): void {
+    if (this.messageListener) {
+      window.removeEventListener('message', this.messageListener)
+    }
+  }
+
+  connectGoogle(): void {
+    if (!this.googleStatus?.authUrl) return
+    window.open(this.googleStatus.authUrl, 'googleAuth', 'width=600,height=700,status=yes,scrollbars=yes')
+  }
+
+  toggleCodeInput(): void {
+    this.showCodeInput = !this.showCodeInput
+  }
+
+  submitAuthCode(): void {
+    if (!this.authCode.trim()) return
+    this.isSubmittingCode = true
+    this.errorMessage = ''
+    this.http.post<{ success: boolean; message: string }>('/api/classroom/google/exchange-code', { code: this.authCode.trim() })
+      .pipe(finalize(() => { this.isSubmittingCode = false }))
+      .subscribe({
+        next: (res) => {
+          this.connectionMessage = res.message || 'Conta Google autenticada com sucesso!'
+          this.authCode = ''
+          this.showCodeInput = false
+          this.loadStatus()
+          this.loadRooms()
+        },
+        error: (err) => {
+          this.errorMessage = err.error?.message || 'Código de autorização inválido ou expirado.'
+        },
+      })
   }
 
   loadStatus(): void {

@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "google:auth": "node scripts/google-auth.mjs",
     "preview": "ng serve --configuration production --proxy-config apps/frontend/proxy.conf.json"
   },
   "prisma": {
