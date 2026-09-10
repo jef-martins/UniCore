@@ -213,7 +213,10 @@ export class LayoutShellComponent {
     { 
       href: '/professor', 
       label: 'Professor',
-      children: [{ href: '/professor/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/professor/agenda', label: 'Agenda' },
+        { href: '/professor/reservas', label: 'Reserva de Itens' }
+      ]
     },
     { 
       href: '/aluno', 
@@ -234,6 +237,7 @@ export class LayoutShellComponent {
           ]
         },
         { href: '/administracao/agenda', label: 'Agenda' },
+        { href: '/administracao/reservas', label: 'Reserva de Itens' },
         {
           href: '/administracao/cadastros',
           label: 'Cadastros',
@@ -248,6 +252,7 @@ export class LayoutShellComponent {
       label: 'Desenvolvedor',
       children: [
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
+        { href: '/desenvolvedor/reservas', label: 'Reserva de Itens' },
         {
           href: '/desenvolvedor/cadastros',
           label: 'Cadastros',

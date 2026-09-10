@@ -135,6 +135,42 @@ export const appRoutes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['master'] },
         title: 'UniCore | Cadastro de Usuário',
+      },
+      {
+        path: 'administracao/reservas',
+        loadComponent: () => import('./pages/item-reservation-page.component').then(m => m.ItemReservationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Reserva de Itens',
+      },
+      {
+        path: 'administracao/reserva',
+        redirectTo: 'administracao/reservas',
+        pathMatch: 'full',
+      },
+      {
+        path: 'desenvolvedor/reservas',
+        loadComponent: () => import('./pages/item-reservation-page.component').then(m => m.ItemReservationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Reserva de Itens',
+      },
+      {
+        path: 'desenvolvedor/reserva',
+        redirectTo: 'desenvolvedor/reservas',
+        pathMatch: 'full',
+      },
+      {
+        path: 'professor/reservas',
+        loadComponent: () => import('./pages/item-reservation-page.component').then(m => m.ItemReservationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['professor', 'admin', 'master'] },
+        title: 'UniCore | Reserva de Itens',
+      },
+      {
+        path: 'professor/reserva',
+        redirectTo: 'professor/reservas',
+        pathMatch: 'full',
       }
     ],
   },

@@ -47,6 +47,7 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   tasks        Task[]
+  reservations ItemReservation[]
 
   @@map("users")
 }
@@ -87,4 +88,51 @@ model ClassroomRoom {
   @@unique([academicCourseId, subjectId, classGroup, semester])
   @@index([semester, academicCourseId])
   @@map("classroom_rooms")
+}
+
+enum ItemStatus {
+  AVAILABLE
+  RESERVED
+  MAINTENANCE
+}
+
+enum ReservationStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model ReservableItem {
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String
+  category     String
+  code         String            @unique
+  location     String
+  description  String?
+  status       ItemStatus        @default(AVAILABLE)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  reservations ItemReservation[]
+
+  @@map("reservable_items")
+}
+
+model ItemReservation {
+  id            String            @id @default(uuid()) @db.Uuid
+  itemId        String            @map("item_id") @db.Uuid
+  item          ReservableItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId        String?           @map("user_id") @db.Uuid
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  requesterName String            @map("requester_name")
+  department    String
+  startDate     DateTime          @map("start_date")
+  endDate       DateTime          @map("end_date")
+  purpose       String
+  notes         String?
+  status        ReservationStatus @default(ACTIVE)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@index([itemId, startDate, endDate])
+  @@map("item_reservations")
 }
