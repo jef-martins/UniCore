@@ -16,6 +16,8 @@ export interface DetailedTask {
   isOverdue: boolean
   createdAt: string
   completedAt?: string | null
+  resolutionTimeMinutes?: number | null
+  resolutionTimeHours?: number | null
   hasBriefing: boolean
   attachmentName?: string | null
   hasEvidence: boolean
@@ -35,6 +37,8 @@ export interface SectorStat {
   overdue: number
   priority: number
   resolutionRate: number
+  avgResolutionTimeHours?: number
+  avgResolutionTimeMinutes?: number
 }
 
 export interface PriorityBreakdown {
@@ -49,6 +53,14 @@ export interface UserRankStat {
   totalAssigned?: number
   completed: number
   rate?: number
+  avgResolutionTimeHours?: number
+  avgResolutionTimeMinutes?: number
+}
+
+export interface UserItem {
+  id: string
+  username: string
+  role: string
 }
 
 export interface DashboardOverview {
@@ -61,6 +73,7 @@ export interface DashboardOverview {
   priorityResolvedTasks: number
   resolutionRate: number
   avgResolutionTimeHours: number
+  avgResolutionTimeMinutes?: number
   tasksWithBriefing: number
   tasksWithEvidence: number
   sharedSectorTasks: number
@@ -75,6 +88,7 @@ export interface FullDashboardStats {
   byPriority: PriorityBreakdown
   topCreators: UserRankStat[]
   topAssignees: UserRankStat[]
+  users: UserItem[]
   tasks: DetailedTask[]
 }
 
@@ -93,7 +107,7 @@ export interface FullDashboardStats {
           </div>
           <h1 class="page-title">Relatório de Agenda & Tarefas</h1>
           <p class="page-description">
-            Quantificação consolidada, análise de produtividade, conformidade de SLA e tempos de resolução por setor.
+            Quantificação consolidada, análise de produtividade, conformidade de SLA e médias de resolução por setor e pessoa.
           </p>
         </div>
         <div class="header-actions">
@@ -174,15 +188,15 @@ export interface FullDashboardStats {
               </div>
             </div>
 
-            <!-- Lead Time Médio -->
+            <!-- Lead Time Médio Geral -->
             <div class="kpi-card card card-elevated">
               <div class="kpi-header">
-                <span class="kpi-label">Lead Time Médio</span>
+                <span class="kpi-label">Lead Time Geral</span>
                 <span class="kpi-icon icon-purple">⚡</span>
               </div>
-              <div class="kpi-value">{{ formatLeadTime(stats.overview.avgResolutionTimeHours) }}</div>
+              <div class="kpi-value">{{ formatDuration(stats.overview.avgResolutionTimeHours) }}</div>
               <div class="kpi-subtext">
-                <span>Tempo médio de entrega</span>
+                <span>Tempo médio global de entrega</span>
               </div>
             </div>
 
@@ -227,7 +241,213 @@ export interface FullDashboardStats {
             </div>
           </section>
 
-          <!-- 3. PAINÉIS DE DESEMPENHO POR SETOR E RANKING DE USUÁRIOS -->
+          <!-- 3. SEÇÃO INTERATIVA: MÉDIA DE RESOLUÇÃO POR PESSOA E POR SETOR (COM SELECTBOXES) -->
+          <section class="card card-outlined resolution-analyzer-card">
+            <div class="resolution-card-header">
+              <div class="resolution-title-group">
+                <div class="section-tag">
+                  <span>⏱️ Análise de Lead Time</span>
+                </div>
+                <h2 class="panel-title">Média de Resolução de Tarefas por Setor e Pessoa</h2>
+                <p class="panel-subtitle">
+                  Selecione o setor e/ou uma pessoa específica para calcular o tempo médio de atendimento e auditar a resolução de cada demanda.
+                </p>
+              </div>
+
+              <!-- SELECTBOXES EXIGIDOS -->
+              <div class="resolution-controls">
+                
+                <!-- Selectbox 1: Setor -->
+                <div class="control-group">
+                  <label class="control-label" for="res-sector-select">Setor:</label>
+                  <select
+                    id="res-sector-select"
+                    class="select-control highlight-select"
+                    [ngModel]="resolutionSector()"
+                    (ngModelChange)="onResolutionSectorChange($event)"
+                  >
+                    <option value="ALL">🌐 Todos os Setores</option>
+                    @for (sec of stats.bySector; track sec.type) {
+                      <option [value]="sec.type">{{ sec.label }}</option>
+                    }
+                  </select>
+                </div>
+
+                <!-- Selectbox 2: Pessoa / Usuário -->
+                <div class="control-group">
+                  <label class="control-label" for="res-user-select">Pessoa / Responsável:</label>
+                  <select
+                    id="res-user-select"
+                    class="select-control highlight-select"
+                    [ngModel]="resolutionUser()"
+                    (ngModelChange)="onResolutionUserChange($event)"
+                  >
+                    <option value="ALL">👤 Todas as Pessoas</option>
+                    <option value="__SHARED__">👥 Fila Coletiva (Sem Atribuição)</option>
+                    @for (u of stats.users; track u.id) {
+                      <option [value]="u.username">{{ u.username }} ({{ u.role }})</option>
+                    }
+                  </select>
+                </div>
+
+                @if (resolutionSector() !== 'ALL' || resolutionUser() !== 'ALL') {
+                  <button
+                    type="button"
+                    class="button button-secondary btn-sm reset-res-btn"
+                    (click)="resetResolutionFilter()"
+                    title="Restaurar visão geral"
+                  >
+                    ✕ Limpar Seleção
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- Mini Cards com os Resultados do Filtro de Resolução -->
+            <div class="resolution-kpi-grid">
+              
+              <!-- Média de Resolução do Filtro -->
+              <div class="res-stat-card highlight">
+                <div class="res-stat-header">
+                  <span class="res-stat-label">Tempo Médio de Resolução</span>
+                  <span class="res-icon">⚡</span>
+                </div>
+                <div class="res-stat-value main-lead-value">{{ resolutionAnalysis().formattedAvg }}</div>
+                <div class="res-stat-sub">
+                  @if (resolutionAnalysis().diffVsGlobal; as diff) {
+                    @if (diff.isFaster) {
+                      <span class="badge badge-success-soft">⚡ {{ diff.percent }}% mais rápido que a média geral</span>
+                    } @else {
+                      <span class="badge badge-amber-soft">🐢 {{ diff.percent }}% acima da média geral</span>
+                    }
+                  } @else if (resolutionAnalysis().totalCompleted > 0) {
+                    <span class="text-muted">Média baseada nas tarefas concluídas</span>
+                  } @else {
+                    <span class="text-muted">Nenhuma tarefa resolvida no filtro</span>
+                  }
+                </div>
+              </div>
+
+              <!-- Concluídas / Avaliadas -->
+              <div class="res-stat-card">
+                <div class="res-stat-header">
+                  <span class="res-stat-label">Concluídas no Filtro</span>
+                  <span class="res-icon">🎯</span>
+                </div>
+                <div class="res-stat-value">{{ resolutionAnalysis().totalCompleted }}</div>
+                <div class="res-stat-sub">
+                  <span>de {{ resolutionAnalysis().totalScope }} demandas ({{ resolutionAnalysis().completionRate }}% taxa)</span>
+                </div>
+              </div>
+
+              <!-- Resolução Mais Rápida -->
+              <div class="res-stat-card">
+                <div class="res-stat-header">
+                  <span class="res-stat-label">Mais Rápida (Menor Tempo)</span>
+                  <span class="res-icon">🚀</span>
+                </div>
+                @if (resolutionAnalysis().fastestTask; as fast) {
+                  <div class="res-stat-value text-green">{{ formatDuration(fast.resolutionTimeHours) }}</div>
+                  <div class="res-stat-sub text-truncate" [title]="fast.title">
+                    <span>{{ fast.title }}</span>
+                  </div>
+                } @else {
+                  <div class="res-stat-value text-muted">-</div>
+                  <div class="res-stat-sub"><span>Sem registros</span></div>
+                }
+              </div>
+
+              <!-- Resolução Mais Longa -->
+              <div class="res-stat-card">
+                <div class="res-stat-header">
+                  <span class="res-stat-label">Mais Demorada (Maior Tempo)</span>
+                  <span class="res-icon">⏳</span>
+                </div>
+                @if (resolutionAnalysis().slowestTask; as slow) {
+                  <div class="res-stat-value text-amber">{{ formatDuration(slow.resolutionTimeHours) }}</div>
+                  <div class="res-stat-sub text-truncate" [title]="slow.title">
+                    <span>{{ slow.title }}</span>
+                  </div>
+                } @else {
+                  <div class="res-stat-value text-muted">-</div>
+                  <div class="res-stat-sub"><span>Sem registros</span></div>
+                }
+              </div>
+
+            </div>
+
+            <!-- Tabela com Tempo de Resolução de Cada Tarefa do Recorte -->
+            @if (resolutionAnalysis().tasks.length > 0) {
+              <div class="tasks-resolution-table-wrapper">
+                <div class="table-subheading">
+                  <h3 class="panel-title-sm">
+                    Tempo de Resolução de Cada Tarefa no Recorte ({{ resolutionAnalysis().tasks.length }} concluídas)
+                  </h3>
+                  <span class="table-sub-note">Ordenado da mais rápida para a mais longa</span>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="data-table mini-table">
+                    <thead>
+                      <tr>
+                        <th>Demanda</th>
+                        <th>Setor</th>
+                        <th>Responsável</th>
+                        <th>Criação</th>
+                        <th>Conclusão</th>
+                        <th>Tempo de Resolução</th>
+                        <th>Conformidade SLA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of resolutionAnalysis().tasks; track item.id) {
+                        <tr>
+                          <td>
+                            <div class="task-mini-info">
+                              <strong>{{ item.title }}</strong>
+                              @if (item.isPriority) {
+                                <span class="badge badge-pink-soft">🔥 Alta</span>
+                              }
+                            </div>
+                          </td>
+                          <td><span class="sector-tag">{{ item.typeLabel }}</span></td>
+                          <td>
+                            @if (item.isShared) {
+                              <span class="badge badge-blue-soft">👥 Fila Setorial</span>
+                            } @else if (item.user) {
+                              <span class="user-pill">{{ item.user.username }}</span>
+                            } @else {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                          <td><span class="date-text">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                          <td><span class="date-text text-green">{{ item.completedAt | date:'dd/MM/yyyy HH:mm' }}</span></td>
+                          <td>
+                            <span class="badge badge-res-time" title="Tempo decorrido entre criação e entrega">
+                              ⏱️ {{ formatDuration(item.resolutionTimeHours) }}
+                            </span>
+                          </td>
+                          <td>
+                            @if (item.isOverdue) {
+                              <span class="badge badge-danger">Entregue com atraso</span>
+                            } @else {
+                              <span class="badge badge-success">No prazo</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            } @else {
+              <div class="no-res-data">
+                <p>Nenhuma tarefa concluída encontrada para a combinação de setor e pessoa selecionada.</p>
+              </div>
+            }
+          </section>
+
+          <!-- 4. PAINÉIS DE DESEMPENHO POR SETOR E RANKING DE USUÁRIOS -->
           <div class="analytics-row">
             
             <!-- Desempenho por Setor -->
@@ -235,7 +455,7 @@ export interface FullDashboardStats {
               <div class="panel-header">
                 <div>
                   <h2 class="panel-title">Desempenho por Setor</h2>
-                  <p class="panel-subtitle">Volume, índice de resolução e gargalos de cada departamento.</p>
+                  <p class="panel-subtitle">Volume, taxa de resolução e lead time médio por departamento.</p>
                 </div>
               </div>
 
@@ -245,6 +465,11 @@ export interface FullDashboardStats {
                     <div class="sector-bar-header">
                       <div class="sector-name-group">
                         <span class="sector-title">{{ sec.label }}</span>
+                        @if (sec.avgResolutionTimeHours && sec.avgResolutionTimeHours > 0) {
+                          <span class="badge badge-purple-soft" title="Tempo médio de resolução deste setor">
+                            ⏱️ Média: {{ formatDuration(sec.avgResolutionTimeHours) }}
+                          </span>
+                        }
                         @if (sec.overdue > 0) {
                           <span class="badge badge-danger-soft">{{ sec.overdue }} atrasadas</span>
                         }
@@ -272,7 +497,7 @@ export interface FullDashboardStats {
               <!-- Top Responsáveis -->
               <section class="card card-outlined panel-section">
                 <div class="panel-header">
-                  <h3 class="panel-title-sm">Top Responsáveis (Entregas)</h3>
+                  <h3 class="panel-title-sm">Top Responsáveis (Entregas & Média)</h3>
                 </div>
                 <div class="rank-list">
                   @for (usr of stats.topAssignees; track usr.username; let i = $index) {
@@ -281,7 +506,12 @@ export interface FullDashboardStats {
                         <span class="rank-badge" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
                           {{ i + 1 }}º
                         </span>
-                        <span class="rank-name">{{ usr.username }}</span>
+                        <div>
+                          <span class="rank-name">{{ usr.username }}</span>
+                          @if (usr.avgResolutionTimeHours && usr.avgResolutionTimeHours > 0) {
+                            <small class="user-lead-time">⏱️ Média: {{ formatDuration(usr.avgResolutionTimeHours) }}</small>
+                          }
+                        </div>
                       </div>
                       <div class="rank-stat">
                         <span class="rank-count">{{ usr.completed }} / {{ usr.totalAssigned }}</span>
@@ -318,12 +548,12 @@ export interface FullDashboardStats {
 
           </div>
 
-          <!-- 4. TABELA INTELIGENTE COM FILTROS E BUSCA -->
+          <!-- 5. TABELA INTELIGENTE COM FILTROS E BUSCA -->
           <section class="card card-outlined table-section">
             <div class="table-section-header">
               <div>
                 <h2 class="panel-title">Detalhamento e Rastreabilidade de Tarefas</h2>
-                <p class="panel-subtitle">Lista operacional com monitoramento de prazos, anexos e evidências.</p>
+                <p class="panel-subtitle">Lista operacional com monitoramento de prazos, tempo de resolução e evidências.</p>
               </div>
 
               <div class="results-badge">
@@ -378,8 +608,10 @@ export interface FullDashboardStats {
                 </button>
               </div>
 
-              <!-- Filtro por Setor e Busca -->
+              <!-- Filtro por Setor, Pessoa e Busca -->
               <div class="filter-inputs">
+                
+                <!-- Filtro Setor na Tabela -->
                 <select
                   class="select-control"
                   [ngModel]="selectedSector()"
@@ -389,6 +621,20 @@ export interface FullDashboardStats {
                   <option value="ALL">Todos os Setores</option>
                   @for (sec of stats.bySector; track sec.type) {
                     <option [value]="sec.type">{{ sec.label }}</option>
+                  }
+                </select>
+
+                <!-- Filtro Pessoa na Tabela -->
+                <select
+                  class="select-control"
+                  [ngModel]="selectedUser()"
+                  (ngModelChange)="onUserChange($event)"
+                  aria-label="Filtrar por responsável"
+                >
+                  <option value="ALL">Todos os Responsáveis</option>
+                  <option value="__SHARED__">👥 Fila Coletiva</option>
+                  @for (u of stats.users; track u.id) {
+                    <option [value]="u.username">{{ u.username }}</option>
                   }
                 </select>
 
@@ -419,6 +665,7 @@ export interface FullDashboardStats {
                     <th>Responsável</th>
                     <th>Criador</th>
                     <th>Data Agendada</th>
+                    <th>Tempo de Resolução</th>
                     <th>Status & SLA</th>
                     <th>Evidências</th>
                   </tr>
@@ -471,6 +718,19 @@ export interface FullDashboardStats {
                         <span class="date-text">{{ task.date | date:'dd/MM/yyyy' }}</span>
                       </td>
 
+                      <!-- Tempo de Resolução -->
+                      <td>
+                        @if (task.completed && task.resolutionTimeHours != null && task.resolutionTimeHours > 0) {
+                          <span class="badge badge-res-time" title="Tempo total gasto até a conclusão">
+                            ⏱️ {{ formatDuration(task.resolutionTimeHours) }}
+                          </span>
+                        } @else if (task.completed) {
+                          <span class="badge badge-success-soft">Concluída</span>
+                        } @else {
+                          <span class="text-muted">Em andamento</span>
+                        }
+                      </td>
+
                       <!-- Status & SLA -->
                       <td>
                         @if (task.completed) {
@@ -506,11 +766,11 @@ export interface FullDashboardStats {
                     </tr>
                   } @empty {
                     <tr>
-                      <td colspan="7" class="empty-row">
+                      <td colspan="8" class="empty-row">
                         <div class="empty-state">
                           <span class="empty-icon">🔎</span>
                           <h4>Nenhuma tarefa corresponde aos filtros aplicados</h4>
-                          <p>Tente alterar o status, limpar a busca ou selecionar outro setor.</p>
+                          <p>Tente alterar o status, limpar a busca ou selecionar outro setor/responsável.</p>
                           <button class="button button-secondary btn-sm" type="button" (click)="resetFilters()">
                             Redefinir Filtros
                           </button>
@@ -656,38 +916,40 @@ export interface FullDashboardStats {
     .kpi-progress {
       height: 4px;
       background: rgba(255, 255, 255, 0.08);
-      border-radius: 999px;
+      border-radius: 2px;
       overflow: hidden;
-      margin: 4px 0;
+      margin-top: 2px;
     }
 
-    .progress-bar {
+    .kpi-progress .progress-bar {
       height: 100%;
-      background: #49D17D;
-      border-radius: 999px;
-      transition: width 0.5s ease-out;
+      background: linear-gradient(90deg, #10b981, #49D17D);
+      border-radius: 2px;
+      transition: width 0.6s ease;
     }
 
     .kpi-subtext {
       font-size: 0.75rem;
-      color: var(--color-text-secondary, #8fa093);
+      color: var(--color-text-secondary, #B9C3BC);
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .alert-text { color: #FF7A7A; font-weight: 600; }
-    .ok-text { color: #49D17D; }
+    .ok-text { color: #49D17D; font-weight: 500; }
 
-    /* Audit Strip */
+    /* Mini Auditoria */
     .audit-strip {
+      background: rgba(24, 29, 26, 0.7);
+      border: 1px solid var(--color-border, #2e3831);
+      border-radius: 10px;
+      padding: 0.85rem 1.25rem;
       display: flex;
       align-items: center;
       justify-content: space-around;
-      padding: 0.85rem 1.5rem;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--color-border, #2e3831);
-      border-radius: 10px;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
       gap: 1rem;
+      margin-bottom: 1.5rem;
     }
 
     .audit-item {
@@ -696,26 +958,229 @@ export interface FullDashboardStats {
       gap: 10px;
     }
 
-    .audit-icon {
-      font-size: 1.25rem;
+    .audit-icon { font-size: 1.3rem; }
+    .audit-text { display: flex; flex-direction: column; }
+    .audit-text strong { font-size: 0.85rem; color: #fff; }
+    .audit-sub { font-size: 0.75rem; color: var(--color-text-secondary, #B9C3BC); }
+    .audit-divider { width: 1px; height: 32px; background: rgba(255, 255, 255, 0.1); }
+
+    /* NOVO: SEÇÃO DE RESOLUÇÃO POR SETOR E PESSOA */
+    .resolution-analyzer-card {
+      background: linear-gradient(180deg, rgba(30, 41, 35, 0.85), var(--color-surface, #181D1A));
+      border: 1px solid rgba(73, 209, 125, 0.3);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     }
 
-    .audit-text {
+    .resolution-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 1.25rem;
+    }
+
+    .resolution-title-group {
+      max-width: 620px;
+    }
+
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #38EF7D;
+      background: rgba(56, 239, 125, 0.12);
+      border: 1px solid rgba(56, 239, 125, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+
+    .resolution-controls {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
       display: flex;
       flex-direction: column;
-      font-size: 0.82rem;
-      color: var(--color-text-primary, #F5F7F4);
+      gap: 4px;
     }
 
-    .audit-sub {
+    .control-label {
       font-size: 0.75rem;
-      color: var(--color-text-secondary, #8fa093);
+      font-weight: 600;
+      color: var(--color-text-secondary, #B9C3BC);
     }
 
-    .audit-divider {
-      width: 1px;
-      height: 28px;
-      background: var(--color-border, #2e3831);
+    .highlight-select {
+      border-color: rgba(73, 209, 125, 0.4) !important;
+      background: rgba(20, 26, 22, 0.95) !important;
+      min-width: 210px;
+      font-weight: 600;
+      color: #fff !important;
+    }
+
+    .highlight-select:focus {
+      border-color: #49D17D !important;
+      box-shadow: 0 0 0 2px rgba(73, 209, 125, 0.25);
+    }
+
+    .reset-res-btn {
+      margin-bottom: 2px;
+      height: 38px;
+      color: #FF7A7A !important;
+      border-color: rgba(255, 122, 122, 0.3) !important;
+    }
+
+    .reset-res-btn:hover {
+      background: rgba(255, 122, 122, 0.1) !important;
+    }
+
+    /* Grid de KPIs da Resolução */
+    .resolution-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .res-stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .res-stat-card.highlight {
+      background: linear-gradient(135deg, rgba(73, 209, 125, 0.12), rgba(20, 30, 24, 0.6));
+      border-color: rgba(73, 209, 125, 0.35);
+    }
+
+    .res-stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .res-stat-label {
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-secondary, #B9C3BC);
+    }
+
+    .res-icon { font-size: 1rem; }
+
+    .res-stat-value {
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .main-lead-value {
+      color: #38EF7D !important;
+      font-size: 2rem;
+    }
+
+    .res-stat-sub {
+      font-size: 0.76rem;
+      color: var(--color-text-secondary, #B9C3BC);
+    }
+
+    .text-green { color: #49D17D !important; }
+    .text-amber { color: #F5A623 !important; }
+
+    .text-truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    .tasks-resolution-table-wrapper {
+      margin-top: 1.25rem;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .table-subheading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .table-subheading h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .table-sub-note {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary, #B9C3BC);
+    }
+
+    .mini-table th {
+      font-size: 0.72rem;
+      padding: 8px 12px;
+    }
+
+    .mini-table td {
+      font-size: 0.82rem;
+      padding: 8px 12px;
+    }
+
+    .badge-res-time {
+      background: rgba(168, 85, 247, 0.15);
+      color: #C084FC;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      font-weight: 700;
+      font-size: 0.78rem;
+    }
+
+    .badge-purple-soft {
+      background: rgba(168, 85, 247, 0.12);
+      color: #D8B4FE;
+      font-size: 0.7rem;
+    }
+
+    .user-lead-time {
+      display: block;
+      font-size: 0.72rem;
+      color: #C084FC;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .no-res-data {
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--color-text-secondary, #B9C3BC);
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
     }
 
     /* Analytics Row */
@@ -726,13 +1191,13 @@ export interface FullDashboardStats {
       flex-wrap: wrap;
     }
 
-    .flex-2 { flex: 2 1 500px; }
-    .flex-1 { flex: 1 1 340px; }
+    .flex-2 { flex: 2; min-width: 320px; }
+    .flex-1 { flex: 1; min-width: 280px; }
 
     .panels-column {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 1.25rem;
     }
 
     .panel-section {
@@ -743,47 +1208,43 @@ export interface FullDashboardStats {
     }
 
     .panel-header {
-      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
     }
 
     .panel-title {
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 700;
-      color: var(--color-text-primary, #F5F7F4);
+      color: #fff;
       margin: 0 0 4px;
     }
 
     .panel-title-sm {
       font-size: 0.95rem;
       font-weight: 700;
-      color: var(--color-text-primary, #F5F7F4);
+      color: #fff;
       margin: 0;
     }
 
     .panel-subtitle {
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       color: var(--color-text-secondary, #B9C3BC);
       margin: 0;
     }
 
-    /* Sector Bars */
+    /* Setores em Barra */
     .sector-bars-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 1rem;
     }
 
     .sector-bar-item {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .sector-bar-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
     }
 
     .sector-bar-header {
@@ -798,11 +1259,12 @@ export interface FullDashboardStats {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .sector-title {
-      font-size: 0.9rem;
       font-weight: 600;
+      font-size: 0.9rem;
       color: var(--color-text-primary, #F5F7F4);
     }
 
@@ -810,35 +1272,33 @@ export interface FullDashboardStats {
       display: flex;
       align-items: center;
       gap: 10px;
+      font-size: 0.82rem;
     }
 
     .sector-counts {
-      font-size: 0.78rem;
-      color: var(--color-text-secondary, #8fa093);
+      color: var(--color-text-secondary, #B9C3BC);
     }
 
     .sector-rate {
-      font-size: 0.85rem;
       color: #49D17D;
-      min-width: 38px;
-      text-align: right;
+      font-weight: 700;
     }
 
     .progress-track {
-      height: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 999px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #3B82F6, #49D17D);
-      border-radius: 999px;
-      transition: width 0.4s ease-out;
+      background: linear-gradient(90deg, #10b981, #49D17D);
+      border-radius: 4px;
+      transition: width 0.7s ease;
     }
 
-    /* Rank List */
+    /* Rankings de Produtividade */
     .rank-list {
       display: flex;
       flex-direction: column;
@@ -849,38 +1309,40 @@ export interface FullDashboardStats {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 10px;
-      background: rgba(255, 255, 255, 0.02);
+      padding: 6px 8px;
       border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.02);
+      transition: background 0.15s ease;
+    }
+
+    .rank-item:hover {
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .rank-user {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .rank-badge {
-      font-size: 0.75rem;
-      font-weight: 700;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
     }
 
-    .rank-badge.gold { background: rgba(245, 166, 35, 0.25); color: #F5A623; border: 1px solid rgba(245, 166, 35, 0.5); }
-    .rank-badge.silver { background: rgba(200, 200, 210, 0.2); color: #E2E8F0; border: 1px solid rgba(200, 200, 210, 0.4); }
-    .rank-badge.bronze { background: rgba(180, 115, 60, 0.25); color: #D97706; border: 1px solid rgba(180, 115, 60, 0.4); }
-    .rank-badge.plain { background: rgba(255, 255, 255, 0.08); color: #A1A1AA; }
+    .rank-badge.gold { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; }
+    .rank-badge.silver { background: linear-gradient(135deg, #9CA3AF, #6B7280); color: #fff; }
+    .rank-badge.bronze { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
+    .rank-badge.plain { background: transparent; color: var(--color-text-secondary, #B9C3BC); }
 
     .rank-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--color-text-primary, #F5F7F4);
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #fff;
     }
 
     .rank-stat {
@@ -890,8 +1352,8 @@ export interface FullDashboardStats {
     }
 
     .rank-count {
-      font-size: 0.78rem;
-      color: var(--color-text-secondary, #8fa093);
+      font-size: 0.8rem;
+      color: var(--color-text-secondary, #B9C3BC);
     }
 
     /* Table Section */
@@ -899,26 +1361,26 @@ export interface FullDashboardStats {
       background: var(--color-surface, #181D1A);
       border: 1px solid var(--color-border, #2e3831);
       border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      padding: 1.5rem;
     }
 
     .table-section-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       margin-bottom: 1.25rem;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 1rem;
     }
 
     .results-badge {
+      background: rgba(73, 209, 125, 0.12);
+      border: 1px solid rgba(73, 209, 125, 0.25);
+      color: #49D17D;
       font-size: 0.78rem;
-      color: var(--color-action-green, #49D17D);
-      background: rgba(73, 209, 125, 0.1);
-      border: 1px solid rgba(73, 209, 125, 0.3);
-      padding: 3px 10px;
-      border-radius: 999px;
       font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
     }
 
     /* Filters Bar */
@@ -938,51 +1400,73 @@ export interface FullDashboardStats {
     }
 
     .chip-btn {
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--color-border, #2e3831);
       color: var(--color-text-secondary, #B9C3BC);
-      padding: 5px 12px;
-      border-radius: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     .chip-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
     }
 
     .chip-btn.active {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.2);
       border-color: rgba(255, 255, 255, 0.4);
       color: #fff;
+      font-weight: 600;
     }
 
-    .chip-btn.chip-amber.active { background: rgba(245, 166, 35, 0.2); border-color: #F5A623; color: #F5A623; }
-    .chip-btn.chip-red.active { background: rgba(255, 122, 122, 0.2); border-color: #FF7A7A; color: #FF7A7A; }
-    .chip-btn.chip-pink.active { background: rgba(236, 72, 153, 0.2); border-color: #EC4899; color: #F472B6; }
-    .chip-btn.chip-green.active { background: rgba(73, 209, 125, 0.2); border-color: #49D17D; color: #49D17D; }
+    .chip-btn.chip-amber.active {
+      background: rgba(245, 166, 35, 0.2);
+      border-color: #F5A623;
+      color: #F5A623;
+    }
+
+    .chip-btn.chip-red.active {
+      background: rgba(255, 122, 122, 0.2);
+      border-color: #FF7A7A;
+      color: #FF7A7A;
+    }
+
+    .chip-btn.chip-pink.active {
+      background: rgba(236, 72, 153, 0.2);
+      border-color: #F472B6;
+      color: #F472B6;
+    }
+
+    .chip-btn.chip-green.active {
+      background: rgba(73, 209, 125, 0.2);
+      border-color: #49D17D;
+      color: #49D17D;
+    }
 
     .filter-inputs {
       display: flex;
-      gap: 8px;
       align-items: center;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     .select-control {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--color-border, #3f4a42);
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--color-border, #2e3831);
       color: var(--color-text-primary, #F5F7F4);
-      padding: 6px 12px;
+      padding: 7px 12px;
       border-radius: 8px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
     }
 
     .select-control:focus {
-      outline: none;
       border-color: var(--color-action-green, #49D17D);
     }
 
@@ -996,132 +1480,159 @@ export interface FullDashboardStats {
       position: absolute;
       left: 10px;
       font-size: 0.85rem;
-      color: var(--color-text-secondary, #B9C3BC);
+      opacity: 0.6;
       pointer-events: none;
     }
 
     .search-input {
-      padding: 6px 26px 6px 28px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--color-border, #3f4a42);
-      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--color-border, #2e3831);
       color: var(--color-text-primary, #F5F7F4);
-      font-size: 0.85rem;
-      min-width: 220px;
+      padding: 7px 28px 7px 30px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      min-width: 240px;
+      outline: none;
+      transition: all 0.15s ease;
     }
 
     .search-input:focus {
-      outline: none;
       border-color: var(--color-action-green, #49D17D);
-      box-shadow: 0 0 0 2px rgba(73, 209, 125, 0.15);
+      background: rgba(0, 0, 0, 0.4);
     }
 
     .clear-search {
       position: absolute;
       right: 8px;
-      background: transparent;
+      background: none;
       border: none;
       color: var(--color-text-secondary, #B9C3BC);
+      font-size: 0.85rem;
       cursor: pointer;
-      font-size: 0.8rem;
+      padding: 0;
     }
 
-    /* Table Styles */
+    /* Table */
     .table-responsive {
       overflow-x: auto;
+      border-radius: 8px;
     }
 
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      text-align: left;
       font-size: 0.85rem;
     }
 
     .data-table th {
+      text-align: left;
       padding: 10px 14px;
-      background: rgba(0, 0, 0, 0.25);
       color: var(--color-text-secondary, #B9C3BC);
       font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       border-bottom: 1px solid var(--color-border, #2e3831);
+      background: rgba(0, 0, 0, 0.15);
       white-space: nowrap;
     }
 
     .data-table td {
       padding: 12px 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       vertical-align: middle;
     }
 
-    .data-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+    .data-table tbody tr {
+      transition: background 0.15s ease;
     }
 
-    .row-overdue td {
-      background: rgba(255, 122, 122, 0.02);
+    .data-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
     }
 
+    .row-overdue {
+      background: rgba(255, 122, 122, 0.03);
+    }
+
+    .row-overdue:hover {
+      background: rgba(255, 122, 122, 0.06) !important;
+    }
+
+    .row-priority {
+      border-left: 3px solid #F472B6;
+    }
+
+    /* Cell Components */
     .task-title-cell {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      max-width: 280px;
     }
 
     .title-line {
       display: flex;
       align-items: center;
       gap: 6px;
-      flex-wrap: wrap;
+      color: #fff;
     }
 
     .task-desc {
-      color: var(--color-text-secondary, #8fa093);
+      color: var(--color-text-secondary, #B9C3BC);
       font-size: 0.78rem;
-      max-width: 360px;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+    }
+
+    .task-mini-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #fff;
     }
 
     .priority-badge {
       font-size: 0.7rem;
       font-weight: 700;
-      background: rgba(236, 72, 153, 0.15);
       color: #F472B6;
+      background: rgba(236, 72, 153, 0.15);
       border: 1px solid rgba(236, 72, 153, 0.35);
-      padding: 1px 6px;
+      padding: 1px 5px;
       border-radius: 4px;
     }
 
     .attachment-pill {
       font-size: 0.8rem;
-      cursor: help;
+      opacity: 0.85;
+      cursor: default;
     }
 
     .sector-tag {
       font-size: 0.75rem;
       font-weight: 600;
-      color: var(--color-text-secondary, #B9C3BC);
-      background: rgba(255, 255, 255, 0.06);
       padding: 2px 8px;
       border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #D4D4D8;
       white-space: nowrap;
     }
 
     .user-pill {
       font-size: 0.82rem;
-      font-weight: 600;
-      color: #60A5FA;
+      color: #E4E4E7;
+      font-weight: 500;
     }
 
     .creator-name {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: var(--color-text-secondary, #B9C3BC);
     }
 
     .date-text {
-      font-size: 0.82rem;
-      color: var(--color-text-secondary, #B9C3BC);
+      font-size: 0.8rem;
+      color: #D4D4D8;
       white-space: nowrap;
     }
 
@@ -1131,35 +1642,34 @@ export interface FullDashboardStats {
       gap: 2px;
     }
 
-    .completion-date, .overdue-warn {
-      font-size: 0.72rem;
-      color: var(--color-text-secondary, #8fa093);
+    .completion-date {
+      font-size: 0.7rem;
+      color: #49D17D;
     }
 
-    .overdue-warn { color: #FF7A7A; font-weight: 600; }
+    .overdue-warn {
+      font-size: 0.7rem;
+      color: #FF7A7A;
+      font-weight: 600;
+    }
 
     .evidence-pill {
       font-size: 0.75rem;
-      font-weight: 600;
-      color: #49D17D;
       background: rgba(73, 209, 125, 0.12);
+      color: #49D17D;
       border: 1px solid rgba(73, 209, 125, 0.3);
-      padding: 2px 8px;
-      border-radius: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
       white-space: nowrap;
-      display: inline-block;
     }
 
     .notes-pill {
       font-size: 0.75rem;
-      font-weight: 600;
-      color: #60A5FA;
-      background: rgba(96, 165, 250, 0.12);
-      border: 1px solid rgba(96, 165, 250, 0.3);
-      padding: 2px 8px;
-      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #B9C3BC;
+      padding: 2px 6px;
+      border-radius: 4px;
       white-space: nowrap;
-      display: inline-block;
     }
 
     /* Badges */
@@ -1177,6 +1687,7 @@ export interface FullDashboardStats {
     .badge-danger { background: rgba(255, 122, 122, 0.15); color: #FF7A7A; border: 1px solid rgba(255, 122, 122, 0.35); }
 
     .badge-success-soft { background: rgba(73, 209, 125, 0.1); color: #49D17D; }
+    .badge-amber-soft { background: rgba(245, 166, 35, 0.12); color: #F5A623; }
     .badge-danger-soft { background: rgba(255, 122, 122, 0.12); color: #FF7A7A; font-size: 0.7rem; }
     .badge-pink-soft { background: rgba(236, 72, 153, 0.12); color: #F472B6; font-size: 0.7rem; }
     .badge-blue-soft { background: rgba(59, 130, 246, 0.12); color: #60A5FA; font-size: 0.72rem; }
@@ -1254,6 +1765,10 @@ export interface FullDashboardStats {
       .kpi-grid { grid-template-columns: repeat(2, 1fr); }
       .audit-strip { flex-direction: column; align-items: flex-start; }
       .audit-divider { display: none; }
+      .resolution-card-header { flex-direction: column; }
+      .resolution-controls { width: 100%; flex-direction: column; align-items: stretch; }
+      .highlight-select { width: 100%; min-width: unset; }
+      .resolution-kpi-grid { grid-template-columns: 1fr; }
       .filters-bar { flex-direction: column; align-items: stretch; }
       .filter-inputs { flex-direction: column; align-items: stretch; }
       .search-input { min-width: unset; width: 100%; }
@@ -1264,10 +1779,125 @@ export class DashboardPageComponent implements OnInit {
   stats: FullDashboardStats | null = null
   isLoading = false
 
+  // Filtros da Seção de Resolução (Lead Time)
+  readonly resolutionSector = signal<string>('ALL')
+  readonly resolutionUser = signal<string>('ALL')
+
+  // Filtros da Tabela Geral de Tarefas
   readonly selectedStatus = signal<'ALL' | 'PENDING' | 'OVERDUE' | 'PRIORITY' | 'COMPLETED'>('ALL')
   readonly selectedSector = signal<string>('ALL')
+  readonly selectedUser = signal<string>('ALL')
   readonly searchQuery = signal<string>('')
 
+  // Análise calculada de tempo de resolução por setor e pessoa selecionados
+  readonly resolutionAnalysis = computed(() => {
+    if (!this.stats) {
+      return {
+        totalCompleted: 0,
+        totalScope: 0,
+        completionRate: 0,
+        avgHours: 0,
+        formattedAvg: '-',
+        fastestTask: null as DetailedTask | null,
+        slowestTask: null as DetailedTask | null,
+        diffVsGlobal: null as { percent: number; isFaster: boolean } | null,
+        tasks: [] as DetailedTask[],
+      }
+    }
+
+    const sector = this.resolutionSector()
+    const user = this.resolutionUser()
+
+    // Filtra tarefas no escopo do selecionador
+    let scopeTasks = this.stats.tasks
+    if (sector !== 'ALL') {
+      scopeTasks = scopeTasks.filter((t) => t.type === sector)
+    }
+    if (user === '__SHARED__') {
+      scopeTasks = scopeTasks.filter((t) => t.isShared)
+    } else if (user !== 'ALL') {
+      scopeTasks = scopeTasks.filter((t) => t.user?.username === user)
+    }
+
+    const totalScope = scopeTasks.length
+
+    // Tarefas concluídas válidas com data de término
+    const completedTasks = scopeTasks.filter(
+      (t) =>
+        t.completed &&
+        t.completedAt &&
+        ((t.resolutionTimeMinutes != null && t.resolutionTimeMinutes > 0) ||
+          (t.resolutionTimeHours != null && t.resolutionTimeHours > 0)),
+    )
+
+    const totalCompleted = completedTasks.length
+    const completionRate = totalScope > 0 ? Math.round((totalCompleted / totalScope) * 100) : 0
+
+    if (totalCompleted === 0) {
+      return {
+        totalCompleted: 0,
+        totalScope,
+        completionRate,
+        avgMinutes: 0,
+        avgHours: 0,
+        formattedAvg: '-',
+        fastestTask: null,
+        slowestTask: null,
+        diffVsGlobal: null,
+        tasks: [],
+      }
+    }
+
+    const totalMinutes = completedTasks.reduce((acc, t) => {
+      if (t.resolutionTimeMinutes != null && t.resolutionTimeMinutes > 0) {
+        return acc + t.resolutionTimeMinutes
+      }
+      if (t.resolutionTimeHours != null && t.resolutionTimeHours > 0) {
+        return acc + Math.round(t.resolutionTimeHours * 60)
+      }
+      return acc + 1
+    }, 0)
+
+    const avgMinutes = Math.max(1, Math.round(totalMinutes / totalCompleted))
+    const avgHours = Number((avgMinutes / 60).toFixed(2))
+
+    // Ordena da mais rápida para a mais lenta
+    const sortedByTime = [...completedTasks].sort((a, b) => {
+      const timeA = a.resolutionTimeMinutes ?? (a.resolutionTimeHours ? a.resolutionTimeHours * 60 : 0)
+      const timeB = b.resolutionTimeMinutes ?? (b.resolutionTimeHours ? b.resolutionTimeHours * 60 : 0)
+      return timeA - timeB
+    })
+    const fastestTask = sortedByTime[0]
+    const slowestTask = sortedByTime[sortedByTime.length - 1]
+
+    // Compara com média global do sistema
+    const globalAvg = this.stats.overview.avgResolutionTimeMinutes ?? Math.round(this.stats.overview.avgResolutionTimeHours * 60)
+    let diffVsGlobal: { percent: number; isFaster: boolean } | null = null
+    if (globalAvg > 0 && avgMinutes > 0) {
+      const diff = Math.round(((avgMinutes - globalAvg) / globalAvg) * 100)
+      if (diff !== 0) {
+        diffVsGlobal = {
+          percent: Math.abs(diff),
+          isFaster: diff < 0,
+        }
+      }
+    }
+
+    return {
+      totalCompleted,
+      totalScope,
+      completionRate,
+      avgMinutes,
+      avgHours,
+      formattedAvg: this.formatDuration(null, avgMinutes),
+      fastestTask,
+      slowestTask,
+      diffVsGlobal,
+      tasks: sortedByTime,
+    }
+  })
+
+  // Lista de tarefas filtradas para a tabela geral
   readonly filteredTasks = computed(() => {
     if (!this.stats) return []
     let list = this.stats.tasks
@@ -1288,6 +1918,14 @@ export class DashboardPageComponent implements OnInit {
     const sector = this.selectedSector()
     if (sector !== 'ALL') {
       list = list.filter((t) => t.type === sector)
+    }
+
+    // Filtro por Usuário / Responsável
+    const user = this.selectedUser()
+    if (user === '__SHARED__') {
+      list = list.filter((t) => t.isShared)
+    } else if (user !== 'ALL') {
+      list = list.filter((t) => t.user?.username === user)
     }
 
     // Busca textual (título, descrição, criador, responsável)
@@ -1325,12 +1963,31 @@ export class DashboardPageComponent implements OnInit {
     })
   }
 
+  // Handlers dos Selectboxes da Seção de Resolução
+  onResolutionSectorChange(sector: string): void {
+    this.resolutionSector.set(sector)
+  }
+
+  onResolutionUserChange(user: string): void {
+    this.resolutionUser.set(user)
+  }
+
+  resetResolutionFilter(): void {
+    this.resolutionSector.set('ALL')
+    this.resolutionUser.set('ALL')
+  }
+
+  // Handlers dos Filtros da Tabela
   setStatusFilter(status: 'ALL' | 'PENDING' | 'OVERDUE' | 'PRIORITY' | 'COMPLETED'): void {
     this.selectedStatus.set(status)
   }
 
   onSectorChange(sector: string): void {
     this.selectedSector.set(sector)
+  }
+
+  onUserChange(user: string): void {
+    this.selectedUser.set(user)
   }
 
   onSearchInput(query: string): void {
@@ -1344,14 +2001,32 @@ export class DashboardPageComponent implements OnInit {
   resetFilters(): void {
     this.selectedStatus.set('ALL')
     this.selectedSector.set('ALL')
+    this.selectedUser.set('ALL')
     this.searchQuery.set('')
   }
 
-  formatLeadTime(hours: number): string {
-    if (!hours || hours <= 0) return '-'
-    if (hours < 24) return `${hours}h`
-    const days = (hours / 24).toFixed(1)
-    return `${days}d`
+  // Formatação amigável de durações (minutos, horas, dias)
+  formatDuration(hours?: number | null, minutes?: number | null): string {
+    let totalMinutes = 0
+    if (minutes != null && minutes > 0) {
+      totalMinutes = Math.round(minutes)
+    } else if (hours != null && hours > 0) {
+      totalMinutes = Math.round(hours * 60)
+    } else {
+      return '-'
+    }
+
+    if (totalMinutes < 60) {
+      return `${totalMinutes} min`
+    }
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    if (h < 24) {
+      return m > 0 ? `${h}h ${m}m` : `${h}h`
+    }
+    const days = Math.floor(h / 24)
+    const remH = h % 24
+    return remH > 0 ? `${days}d ${remH}h` : `${days}d`
   }
 
   getPercentage(value: number, total: number): number {

@@ -307,7 +307,11 @@ export class TasksService {
     const resolutionRate = totalCreated > 0 ? Math.round((totalResolved / totalCreated) * 100) : 0
     const avgResolutionTimeHours =
       resolvedCountWithDates > 0
-        ? Number((totalResolutionTimeMs / (resolvedCountWithDates * 3600 * 1000)).toFixed(1))
+        ? Number((totalResolutionTimeMs / (resolvedCountWithDates * 3600 * 1000)).toFixed(2))
+        : 0
+    const avgResolutionTimeMinutes =
+      resolvedCountWithDates > 0
+        ? Math.max(1, Math.round(totalResolutionTimeMs / (resolvedCountWithDates * 60 * 1000)))
         : 0
 
     const TYPE_LABELS: Record<string, string> = {
@@ -332,6 +336,10 @@ export class TasksService {
         overdue: number
         priority: number
         resolutionRate: number
+        totalResolutionTimeMs: number
+        resolvedCountWithDates: number
+        avgResolutionTimeHours: number
+        avgResolutionTimeMinutes: number
       }
     > = {}
 
@@ -345,6 +353,10 @@ export class TasksService {
         overdue: 0,
         priority: 0,
         resolutionRate: 0,
+        totalResolutionTimeMs: 0,
+        resolvedCountWithDates: 0,
+        avgResolutionTimeHours: 0,
+        avgResolutionTimeMinutes: 0,
       }
     }
 
@@ -359,12 +371,23 @@ export class TasksService {
           overdue: 0,
           priority: 0,
           resolutionRate: 0,
+          totalResolutionTimeMs: 0,
+          resolvedCountWithDates: 0,
+          avgResolutionTimeHours: 0,
+          avgResolutionTimeMinutes: 0,
         }
       }
       const entry = byTypeMap[t.type]
       entry.total++
       if (t.completed) {
         entry.completed++
+        if (t.completedAt && t.createdAt) {
+          const diff = new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()
+          if (diff > 0) {
+            entry.totalResolutionTimeMs += diff
+            entry.resolvedCountWithDates++
+          }
+        }
       } else {
         entry.pending++
         const taskDateStr = t.date ? new Date(t.date).toISOString().slice(0, 10) : ''
@@ -375,6 +398,14 @@ export class TasksService {
 
     for (const entry of Object.values(byTypeMap)) {
       entry.resolutionRate = entry.total > 0 ? Math.round((entry.completed / entry.total) * 100) : 0
+      entry.avgResolutionTimeHours =
+        entry.resolvedCountWithDates > 0
+          ? Number((entry.totalResolutionTimeMs / (entry.resolvedCountWithDates * 3600 * 1000)).toFixed(2))
+          : 0
+      entry.avgResolutionTimeMinutes =
+        entry.resolvedCountWithDates > 0
+          ? Math.max(1, Math.round(entry.totalResolutionTimeMs / (entry.resolvedCountWithDates * 60 * 1000)))
+          : 0
     }
 
     // Agrupamento retrocompatível byType: { [type]: { created, resolved } }
@@ -399,29 +430,88 @@ export class TasksService {
       .slice(0, 6)
 
     // Top Executores / Responsáveis
-    const assigneesMap: Record<string, { username: string; role: string; totalAssigned: number; completed: number; rate: number }> = {}
+    const assigneesMap: Record<
+      string,
+      {
+        username: string
+        role: string
+        totalAssigned: number
+        completed: number
+        rate: number
+        totalResolutionTimeMs: number
+        resolvedCountWithDates: number
+        avgResolutionTimeHours: number
+        avgResolutionTimeMinutes: number
+      }
+    > = {}
+
     for (const t of tasks) {
       if (t.user?.username) {
         const username = t.user.username
         const role = t.user.role || '-'
         if (!assigneesMap[username]) {
-          assigneesMap[username] = { username, role, totalAssigned: 0, completed: 0, rate: 0 }
+          assigneesMap[username] = {
+            username,
+            role,
+            totalAssigned: 0,
+            completed: 0,
+            rate: 0,
+            totalResolutionTimeMs: 0,
+            resolvedCountWithDates: 0,
+            avgResolutionTimeHours: 0,
+            avgResolutionTimeMinutes: 0,
+          }
         }
         assigneesMap[username].totalAssigned++
-        if (t.completed) assigneesMap[username].completed++
+        if (t.completed) {
+          assigneesMap[username].completed++
+          if (t.completedAt && t.createdAt) {
+            const diff = new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()
+            if (diff > 0) {
+              assigneesMap[username].totalResolutionTimeMs += diff
+              assigneesMap[username].resolvedCountWithDates++
+            }
+          }
+        }
       }
     }
     for (const a of Object.values(assigneesMap)) {
       a.rate = a.totalAssigned > 0 ? Math.round((a.completed / a.totalAssigned) * 100) : 0
+      a.avgResolutionTimeHours =
+        a.resolvedCountWithDates > 0
+          ? Number((a.totalResolutionTimeMs / (a.resolvedCountWithDates * 3600 * 1000)).toFixed(2))
+          : 0
+      a.avgResolutionTimeMinutes =
+        a.resolvedCountWithDates > 0
+          ? Math.max(1, Math.round(a.totalResolutionTimeMs / (a.resolvedCountWithDates * 60 * 1000)))
+          : 0
     }
     const topAssignees = Object.values(assigneesMap)
       .sort((a, b) => b.totalAssigned - a.totalAssigned)
       .slice(0, 6)
 
+    // Lista de usuários para filtros do relatório
+    const allUsers = await this.prisma.user.findMany({
+      where: user.role === 'master' ? {} : { role: { not: 'MASTER' } },
+      select: { id: true, username: true, role: true },
+      orderBy: { username: 'asc' },
+    })
+
     // Detalhamento de tarefas
     const detailedTasks = tasks.map((t) => {
       const taskDateStr = t.date ? new Date(t.date).toISOString().slice(0, 10) : ''
       const isOverdue = !t.completed && taskDateStr < todayStr
+
+      let resolutionTimeMinutes: number | null = null
+      let resolutionTimeHours: number | null = null
+      if (t.completed && t.completedAt && t.createdAt) {
+        const diff = new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()
+        if (diff > 0) {
+          resolutionTimeMinutes = Math.max(1, Math.round(diff / (60 * 1000)))
+          resolutionTimeHours = Number((diff / (3600 * 1000)).toFixed(2))
+        }
+      }
+
       return {
         id: t.id,
         title: t.title,
@@ -435,6 +525,8 @@ export class TasksService {
         isOverdue,
         createdAt: t.createdAt,
         completedAt: t.completedAt,
+        resolutionTimeMinutes,
+        resolutionTimeHours,
         hasBriefing: !!t.attachmentName,
         attachmentName: t.attachmentName,
         hasEvidence: !!t.completionAttachmentName,
@@ -460,6 +552,7 @@ export class TasksService {
         priorityResolvedTasks: totalPriorityResolved,
         resolutionRate,
         avgResolutionTimeHours,
+        avgResolutionTimeMinutes,
         tasksWithBriefing,
         tasksWithEvidence,
         sharedSectorTasks,
@@ -484,6 +577,7 @@ export class TasksService {
       },
       topCreators,
       topAssignees,
+      users: allUsers,
       tasks: detailedTasks,
     }
   }
