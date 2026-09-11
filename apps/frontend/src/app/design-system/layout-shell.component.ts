@@ -341,6 +341,7 @@ export class LayoutShellComponent implements OnInit {
       children: [
         { href: '/administracao/unimestre', label: 'Integração Unimestre' },
         { href: '/administracao/classroom', label: 'Google Classroom' },
+        { href: '/administracao/corrigir', label: 'Corrigir Avaliação' },
         {
           href: '/administracao/dashboards',
           label: 'Dashboards',
@@ -366,10 +367,14 @@ export class LayoutShellComponent implements OnInit {
       href: '/desenvolvedor', 
       label: 'Desenvolvedor',
       children: [
+        { href: '/desenvolvedor/unimestre', label: 'Integração Unimestre' },
+        { href: '/desenvolvedor/classroom', label: 'Google Classroom' },
+        { href: '/desenvolvedor/corrigir', label: 'Corrigir Avaliação' },
         {
           href: '/desenvolvedor/dashboards',
           label: 'Dashboards',
           children: [
+            { href: '/desenvolvedor/dashboards/agenda', label: 'Relatório de Agenda' },
             { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' }
           ]
         },

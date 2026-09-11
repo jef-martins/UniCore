@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { RouterLink } from '@angular/router'
+import { Router, RouterLink } from '@angular/router'
 import { finalize } from 'rxjs'
 import {
   type UnimestreClass,
@@ -52,7 +52,7 @@ import {
                   <td>{{ item.teacherName }}<small>{{ item.teacherEmail || 'E-mail institucional não vinculado' }}</small></td>
                   <td>{{ item.studentCount }}</td>
                   <td>@if (item.classroom?.alternateLink) { <a [href]="item.classroom?.alternateLink" target="_blank" rel="noopener">Abrir sala ↗</a> } @else { <span class="unimestre-muted">Não criada</span> }</td>
-                  <td><div class="unimestre-actions"><button class="button button-text" type="button" (click)="loadStudents(item)" [disabled]="loadingStudentsKey === item.classGroup + item.subjectId">Alunos</button><a class="button button-secondary" [routerLink]="'/administracao/classroom'" [queryParams]="classroomParams(item)">Usar no Classroom</a></div></td>
+                  <td><div class="unimestre-actions"><button class="button button-text" type="button" (click)="loadStudents(item)" [disabled]="loadingStudentsKey === item.classGroup + item.subjectId">Alunos</button><a class="button button-secondary" [routerLink]="classroomLink" [queryParams]="classroomParams(item)">Usar no Classroom</a></div></td>
                 </tr>
               } @empty { <tr><td colspan="6" class="unimestre-empty">Selecione um curso e consulte as turmas para exibir os dados.</td></tr> }
             </tbody>
@@ -93,7 +93,16 @@ export class UnimestrePageComponent implements OnInit {
     return this.courses.find((course) => String(course.id) === this.courseId)
   }
 
-  constructor(private readonly unimestreService: UnimestreService) {}
+  get classroomLink(): string {
+    return this.router.url.startsWith('/desenvolvedor')
+      ? '/desenvolvedor/classroom'
+      : '/administracao/classroom'
+  }
+
+  constructor(
+    private readonly unimestreService: UnimestreService,
+    private readonly router: Router,
+  ) {}
 
   ngOnInit(): void {
     this.refresh()
