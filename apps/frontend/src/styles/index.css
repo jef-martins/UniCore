@@ -1114,34 +1114,44 @@ main:focus-visible {
 
 .agenda-task-form {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-16);
+  max-width: 760px;
+  width: 100%;
 }
 
 .agenda-task-form > .field {
-  flex: 1 1 140px;
+  width: 100%;
+  display: grid;
+  gap: var(--space-8);
 }
 
-.agenda-task-form > .field:nth-child(1) {
-  flex: 2 1 200px;
-}
-
-.agenda-task-form > .field:nth-child(2) {
-  flex: 3 1 300px;
+.agenda-task-form .field-control {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .agenda-task-form > .agenda-priority-field {
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) 0;
+}
+
+.agenda-task-form .form-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-8);
 }
 
 .agenda-task-form .button {
   white-space: nowrap;
+  min-width: 160px;
 }
 
 .agenda-task-toggle {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-8);
   min-width: 0;
   cursor: pointer;
@@ -1150,31 +1160,12 @@ main:focus-visible {
 .agenda-task-toggle .checkbox-control {
   width: var(--space-16);
   height: var(--space-16);
-  margin-block-start: var(--space-2);
+  margin: 0;
 }
 
 .agenda-task small {
   color: var(--color-text-secondary);
   font-size: var(--font-size-12);
-}
-
-@media (max-width: 1100px) {
-  .agenda-task-form .button {
-    align-self: flex-start;
-  }
-}
-
-@media (max-width: 767px) {
-  .agenda-task-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .agenda-task-form > .field,
-  .agenda-task-form > .field:nth-child(1),
-  .agenda-task-form > .field:nth-child(2) {
-    flex: 1 1 auto;
-  }
 }
 
 /* Daily View Styles */

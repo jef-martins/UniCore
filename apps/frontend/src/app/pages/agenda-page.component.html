@@ -34,26 +34,24 @@
           <label class="field-label" for="agenda-new-task-title-input">Título *</label>
           <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" placeholder="Ex: Elaborar relatório trimestral" />
         </div>
+
         <div class="field">
           <label class="field-label" for="agenda-new-task-description">Descrição</label>
-          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription" placeholder="Detalhes e orientações da tarefa..."></textarea>
+          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="3" [(ngModel)]="newTaskDescription" name="newTaskDescription" placeholder="Detalhes e orientações da tarefa..."></textarea>
         </div>
+
         <div class="field">
           <label class="field-label" for="agenda-new-task-date">Data *</label>
           <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
         </div>
+
         <div class="field">
           <label class="field-label" for="agenda-new-task-type">Tipo</label>
           <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
             @for (type of taskTypes.slice(1); track type) { <option [value]="type">{{ type }}</option> }
           </select>
         </div>
-        <div class="field agenda-priority-field" style="padding-bottom: 0.5rem;">
-          <label class="agenda-task-toggle" style="margin: 0; cursor: pointer;">
-            <input class="checkbox-control" type="checkbox" [(ngModel)]="newTaskIsPriority" name="newTaskIsPriority" />
-            <strong style="color: #ffb86c; font-weight: 500;">Prioridade</strong>
-          </label>
-        </div>
+
         <div class="field">
           <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
           <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
@@ -66,6 +64,14 @@
             }
           </select>
         </div>
+
+        <div class="field agenda-priority-field">
+          <label class="agenda-task-toggle">
+            <input class="checkbox-control" type="checkbox" [(ngModel)]="newTaskIsPriority" name="newTaskIsPriority" />
+            <strong style="color: #ffb86c; font-weight: 500;">🔥 Demanda de Alta Prioridade</strong>
+          </label>
+        </div>
+
         <div class="field">
           <label class="field-label" for="agenda-new-task-file">Anexo de Detalhes / Referência (Opcional)</label>
           <div class="attachment-input-wrapper">
@@ -88,7 +94,10 @@
           </div>
           <small class="field-hint">Para tarefas complexas com manuais, especificações, planilhas ou instruções detalhadas.</small>
         </div>
-        <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
+
+        <div class="form-actions">
+          <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
+        </div>
       </form>
     </section>
 
