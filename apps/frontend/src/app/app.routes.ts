@@ -130,11 +130,35 @@ export const appRoutes: Routes = [
         title: 'UniCore | Cadastro de Usuário',
       },
       {
+        path: 'administracao/cadastros/itens-reserva',
+        loadComponent: () => import('./pages/item-registration-page.component').then(m => m.ItemRegistrationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Cadastro de Itens de Reserva',
+      },
+      {
+        path: 'administracao/cadastros/itens',
+        redirectTo: 'administracao/cadastros/itens-reserva',
+        pathMatch: 'full',
+      },
+      {
         path: 'desenvolvedor/cadastros/usuarios',
         loadComponent: () => import('./pages/user-registration-page.component').then(m => m.UserRegistrationPageComponent),
         canActivate: [roleGuard],
         data: { roles: ['master'] },
         title: 'UniCore | Cadastro de Usuário',
+      },
+      {
+        path: 'desenvolvedor/cadastros/itens-reserva',
+        loadComponent: () => import('./pages/item-registration-page.component').then(m => m.ItemRegistrationPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Cadastro de Itens de Reserva',
+      },
+      {
+        path: 'desenvolvedor/cadastros/itens',
+        redirectTo: 'desenvolvedor/cadastros/itens-reserva',
+        pathMatch: 'full',
       },
       {
         path: 'administracao/reservas',

@@ -102,6 +102,14 @@ enum ReservationStatus {
   CANCELLED
 }
 
+enum ItemCondition {
+  PERFEITO
+  COM_AVARIAS
+  DEFEITO_FUNCIONA
+  DEFEITO_PARCIAL
+  NAO_FUNCIONA
+}
+
 model ReservableItem {
   id           String            @id @default(uuid()) @db.Uuid
   name         String
@@ -110,6 +118,7 @@ model ReservableItem {
   location     String
   description  String?
   status       ItemStatus        @default(AVAILABLE)
+  condition    ItemCondition     @default(PERFEITO)
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
   reservations ItemReservation[]

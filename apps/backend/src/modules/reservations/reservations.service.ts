@@ -1,13 +1,13 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
-import { ItemStatus, Prisma, ReservationStatus } from '@prisma/client'
+import { ItemCondition, ItemStatus, Prisma, ReservationStatus } from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
-import { CreateItemDto, CreateReservationDto } from './dto/reservations.dto'
+import { CreateItemDto, CreateReservationDto, UpdateItemDto } from './dto/reservations.dto'
 
 @Injectable()
 export class ReservationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getItems(search?: string, category?: string, status?: ItemStatus) {
+  async getItems(search?: string, category?: string, status?: ItemStatus, condition?: ItemCondition) {
     const totalCount = await this.prisma.reservableItem.count()
     if (totalCount === 0) {
       await this.seedDefaultItems()
@@ -31,6 +31,10 @@ export class ReservationsService {
       where.status = status
     }
 
+    if (condition) {
+      where.condition = condition
+    }
+
     const items = await this.prisma.reservableItem.findMany({
       where,
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
@@ -51,7 +55,7 @@ export class ReservationsService {
 
   async createItem(dto: CreateItemDto) {
     const existing = await this.prisma.reservableItem.findUnique({
-      where: { code: dto.code },
+      where: { code: dto.code.trim().toUpperCase() },
     })
 
     if (existing) {
@@ -66,6 +70,36 @@ export class ReservationsService {
         location: dto.location.trim(),
         description: dto.description?.trim(),
         status: ItemStatus.AVAILABLE,
+        condition: dto.condition ?? ItemCondition.PERFEITO,
+      },
+    })
+  }
+
+  async updateItem(id: string, dto: UpdateItemDto) {
+    const item = await this.prisma.reservableItem.findUnique({ where: { id } })
+    if (!item) {
+      throw new NotFoundException('Item não encontrado.')
+    }
+
+    if (dto.code && dto.code.trim().toUpperCase() !== item.code) {
+      const existing = await this.prisma.reservableItem.findUnique({
+        where: { code: dto.code.trim().toUpperCase() },
+      })
+      if (existing && existing.id !== id) {
+        throw new ConflictException('Já existe outro item cadastrado com este código de patrimônio.')
+      }
+    }
+
+    return this.prisma.reservableItem.update({
+      where: { id },
+      data: {
+        ...(dto.name ? { name: dto.name.trim() } : {}),
+        ...(dto.category ? { category: dto.category.trim() } : {}),
+        ...(dto.code ? { code: dto.code.trim().toUpperCase() } : {}),
+        ...(dto.location ? { location: dto.location.trim() } : {}),
+        ...(dto.description !== undefined ? { description: dto.description?.trim() || null } : {}),
+        ...(dto.status ? { status: dto.status } : {}),
+        ...(dto.condition ? { condition: dto.condition } : {}),
       },
     })
   }

@@ -1,4 +1,4 @@
-import { ItemStatus, ReservationStatus } from '@prisma/client'
+import { ItemCondition, ItemStatus, ReservationStatus } from '@prisma/client'
 import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator'
 
 export class CreateItemDto {
@@ -26,6 +26,49 @@ export class CreateItemDto {
   @IsString()
   @MaxLength(500)
   description?: string
+
+  @IsOptional()
+  @IsEnum(ItemCondition)
+  condition?: ItemCondition
+}
+
+export class UpdateItemDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  category?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(40)
+  code?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  location?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string
+
+  @IsOptional()
+  @IsEnum(ItemStatus)
+  status?: ItemStatus
+
+  @IsOptional()
+  @IsEnum(ItemCondition)
+  condition?: ItemCondition
 }
 
 export class UpdateItemStatusDto {

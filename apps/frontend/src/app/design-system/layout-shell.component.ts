@@ -242,7 +242,8 @@ export class LayoutShellComponent {
           href: '/administracao/cadastros',
           label: 'Cadastros',
           children: [
-            { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' }
+            { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' },
+            { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' }
           ]
         }
       ]
@@ -257,7 +258,8 @@ export class LayoutShellComponent {
           href: '/desenvolvedor/cadastros',
           label: 'Cadastros',
           children: [
-            { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' }
+            { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' },
+            { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' }
           ]
         }
       ]

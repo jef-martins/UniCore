@@ -8,6 +8,13 @@ import { AuthService } from '../services/auth.service'
 export type ItemStatus = 'AVAILABLE' | 'RESERVED' | 'MAINTENANCE'
 export type ReservationStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 
+export type ItemCondition =
+  | 'PERFEITO'
+  | 'COM_AVARIAS'
+  | 'DEFEITO_FUNCIONA'
+  | 'DEFEITO_PARCIAL'
+  | 'NAO_FUNCIONA'
+
 export interface ReservableItem {
   id: string
   name: string
@@ -16,6 +23,7 @@ export interface ReservableItem {
   location: string
   description?: string | null
   status: ItemStatus
+  condition?: ItemCondition
   createdAt: string
   updatedAt: string
   currentReservation?: ItemReservation | null
@@ -65,9 +73,9 @@ export interface ReservationStats {
             <span aria-hidden="true">＋</span> Nova Reserva
           </button>
           @if (canManageCatalog) {
-            <button class="button button-secondary" type="button" (click)="openNewItemModal()">
-              <span aria-hidden="true">📦</span> Cadastrar Item
-            </button>
+            <a class="button button-secondary" [routerLink]="registrationRoute">
+              <span aria-hidden="true">📦</span> Gerenciar Cadastro de Itens
+            </a>
           }
         </div>
       </header>
@@ -193,11 +201,18 @@ export interface ReservationStats {
                 <article class="item-card card card-outlined" [attr.data-status]="item.status">
                   <div class="item-card-header">
                     <span class="category-badge">{{ item.category }}</span>
-                    <span class="status-badge" [class.badge-available]="item.status === 'AVAILABLE'"
-                                               [class.badge-reserved]="item.status === 'RESERVED'"
-                                               [class.badge-maintenance]="item.status === 'MAINTENANCE'">
-                      {{ formatStatus(item.status) }}
-                    </span>
+                    <div class="card-badges-group">
+                      @if (item.condition) {
+                        <span class="condition-badge" [ngClass]="getConditionClass(item.condition)">
+                          {{ formatCondition(item.condition) }}
+                        </span>
+                      }
+                      <span class="status-badge" [class.badge-available]="item.status === 'AVAILABLE'"
+                                                 [class.badge-reserved]="item.status === 'RESERVED'"
+                                                 [class.badge-maintenance]="item.status === 'MAINTENANCE'">
+                        {{ formatStatus(item.status) }}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 class="item-title">{{ item.name }}</h3>
@@ -810,6 +825,51 @@ export interface ReservationStats {
       border: 1px solid rgba(255, 122, 122, 0.3);
     }
 
+    .card-badges-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .condition-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill, 999px);
+      white-space: nowrap;
+    }
+
+    .condition-perfeito {
+      background: rgba(73, 209, 125, 0.15);
+      color: #49D17D;
+      border: 1px solid rgba(73, 209, 125, 0.35);
+    }
+
+    .condition-avarias {
+      background: rgba(147, 197, 253, 0.15);
+      color: #93C5FD;
+      border: 1px solid rgba(147, 197, 253, 0.35);
+    }
+
+    .condition-defeito-funciona {
+      background: rgba(245, 166, 35, 0.15);
+      color: #F5A623;
+      border: 1px solid rgba(245, 166, 35, 0.35);
+    }
+
+    .condition-defeito-parcial {
+      background: rgba(251, 146, 60, 0.15);
+      color: #FB923C;
+      border: 1px solid rgba(251, 146, 60, 0.35);
+    }
+
+    .condition-nao-funciona {
+      background: rgba(255, 122, 122, 0.15);
+      color: #FF7A7A;
+      border: 1px solid rgba(255, 122, 122, 0.35);
+    }
+
     .item-title {
       font-size: var(--font-size-18, 18px);
       font-weight: var(--font-weight-semibold, 600);
@@ -1054,6 +1114,7 @@ export class ItemReservationPageComponent implements OnInit {
   }
 
   contextEyebrow = 'Gestão Centralizada'
+  registrationRoute = '/administracao/cadastros/itens-reserva'
 
   get canManageCatalog(): boolean {
     return this.authService.hasAnyRole(['admin', 'master'])
@@ -1067,15 +1128,28 @@ export class ItemReservationPageComponent implements OnInit {
     const path = this.route.snapshot.routeConfig?.path || ''
     if (path.includes('desenvolvedor')) {
       this.contextEyebrow = 'Desenvolvedor · Master'
+      this.registrationRoute = '/desenvolvedor/cadastros/itens-reserva'
     } else if (path.includes('professor')) {
       this.contextEyebrow = 'Portal do Professor · Reserva de Recursos'
+      this.registrationRoute = '/administracao/cadastros/itens-reserva'
     } else {
       this.contextEyebrow = 'Administração · Gestão de Recursos'
+      this.registrationRoute = '/administracao/cadastros/itens-reserva'
     }
   }
 
   ngOnInit(): void {
     this.loadAllData()
+
+    this.route.queryParams.subscribe((params) => {
+      const itemId = params['itemId']
+      if (itemId && this.items.length > 0) {
+        const target = this.items.find((i) => i.id === itemId)
+        if (target && target.status === 'AVAILABLE') {
+          this.openReserveModal(target)
+        }
+      }
+    })
   }
 
   loadAllData(): void {
@@ -1100,6 +1174,15 @@ export class ItemReservationPageComponent implements OnInit {
         this.extractCategories()
         this.applyFilter()
         this.isLoading = false
+
+        // Se veio query param itemId, abre automaticamente o modal de reserva para o item
+        const preselectedId = this.route.snapshot.queryParams['itemId']
+        if (preselectedId) {
+          const target = this.items.find((i) => i.id === preselectedId)
+          if (target && target.status === 'AVAILABLE') {
+            this.openReserveModal(target)
+          }
+        }
       },
       error: (err) => {
         this.globalError = err.error?.message || 'Erro ao carregar itens para reserva.'
@@ -1331,6 +1414,28 @@ export class ItemReservationPageComponent implements OnInit {
       case 'RESERVED': return 'Reservado'
       case 'MAINTENANCE': return 'Em Manutenção'
       default: return status
+    }
+  }
+
+  formatCondition(condition?: ItemCondition): string {
+    switch (condition) {
+      case 'PERFEITO': return 'Perfeito'
+      case 'COM_AVARIAS': return 'Com avarias'
+      case 'DEFEITO_FUNCIONA': return 'Defeito (funciona)'
+      case 'DEFEITO_PARCIAL': return 'Defeito parcial'
+      case 'NAO_FUNCIONA': return 'Não funciona'
+      default: return condition || 'Perfeito'
+    }
+  }
+
+  getConditionClass(condition?: ItemCondition): string {
+    switch (condition) {
+      case 'PERFEITO': return 'condition-perfeito'
+      case 'COM_AVARIAS': return 'condition-avarias'
+      case 'DEFEITO_FUNCIONA': return 'condition-defeito-funciona'
+      case 'DEFEITO_PARCIAL': return 'condition-defeito-parcial'
+      case 'NAO_FUNCIONA': return 'condition-nao-funciona'
+      default: return 'condition-perfeito'
     }
   }
 
