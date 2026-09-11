@@ -14,6 +14,7 @@
       @if (canFilterUsers) {
         <select class="field-control" style="margin-left: 1rem; width: auto; padding-right: 2rem;" [(ngModel)]="filterUserId" name="filterUserId">
           <option value="">Todos da equipe</option>
+          <option value="sector_shared">👥 Apenas do setor (Sem responsável)</option>
           @for (user of sectorUsers; track user.id) {
             <option [value]="user.id">{{ user.username }}</option>
           }
@@ -26,19 +27,19 @@
     <section class="agenda-new-task card card-outlined" aria-labelledby="agenda-new-task-title">
       <div>
         <h2 id="agenda-new-task-title">Nova tarefa</h2>
-        <p>Salve uma tarefa na sua agenda pessoal.</p>
+        <p>Cadastre uma tarefa individual ou compartilhada para a equipe do setor.</p>
       </div>
       <form class="agenda-task-form" (ngSubmit)="createTask()">
         <div class="field">
-          <label class="field-label" for="agenda-new-task-title-input">Título</label>
-          <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" />
+          <label class="field-label" for="agenda-new-task-title-input">Título *</label>
+          <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" placeholder="Ex: Elaborar relatório trimestral" />
         </div>
         <div class="field">
           <label class="field-label" for="agenda-new-task-description">Descrição</label>
-          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription"></textarea>
+          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="2" [(ngModel)]="newTaskDescription" name="newTaskDescription" placeholder="Detalhes e orientações da tarefa..."></textarea>
         </div>
         <div class="field">
-          <label class="field-label" for="agenda-new-task-date">Data</label>
+          <label class="field-label" for="agenda-new-task-date">Data *</label>
           <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
         </div>
         <div class="field">
@@ -56,9 +57,36 @@
         <div class="field">
           <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
           <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
-            <option value="">Atribuir a mim</option>
-            @for (user of users; track user.id) { <option [value]="user.id">{{ user.username }} ({{ user.role }})</option> }
+            <option value="none">🌐 Nenhum usuário (Visível para todo o setor)</option>
+            <option [value]="authService.currentUser?.id">👤 Atribuir a mim ({{ authService.currentUser?.username }})</option>
+            @for (user of users; track user.id) {
+              @if (user.id !== authService.currentUser?.id) {
+                <option [value]="user.id">{{ user.username }} ({{ user.role }})</option>
+              }
+            }
           </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="agenda-new-task-file">Anexo de Detalhes / Referência (Opcional)</label>
+          <div class="attachment-input-wrapper">
+            <label class="attachment-upload-btn" for="agenda-new-task-file">
+              <span>📎 Selecionar arquivo</span>
+              <input
+                id="agenda-new-task-file"
+                type="file"
+                (change)="onCreationFileSelected($event)"
+                style="display: none;"
+              />
+            </label>
+            @if (selectedCreationFile) {
+              <div class="selected-file-badge">
+                <span class="file-name">{{ selectedCreationFile.name }}</span>
+                <span class="file-size">({{ formatFileSize(selectedCreationFile.size) }})</span>
+                <button type="button" class="btn-remove-file" (click)="removeCreationFile()" title="Remover anexo">✕</button>
+              </div>
+            }
+          </div>
+          <small class="field-hint">Para tarefas complexas com manuais, especificações, planilhas ou instruções detalhadas.</small>
         </div>
         <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
       </form>
@@ -122,16 +150,67 @@
           <ul class="agenda-task-list">
             @for (task of tasksForDay(day.key); track task.id) {
               <li class="agenda-task" [class.agenda-task-completed]="task.completed">
-                <label class="agenda-task-toggle" (click)="$event.stopPropagation()">
-                  <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
-                  <strong>{{ task.title }}</strong>
-                  <button type="button" (click)="toggleTaskPriority(task); $event.stopPropagation()" style="background: none; border: none; cursor: pointer; color: #ffb86c; font-size: 1.2rem; padding: 0; margin-left: 0.2rem;" title="Alternar Prioridade">
-                    {{ task.isPriority ? '★' : '☆' }}
-                  </button>
-                  @if (task.isPriority) { <span style="color: #ffb86c; font-size: 0.8rem; margin-left: 0.5rem; border: 1px solid #ffb86c; padding: 0.1rem 0.3rem; border-radius: 4px;">Urgente</span> }
-                </label>
+                <div class="agenda-task-header-row">
+                  <label class="agenda-task-toggle" (click)="$event.stopPropagation()">
+                    <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
+                    <strong class="task-card-title">{{ task.title }}</strong>
+                  </label>
+                  <div class="task-badges-wrap" (click)="$event.stopPropagation()">
+                    @if (!task.userId) {
+                      <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
+                    }
+                    @if (task.isPriority) {
+                      <span class="task-urgent-badge">Urgente</span>
+                    }
+                    <button type="button" (click)="toggleTaskPriority(task)" class="star-btn" title="Alternar Prioridade">
+                      {{ task.isPriority ? '★' : '☆' }}
+                    </button>
+                  </div>
+                </div>
                 <span>{{ task.type }} · {{ task.status }}</span>
                 @if (task.description) { <span>{{ task.description }}</span> }
+
+                <!-- Anexo de Criação -->
+                @if (task.attachmentName) {
+                  <div>
+                    <button
+                      type="button"
+                      class="attachment-download-btn"
+                      (click)="downloadCreationAttachment(task); $event.stopPropagation()"
+                      title="Baixar anexo de referência"
+                    >
+                      📎 {{ task.attachmentName }}
+                      @if (task.attachmentSize) {
+                        <span>({{ formatFileSize(task.attachmentSize) }})</span>
+                      }
+                    </button>
+                  </div>
+                }
+
+                <!-- Evidência de Conclusão -->
+                @if (task.completed && task.completionAttachmentName) {
+                  <div>
+                    <button
+                      type="button"
+                      class="evidence-download-btn"
+                      (click)="downloadCompletionAttachment(task); $event.stopPropagation()"
+                      title="Baixar evidência de conclusão"
+                    >
+                      ✅ Evidência: {{ task.completionAttachmentName }}
+                      @if (task.completionAttachmentSize) {
+                        <span>({{ formatFileSize(task.completionAttachmentSize) }})</span>
+                      }
+                    </button>
+                  </div>
+                }
+
+                <!-- Notas de Conclusão -->
+                @if (task.completed && task.completionNotes) {
+                  <div class="completion-notes-box">
+                    <span>📝 "{{ task.completionNotes }}"</span>
+                  </div>
+                }
+
                 <small>Criada em {{ formatDateTime(task.createdAt) }}</small>
                 @if (task.completedAt) { <small>Concluída em {{ formatDateTime(task.completedAt) }}</small> }
               </li>
@@ -159,6 +238,9 @@
               <label class="agenda-task-toggle">
                 <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
                 <h3 class="agenda-day-task-title" [style.text-decoration]="task.completed ? 'line-through' : 'none'">{{ task.title }}</h3>
+                @if (!task.userId) {
+                  <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
+                }
                 <button type="button" (click)="toggleTaskPriority(task)" style="background: none; border: none; cursor: pointer; color: #ffb86c; font-size: 1.2rem; padding: 0; margin-left: 0.2rem;" title="Alternar Prioridade">
                   {{ task.isPriority ? '★' : '☆' }}
                 </button>
@@ -184,8 +266,55 @@
               @if (task.description) {
                 <p class="agenda-day-task-desc">{{ task.description }}</p>
               }
+
+              <!-- Anexo de Criação -->
+              @if (task.attachmentName) {
+                <div style="margin: 0.5rem 0;">
+                  <button
+                    type="button"
+                    class="attachment-download-btn"
+                    (click)="downloadCreationAttachment(task)"
+                    title="Baixar anexo de referência"
+                  >
+                    📎 Anexo: {{ task.attachmentName }}
+                    @if (task.attachmentSize) {
+                      <span>({{ formatFileSize(task.attachmentSize) }})</span>
+                    }
+                  </button>
+                </div>
+              }
+
+              <!-- Evidência de Conclusão -->
+              @if (task.completed && task.completionAttachmentName) {
+                <div style="margin: 0.5rem 0;">
+                  <button
+                    type="button"
+                    class="evidence-download-btn"
+                    (click)="downloadCompletionAttachment(task)"
+                    title="Baixar evidência de conclusão"
+                  >
+                    ✅ Evidência: {{ task.completionAttachmentName }}
+                    @if (task.completionAttachmentSize) {
+                      <span>({{ formatFileSize(task.completionAttachmentSize) }})</span>
+                    }
+                  </button>
+                </div>
+              }
+
+              <!-- Notas de Conclusão -->
+              @if (task.completed && task.completionNotes) {
+                <div class="completion-notes-box" style="margin: 0.5rem 0;">
+                  <span>📝 Observações de Conclusão: "{{ task.completionNotes }}"</span>
+                </div>
+              }
+
               <div class="agenda-day-task-meta">
                 <span>Status: {{ task.status }}</span>
+                @if (task.user) {
+                  <span>Responsável: {{ task.user.username }}</span>
+                } @else {
+                  <span style="color: #D8B4FE;">Atribuído: Todo o setor</span>
+                }
                 <span>Criada em {{ formatDateTime(task.createdAt) }}</span>
                 @if (task.completedAt) { <span>Concluída em {{ formatDateTime(task.completedAt) }}</span> }
               </div>
@@ -198,5 +327,68 @@
         }
       </div>
     </section>
+  }
+
+  <!-- Modal de Conclusão de Tarefa com Evidência -->
+  @if (completingTask) {
+    <div class="modal-backdrop" (click)="closeCompletionModal()">
+      <div class="modal-card card card-outlined" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="completion-modal-title">
+        <header class="modal-header">
+          <h3 id="completion-modal-title">Concluir Tarefa</h3>
+          <button type="button" class="modal-close-btn" (click)="closeCompletionModal()" aria-label="Fechar modal">✕</button>
+        </header>
+        
+        <div class="modal-body">
+          <div class="task-summary-preview">
+            <strong>{{ completingTask.title }}</strong>
+            <span>{{ completingTask.type }} · {{ formatTaskDate(completingTask.date) }}</span>
+            @if (!completingTask.userId) {
+              <span style="color: #D8B4FE; font-size: 0.75rem;">👥 Demanda do setor</span>
+            }
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="completion-notes-input">Observações / Comentários da Execução (Opcional)</label>
+            <textarea
+              id="completion-notes-input"
+              class="field-control"
+              rows="3"
+              [(ngModel)]="completionNotes"
+              placeholder="Descreva o que foi realizado, resultados obtidos ou detalhes do encerramento..."
+            ></textarea>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="completion-file-input">Anexar Evidência de Conclusão (Opcional)</label>
+            <div class="attachment-input-wrapper">
+              <label class="attachment-upload-btn" for="completion-file-input">
+                <span>📁 Selecionar comprovante / evidência</span>
+                <input
+                  id="completion-file-input"
+                  type="file"
+                  (change)="onCompletionFileSelected($event)"
+                  style="display: none;"
+                />
+              </label>
+              @if (selectedCompletionFile) {
+                <div class="selected-file-badge evidence-badge">
+                  <span class="file-name">{{ selectedCompletionFile.name }}</span>
+                  <span class="file-size">({{ formatFileSize(selectedCompletionFile.size) }})</span>
+                  <button type="button" class="btn-remove-file" (click)="removeCompletionFile()" title="Remover evidência">✕</button>
+                </div>
+              }
+            </div>
+            <small class="field-hint">Anexe recibos, atas assinadas, prints, fotos ou relatórios comprobatórios da finalização.</small>
+          </div>
+        </div>
+
+        <footer class="modal-actions">
+          <button class="button button-secondary" type="button" (click)="closeCompletionModal()">Cancelar</button>
+          <button class="button button-primary" type="button" [disabled]="isCompleting" (click)="confirmCompletion()">
+            {{ isCompleting ? 'Concluindo...' : 'Confirmar Conclusão' }}
+          </button>
+        </footer>
+      </div>
+    </div>
   }
 </section>

@@ -46,27 +46,41 @@ model User {
   isActive     Boolean    @default(true) @map("is_active")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
-  tasks        Task[]
-  reservations ItemReservation[]
+  assignedTasks Task[]            @relation("AssignedTasks")
+  createdTasks  Task[]            @relation("CreatedTasks")
+  reservations  ItemReservation[]
 
   @@map("users")
 }
 
 model Task {
-  id          String    @id @default(uuid()) @db.Uuid
-  title       String
-  description String?
-  date        DateTime  @db.Date
-  type        TaskType
-  completed   Boolean   @default(false)
-  isPriority  Boolean   @default(false) @map("is_priority")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  completedAt DateTime? @map("completed_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  userId      String    @map("user_id") @db.Uuid
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                           String      @id @default(uuid()) @db.Uuid
+  title                        String
+  description                  String?
+  date                         DateTime    @db.Date
+  type                         TaskType
+  sector                       AccessRole?
+  completed                    Boolean     @default(false)
+  isPriority                   Boolean     @default(false) @map("is_priority")
+  createdAt                    DateTime    @default(now()) @map("created_at")
+  completedAt                  DateTime?   @map("completed_at")
+  updatedAt                    DateTime    @updatedAt @map("updated_at")
+  userId                       String?     @map("user_id") @db.Uuid
+  user                         User?       @relation("AssignedTasks", fields: [userId], references: [id], onDelete: SetNull)
+  createdById                  String?     @map("created_by_id") @db.Uuid
+  createdBy                    User?       @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: SetNull)
+  attachmentName               String?     @map("attachment_name")
+  attachmentPath               String?     @map("attachment_path")
+  attachmentSize               Int?        @map("attachment_size")
+  attachmentMimeType           String?     @map("attachment_mime_type")
+  completionNotes              String?     @map("completion_notes")
+  completionAttachmentName     String?     @map("completion_attachment_name")
+  completionAttachmentPath     String?     @map("completion_attachment_path")
+  completionAttachmentSize     Int?        @map("completion_attachment_size")
+  completionAttachmentMimeType String?     @map("completion_attachment_mime_type")
 
   @@index([userId, date])
+  @@index([sector, date])
   @@map("tasks")
 }
 

@@ -10,3 +10,4 @@ ftp/
 *google-token*.json
 *credentials*.json
 *service-account*.json
+uploads/
