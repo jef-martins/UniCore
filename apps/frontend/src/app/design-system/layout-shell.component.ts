@@ -1,6 +1,9 @@
-import { Component, HostListener, Input } from '@angular/core'
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
-import { AuthService } from '../services/auth.service'
+import { Component, HostListener, Input, OnInit } from '@angular/core'
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
+import { filter } from 'rxjs'
+import { AuthService, AuthUser } from '../services/auth.service'
+import { SectorContextService } from '../services/sector-context.service'
+import { SectorUserSelectModalComponent } from './sector-user-select-modal.component'
 
 export interface LayoutNavigationItem {
   href: string
@@ -16,7 +19,7 @@ export interface LayoutFooterLink {
 @Component({
   selector: 'app-layout-shell',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, SectorUserSelectModalComponent],
   templateUrl: './layout-shell.component.html',
   styles: [`
     .layout-shell {
@@ -158,6 +161,90 @@ export interface LayoutFooterLink {
       padding: 2rem;
       flex: 1;
     }
+
+    /* Active Context Banner */
+    .active-context-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.65rem 1.75rem;
+      background: linear-gradient(90deg, rgba(73, 209, 125, 0.12), rgba(59, 130, 246, 0.08));
+      border-bottom: 1px solid rgba(73, 209, 125, 0.35);
+      color: var(--color-text-primary, #F5F7F4);
+      font-size: 0.875rem;
+      flex-wrap: wrap;
+      animation: fadeInBanner 0.2s ease-out;
+    }
+
+    @keyframes fadeInBanner {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .context-info {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .context-icon {
+      font-size: 1.15rem;
+    }
+    .context-label {
+      color: var(--color-text-secondary, #B9C3BC);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .context-user-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(73, 209, 125, 0.4);
+      border-radius: 999px;
+      padding: 2px 10px;
+      color: #fff;
+    }
+    .context-email {
+      color: var(--color-text-secondary, #8fa093);
+      font-size: 0.8rem;
+    }
+    .context-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .context-btn {
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .change-btn {
+      background: rgba(73, 209, 125, 0.15);
+      color: var(--color-action-green, #49D17D);
+      border: 1px solid rgba(73, 209, 125, 0.4);
+    }
+    .change-btn:hover {
+      background: rgba(73, 209, 125, 0.25);
+    }
+    .clear-btn {
+      background: transparent;
+      color: var(--color-text-secondary, #B9C3BC);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .clear-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #FF7A7A;
+      border-color: rgba(255, 122, 122, 0.3);
+    }
+
     @media (max-width: 768px) {
       .layout-shell { flex-direction: column; }
       .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color, #3f3f46); }
@@ -166,16 +253,24 @@ export interface LayoutFooterLink {
       .sidebar-footer { display: none; }
       .sidebar.is-open .sidebar-footer { display: flex; }
       .menu-toggle { display: block !important; background: transparent; border: 1px solid var(--border-color, #3f3f46); color: #fff; padding: 0.5rem; border-radius: 4px; cursor: pointer; }
+      .active-context-banner { padding: 0.5rem 1rem; }
     }
     .menu-toggle { display: none; }
   `]
 })
-export class LayoutShellComponent {
+export class LayoutShellComponent implements OnInit {
   menuOpen = false
+
+  isSectorModalOpen = false
+  pendingTargetSector = ''
+  pendingTargetSectorLabel = ''
+  pendingTargetDestination = ''
+  private dismissedSector: string | null = null
 
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
+    public readonly sectorContextService: SectorContextService,
   ) {}
 
   @Input() portalLabel = 'UniCore'
@@ -293,6 +388,16 @@ export class LayoutShellComponent {
     },
   ]
 
+  ngOnInit(): void {
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe((event) => {
+        this.checkRouteSectorContext(event.urlAfterRedirects || event.url)
+      })
+
+    this.checkRouteSectorContext(this.router.url)
+  }
+
   get visibleNavigation(): readonly LayoutNavigationItem[] {
     return this.navigation.filter((item) => this.authService.canAccess(item.href))
   }
@@ -301,8 +406,121 @@ export class LayoutShellComponent {
     return this.authService.roleLabel()
   }
 
+  get activeContextBanner(): { user: AuthUser; sector: string; sectorLabel: string } | null {
+    const user = this.sectorContextService.activeContextUser()
+    const sector = this.sectorContextService.activeContextSector()
+    const currentUser = this.authService.currentUser
+    if (!user || !sector || !currentUser) return null
+
+    const currentRouteSector = this.sectorContextService.getSectorFromPath(this.router.url)
+    if (currentRouteSector === sector && sector !== currentUser.role) {
+      return {
+        user,
+        sector,
+        sectorLabel: this.sectorContextService.getSectorLabel(sector),
+      }
+    }
+    return null
+  }
+
   canAccess(path: string): boolean {
     return this.authService.canAccess(path)
+  }
+
+  onNavigationClick(event: MouseEvent, targetHref: string, hasChildren = false): void {
+    const currentUser = this.authService.currentUser
+    if (!currentUser) {
+      if (!hasChildren) this.closeMenu()
+      return
+    }
+
+    const targetSector = this.sectorContextService.getSectorFromPath(targetHref)
+    // Se a rota não pertence a um setor externo (ex: próprio perfil, /agenda geral ou /alterar-senha)
+    if (!targetSector || targetSector === currentUser.role) {
+      if (!hasChildren) this.closeMenu()
+      return
+    }
+
+    const activeSector = this.sectorContextService.activeContextSector()
+    const activeUser = this.sectorContextService.activeContextUser()
+    const currentRouteSector = this.sectorContextService.getSectorFromPath(this.router.url)
+
+    // Se já está no mesmo setor com usuário em contexto ativo e está navegando em um sublink
+    if (activeSector === targetSector && activeUser && currentRouteSector === targetSector) {
+      if (!hasChildren) this.closeMenu()
+      return
+    }
+
+    // Intercepta e abre modal de seleção de usuário
+    event.preventDefault()
+    event.stopPropagation()
+    if (!hasChildren) this.closeMenu()
+
+    this.dismissedSector = null
+    this.openSectorModal(targetSector, targetHref)
+  }
+
+  private checkRouteSectorContext(url: string): void {
+    const currentUser = this.authService.currentUser
+    if (!currentUser) return
+
+    const routeSector = this.sectorContextService.getSectorFromPath(url)
+    if (!routeSector || routeSector === currentUser.role) return
+
+    const activeSector = this.sectorContextService.activeContextSector()
+    const activeUser = this.sectorContextService.activeContextUser()
+
+    if ((!activeUser || activeSector !== routeSector) && !this.isSectorModalOpen && this.dismissedSector !== routeSector) {
+      this.openSectorModal(routeSector, url)
+    }
+  }
+
+  openSectorModal(sector: string, destination: string): void {
+    this.pendingTargetSector = sector
+    this.pendingTargetSectorLabel = this.sectorContextService.getSectorLabel(sector)
+    this.pendingTargetDestination = destination
+    this.isSectorModalOpen = true
+  }
+
+  closeSectorModal(): void {
+    this.isSectorModalOpen = false
+    this.dismissedSector = this.pendingTargetSector
+    this.pendingTargetSector = ''
+    this.pendingTargetSectorLabel = ''
+    this.pendingTargetDestination = ''
+  }
+
+  onSectorUserSelected(user: AuthUser): void {
+    const targetSector = this.pendingTargetSector
+    const targetDest = this.pendingTargetDestination
+    this.dismissedSector = null
+    this.sectorContextService.setContextUser(user, targetSector)
+    this.closeSectorModal()
+    if (targetDest) {
+      void this.router.navigateByUrl(targetDest)
+    }
+  }
+
+  onProceedWithoutUser(): void {
+    const targetDest = this.pendingTargetDestination
+    this.dismissedSector = this.pendingTargetSector
+    this.closeSectorModal()
+    if (targetDest) {
+      void this.router.navigateByUrl(targetDest)
+    }
+  }
+
+  openSwitchUserModal(): void {
+    const currentRouteSector = this.sectorContextService.getSectorFromPath(this.router.url)
+    const sector = currentRouteSector || this.sectorContextService.activeContextSector() || ''
+    if (sector) {
+      this.dismissedSector = null
+      this.openSectorModal(sector, this.router.url)
+    }
+  }
+
+  clearActiveContext(): void {
+    this.sectorContextService.clearContextUser()
   }
 
   toggleMenu(): void {
@@ -315,12 +533,17 @@ export class LayoutShellComponent {
 
   logout(): void {
     this.authService.logout()
+    this.sectorContextService.clearContextUser()
     this.closeMenu()
     void this.router.navigateByUrl('/login')
   }
 
   @HostListener('document:keydown.escape')
   handleEscape(): void {
+    if (this.isSectorModalOpen) {
+      this.closeSectorModal()
+      return
+    }
     this.closeMenu()
   }
 }

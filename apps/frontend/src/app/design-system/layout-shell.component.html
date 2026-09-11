@@ -25,7 +25,7 @@
               [routerLinkActiveOptions]="{ exact: true }"
               [attr.aria-current]="activeLink.isActive ? 'page' : null"
               [class.parent-link]="item.children?.length"
-              (click)="!item.children ? closeMenu() : null"
+              (click)="onNavigationClick($event, item.href, !!item.children?.length)"
             >{{ item.label }}</a>
             
             @if (item.children) {
@@ -39,7 +39,7 @@
                       [routerLinkActiveOptions]="{ exact: true }"
                       [attr.aria-current]="activeChild.isActive ? 'page' : null"
                       [class.parent-link]="child.children?.length"
-                      (click)="!child.children ? closeMenu() : null"
+                      (click)="onNavigationClick($event, child.href, !!child.children?.length)"
                     >{{ child.label }}</a>
                     
                     @if (child.children) {
@@ -52,7 +52,7 @@
                               #activeSub="routerLinkActive"
                               [routerLinkActiveOptions]="{ exact: true }"
                               [attr.aria-current]="activeSub.isActive ? 'page' : null"
-                              (click)="closeMenu()"
+                              (click)="onNavigationClick($event, subchild.href, false)"
                             >{{ subchild.label }}</a>
                           </li>
                         }
@@ -74,9 +74,53 @@
   </aside>
 
   <div class="main-wrapper">
+    <!-- Active Context Banner -->
+    @if (activeContextBanner; as ctx) {
+      <div class="active-context-banner" role="status" aria-live="polite">
+        <div class="context-info">
+          <span class="context-icon" aria-hidden="true">🎯</span>
+          <span class="context-label">Contexto de {{ ctx.sectorLabel }}:</span>
+          <span class="context-user-chip">
+            <strong>{{ ctx.user.username }}</strong>
+            <span class="context-email">({{ ctx.user.email }})</span>
+          </span>
+        </div>
+        <div class="context-actions">
+          <button
+            type="button"
+            class="context-btn change-btn"
+            id="switch-context-user-btn"
+            (click)="openSwitchUserModal()"
+            title="Trocar usuário ativo deste setor"
+          >
+            🔁 Trocar Usuário
+          </button>
+          <button
+            type="button"
+            class="context-btn clear-btn"
+            id="clear-context-user-btn"
+            (click)="clearActiveContext()"
+            title="Remover contexto e voltar ao modo padrão"
+          >
+            ✕ Limpar Contexto
+          </button>
+        </div>
+      </div>
+    }
+
     <main [id]="mainId" class="page-main" tabindex="-1">
       <router-outlet></router-outlet>
     </main>
-
   </div>
 </div>
+
+<!-- Sector User Selection Modal -->
+<app-sector-user-select-modal
+  [isOpen]="isSectorModalOpen"
+  [targetSector]="pendingTargetSector"
+  [targetSectorLabel]="pendingTargetSectorLabel"
+  [targetDestination]="pendingTargetDestination"
+  (userSelected)="onSectorUserSelected($event)"
+  (closed)="closeSectorModal()"
+  (proceedWithoutUser)="onProceedWithoutUser()"
+></app-sector-user-select-modal>

@@ -146,8 +146,11 @@ export class AuthService {
     return path.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || '/'
   }
 
-  getUsers(): Observable<AuthUser[]> {
-    return this.http.get<AuthUser[]>('/api/auth/users');
+  getUsers(sector?: string, search?: string): Observable<AuthUser[]> {
+    const params: Record<string, string> = {}
+    if (sector) params['sector'] = sector
+    if (search && search.trim()) params['search'] = search.trim()
+    return this.http.get<AuthUser[]>('/api/auth/users', { params })
   }
 
   private persistSession(): void {

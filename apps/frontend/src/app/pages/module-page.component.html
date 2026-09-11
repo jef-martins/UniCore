@@ -5,6 +5,17 @@
     <p>{{ description }}</p>
   </div>
 
+  @if (activeContextUser(); as contextUser) {
+    <div class="context-card card card-elevated" id="module-context-card">
+      <div class="context-header">
+        <span class="context-tag">🎯 Usuário em Contexto</span>
+      </div>
+      <h2 class="context-username">{{ contextUser.username }}</h2>
+      <p class="context-user-email">E-mail: <strong>{{ contextUser.email }}</strong></p>
+      <p>Você está operando neste módulo sob o contexto do usuário selecionado.</p>
+    </div>
+  }
+
   <div class="module-placeholder card card-outlined">
     <h2>Estrutura preparada</h2>
     <p>Esta tela já está isolada por perfil e pronta para receber os serviços do backend.</p>

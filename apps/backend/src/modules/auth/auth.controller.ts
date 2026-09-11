@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { CreateUserDto } from './dto/create-user.dto'
@@ -25,8 +25,12 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard)
-  getUsers(@Req() request: AuthenticatedRequest) {
-    return this.authService.findAllUsers(request.user)
+  getUsers(
+    @Req() request: AuthenticatedRequest,
+    @Query('sector') sector?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.authService.findAllUsers(request.user, sector, search)
   }
 
   @Post('users')

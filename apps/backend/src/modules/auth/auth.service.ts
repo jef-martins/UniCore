@@ -87,33 +87,58 @@ export class AuthService {
     return { accessToken, user: publicUser }
   }
 
-  async findAllUsers(requestUser: { sub: string; role: AuthRole }): Promise<AuthUserResponse[]> {
-    const whereClause: any = { isActive: true }
+  async findAllUsers(
+    requestUser: { sub: string; role: AuthRole },
+    sector?: string,
+    search?: string,
+  ): Promise<AuthUserResponse[]> {
+    const andConditions: any[] = [{ isActive: true }]
     
     if (requestUser.role === 'master') {
-      // Master vê todo mundo, não aplica filtro extra de role
+      // Master vê todo mundo, não aplica filtro restritivo de papel
     } else if (requestUser.role === 'admin') {
-      whereClause.role = { not: 'MASTER' };
+      andConditions.push({ role: { not: 'MASTER' } })
     } else {
       const accessRole = (Object.keys(ROLE_MAP) as AccessRole[]).find(
         (key) => ROLE_MAP[key] === requestUser.role
       )
       if (accessRole) {
         if (requestUser.role === 'aluno') {
-          whereClause.id = requestUser.sub; // Aluno vê apenas a si mesmo
+          andConditions.push({ id: requestUser.sub }) // Aluno vê apenas a si mesmo
         } else if (requestUser.role === 'coordenacao') {
-          whereClause.role = { in: [accessRole, 'ALUNO', 'PROFESSOR'] }; // Coordenação vê alunos e professores
+          andConditions.push({ role: { in: [accessRole, 'ALUNO', 'PROFESSOR'] } }) // Coordenação vê setor + alunos e professores
         } else {
-          whereClause.role = { in: [accessRole, 'ALUNO'] }; // Outros vêem seu setor + alunos
+          andConditions.push({ role: { in: [accessRole, 'ALUNO'] } }) // Outros vêem seu setor + alunos
         }
       }
     }
+
+    if (sector) {
+      const targetAccessRole = (Object.keys(ROLE_MAP) as AccessRole[]).find(
+        (key) => ROLE_MAP[key] === sector.toLowerCase()
+      )
+      if (targetAccessRole) {
+        andConditions.push({ role: targetAccessRole })
+      }
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim()
+      andConditions.push({
+        OR: [
+          { username: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+        ],
+      })
+    }
+
+    const whereClause = andConditions.length === 1 ? andConditions[0] : { AND: andConditions }
 
     const users = await this.prisma.user.findMany({
       where: whereClause,
       orderBy: { username: 'asc' },
     })
-    return users.map(u => this.toPublicUser(u))
+    return users.map((u) => this.toPublicUser(u))
   }
 
   toPublicUser(user: { id: string; username: string; email: string; role: AccessRole }): AuthUserResponse {
