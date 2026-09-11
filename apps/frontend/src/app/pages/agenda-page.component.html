@@ -414,12 +414,12 @@
                   <select
                     id="agenda-assign-sector-select"
                     class="field-control"
-                    [(ngModel)]="selectedAssignSector"
+                    [(ngModel)]="selectedAssignSectorKey"
                     (ngModelChange)="onAssignSectorChange($event)"
-                    name="selectedAssignSector"
+                    name="selectedAssignSectorKey"
                   >
-                    @for (type of taskTypes.slice(1); track type) {
-                      <option [value]="type">{{ type }}</option>
+                    @for (sector of assignSectors; track sector.key) {
+                      <option [value]="sector.key">{{ sector.label }}</option>
                     }
                   </select>
                 </div>
@@ -432,7 +432,7 @@
                     [(ngModel)]="selectedAssignUserId"
                     name="selectedAssignUserId"
                   >
-                    <option value="none">🌐 Fila do Setor (Visível para todos)</option>
+                    <option value="none">🌐 Fila do Setor (Visível para todos de {{ selectedAssignSectorObj.label }})</option>
                     @for (user of usersInSelectedSector; track user.id) {
                       <option [value]="user.id">👤 {{ user.username }} ({{ user.email }})</option>
                     }
