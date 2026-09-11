@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, OnInit } from '@angular/core'
+import { Component, OnInit, HostListener } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import {
@@ -250,6 +250,54 @@ interface CalendarDay {
       justify-content: flex-end;
       gap: 0.75rem;
     }
+    .new-task-modal-card {
+      max-width: 620px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .new-task-modal-card form {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .new-task-modal-card .modal-body {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+      padding: 1.5rem;
+    }
+    .new-task-modal-card .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .modal-header-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .modal-eyebrow {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-action-green, #49D17D);
+    }
+    .new-task-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+      padding: 0.45rem 1rem;
+      box-shadow: 0 2px 8px rgba(73, 209, 125, 0.2);
+    }
     @keyframes modalFadeIn {
       from { opacity: 0; transform: scale(0.97); }
       to { opacity: 1; transform: scale(1); }
@@ -292,6 +340,7 @@ export class AgendaPageComponent implements OnInit {
   selectedCreationFile: File | null = null
   filterUserId = ''
   currentSector: string | undefined = undefined
+  isNewTaskModalOpen = false
 
   // Conclusão com Evidência
   completingTask: AgendaTask | null = null
@@ -413,10 +462,32 @@ export class AgendaPageComponent implements OnInit {
     this.selectedDay = null
   }
 
+  openNewTaskModal(defaultDate?: string): void {
+    if (defaultDate) {
+      this.newTaskDate = defaultDate
+    } else if (!this.newTaskDate) {
+      this.newTaskDate = this.toDateKey(new Date())
+    }
+    this.errorMessage = ''
+    this.isNewTaskModalOpen = true
+  }
+
+  closeNewTaskModal(): void {
+    this.isNewTaskModalOpen = false
+    this.errorMessage = ''
+  }
+
   openNewTaskForDay(dayKey: string): void {
-    this.newTaskDate = dayKey
-    document.getElementById('agenda-new-task-title-input')?.focus()
-    this.selectedDay = null
+    this.openNewTaskModal(dayKey)
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapePress(): void {
+    if (this.isNewTaskModalOpen) {
+      this.closeNewTaskModal()
+    } else if (this.completingTask) {
+      this.closeCompletionModal()
+    }
   }
 
   onCreationFileSelected(event: Event): void {
@@ -472,6 +543,7 @@ export class AgendaPageComponent implements OnInit {
           this.newTaskUserId = 'none'
           this.newTaskIsPriority = false
           this.removeCreationFile()
+          this.closeNewTaskModal()
         },
         error: () => {
           this.errorMessage = 'Não foi possível salvar a tarefa. Tente novamente.'

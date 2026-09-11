@@ -20,87 +20,19 @@
           }
         </select>
       }
+
+      <button
+        class="button button-primary new-task-btn"
+        type="button"
+        (click)="openNewTaskModal()"
+        title="Cadastrar nova tarefa individual ou para a equipe"
+      >
+        <span>➕</span> Nova Tarefa
+      </button>
     </div>
   </header>
 
   @if (!selectedDay) {
-    <section class="agenda-new-task card card-outlined" aria-labelledby="agenda-new-task-title">
-      <div>
-        <h2 id="agenda-new-task-title">Nova tarefa</h2>
-        <p>Cadastre uma tarefa individual ou compartilhada para a equipe do setor.</p>
-      </div>
-      <form class="agenda-task-form" (ngSubmit)="createTask()">
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-title-input">Título *</label>
-          <input id="agenda-new-task-title-input" class="field-control" type="text" maxlength="160" required [(ngModel)]="newTaskTitle" name="newTaskTitle" placeholder="Ex: Elaborar relatório trimestral" />
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-description">Descrição</label>
-          <textarea id="agenda-new-task-description" class="field-control" maxlength="2000" rows="3" [(ngModel)]="newTaskDescription" name="newTaskDescription" placeholder="Detalhes e orientações da tarefa..."></textarea>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-date">Data *</label>
-          <input id="agenda-new-task-date" class="field-control" type="date" required [(ngModel)]="newTaskDate" name="newTaskDate" />
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-type">Tipo</label>
-          <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
-            @for (type of taskTypes.slice(1); track type) { <option [value]="type">{{ type }}</option> }
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
-          <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
-            <option value="none">🌐 Nenhum usuário (Visível para todo o setor)</option>
-            <option [value]="authService.currentUser?.id">👤 Atribuir a mim ({{ authService.currentUser?.username }})</option>
-            @for (user of users; track user.id) {
-              @if (user.id !== authService.currentUser?.id) {
-                <option [value]="user.id">{{ user.username }} ({{ user.role }})</option>
-              }
-            }
-          </select>
-        </div>
-
-        <div class="field agenda-priority-field">
-          <label class="agenda-task-toggle">
-            <input class="checkbox-control" type="checkbox" [(ngModel)]="newTaskIsPriority" name="newTaskIsPriority" />
-            <strong style="color: #ffb86c; font-weight: 500;">🔥 Demanda de Alta Prioridade</strong>
-          </label>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="agenda-new-task-file">Anexo de Detalhes / Referência (Opcional)</label>
-          <div class="attachment-input-wrapper">
-            <label class="attachment-upload-btn" for="agenda-new-task-file">
-              <span>📎 Selecionar arquivo</span>
-              <input
-                id="agenda-new-task-file"
-                type="file"
-                (change)="onCreationFileSelected($event)"
-                style="display: none;"
-              />
-            </label>
-            @if (selectedCreationFile) {
-              <div class="selected-file-badge">
-                <span class="file-name">{{ selectedCreationFile.name }}</span>
-                <span class="file-size">({{ formatFileSize(selectedCreationFile.size) }})</span>
-                <button type="button" class="btn-remove-file" (click)="removeCreationFile()" title="Remover anexo">✕</button>
-              </div>
-            }
-          </div>
-          <small class="field-hint">Para tarefas complexas com manuais, especificações, planilhas ou instruções detalhadas.</small>
-        </div>
-
-        <div class="form-actions">
-          <button class="button button-primary" type="submit" [disabled]="isSaving">{{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}</button>
-        </div>
-      </form>
-    </section>
-
     @if (errorMessage) {
       <p class="error-message" role="alert">{{ errorMessage }}</p>
     }
@@ -397,6 +329,140 @@
             {{ isCompleting ? 'Concluindo...' : 'Confirmar Conclusão' }}
           </button>
         </footer>
+      </div>
+    </div>
+  }
+
+  <!-- Modal de Cadastro de Nova Tarefa -->
+  @if (isNewTaskModalOpen) {
+    <div class="modal-backdrop" (click)="closeNewTaskModal()">
+      <div
+        class="modal-card new-task-modal-card card card-outlined"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-labelledby="new-task-modal-title"
+      >
+        <header class="modal-header">
+          <div class="modal-header-titles">
+            <span class="modal-eyebrow">Agenda Operacional</span>
+            <h3 id="new-task-modal-title">Nova Tarefa</h3>
+          </div>
+          <button type="button" class="modal-close-btn" (click)="closeNewTaskModal()" aria-label="Fechar modal">✕</button>
+        </header>
+
+        <form (ngSubmit)="createTask()">
+          <div class="modal-body">
+            @if (errorMessage) {
+              <p class="error-message" role="alert" style="margin: 0;">{{ errorMessage }}</p>
+            }
+
+            <!-- Título -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-title-input">Título *</label>
+              <input
+                id="agenda-new-task-title-input"
+                class="field-control"
+                type="text"
+                maxlength="160"
+                required
+                [(ngModel)]="newTaskTitle"
+                name="newTaskTitle"
+                placeholder="Ex: Elaborar relatório trimestral"
+                autofocus
+              />
+            </div>
+
+            <!-- Descrição -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-description">Descrição</label>
+              <textarea
+                id="agenda-new-task-description"
+                class="field-control"
+                maxlength="2000"
+                rows="3"
+                [(ngModel)]="newTaskDescription"
+                name="newTaskDescription"
+                placeholder="Detalhes e orientações da tarefa..."
+              ></textarea>
+            </div>
+
+            <!-- Data -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-date">Data *</label>
+              <input
+                id="agenda-new-task-date"
+                class="field-control"
+                type="date"
+                required
+                [(ngModel)]="newTaskDate"
+                name="newTaskDate"
+              />
+            </div>
+
+            <!-- Tipo (Setor) -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-type">Tipo / Setor</label>
+              <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
+                @for (type of taskTypes.slice(1); track type) {
+                  <option [value]="type">{{ type }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- Atribuir a -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
+              <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
+                <option value="none">🌐 Nenhum usuário (Visível para todo o setor)</option>
+                <option [value]="authService.currentUser?.id">👤 Atribuir a mim ({{ authService.currentUser?.username }})</option>
+                @for (user of users; track user.id) {
+                  @if (user.id !== authService.currentUser?.id) {
+                    <option [value]="user.id">{{ user.username }} ({{ user.role }})</option>
+                  }
+                }
+              </select>
+            </div>
+
+            <!-- Prioridade -->
+            <div class="field agenda-priority-field">
+              <label class="agenda-task-toggle" style="cursor: pointer;">
+                <input class="checkbox-control" type="checkbox" [(ngModel)]="newTaskIsPriority" name="newTaskIsPriority" />
+                <strong style="color: #ffb86c; font-weight: 500;">🔥 Demanda de Alta Prioridade</strong>
+              </label>
+            </div>
+
+            <!-- Anexo de Detalhes -->
+            <div class="field">
+              <label class="field-label" for="agenda-new-task-file">Anexo de Detalhes / Referência (Opcional)</label>
+              <div class="attachment-input-wrapper">
+                <label class="attachment-upload-btn" for="agenda-new-task-file">
+                  <span>📎 Selecionar arquivo</span>
+                  <input
+                    id="agenda-new-task-file"
+                    type="file"
+                    (change)="onCreationFileSelected($event)"
+                    style="display: none;"
+                  />
+                </label>
+                @if (selectedCreationFile) {
+                  <div class="selected-file-badge">
+                    <span class="file-name">{{ selectedCreationFile.name }}</span>
+                    <span class="file-size">({{ formatFileSize(selectedCreationFile.size) }})</span>
+                    <button type="button" class="btn-remove-file" (click)="removeCreationFile()" title="Remover anexo">✕</button>
+                  </div>
+                }
+              </div>
+              <small class="field-hint">Para tarefas com manuais, especificações, planilhas ou instruções detalhadas.</small>
+            </div>
+          </div>
+
+          <footer class="modal-actions">
+            <button class="button button-secondary" type="button" (click)="closeNewTaskModal()">Cancelar</button>
+            <button class="button button-primary" type="submit" [disabled]="isSaving">
+              {{ isSaving ? 'Salvando…' : 'Adicionar tarefa' }}
+            </button>
+          </footer>
+        </form>
       </div>
     </div>
   }
