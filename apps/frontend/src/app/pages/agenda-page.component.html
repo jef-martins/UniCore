@@ -399,29 +399,54 @@
               />
             </div>
 
-            <!-- Tipo (Setor) -->
-            <div class="field">
-              <label class="field-label" for="agenda-new-task-type">Tipo / Setor</label>
-              <select id="agenda-new-task-type" class="field-control" [(ngModel)]="newTaskType" name="newTaskType">
-                @for (type of taskTypes.slice(1); track type) {
-                  <option [value]="type">{{ type }}</option>
-                }
-              </select>
+            <!-- Checkbox: Atribuir a outro usuário -->
+            <div class="field assign-other-field">
+              <label class="agenda-task-toggle" style="cursor: pointer;">
+                <input
+                  id="agenda-assign-other-checkbox"
+                  class="checkbox-control"
+                  type="checkbox"
+                  [(ngModel)]="assignToOther"
+                  name="assignToOther"
+                />
+                <span class="assign-toggle-label">👥 Atribuir a outro usuário</span>
+              </label>
             </div>
 
-            <!-- Atribuir a -->
-            <div class="field">
-              <label class="field-label" for="agenda-new-task-user">Atribuir a</label>
-              <select id="agenda-new-task-user" class="field-control" [(ngModel)]="newTaskUserId" name="newTaskUserId">
-                <option value="none">🌐 Nenhum usuário (Visível para todo o setor)</option>
-                <option [value]="authService.currentUser?.id">👤 Atribuir a mim ({{ authService.currentUser?.username }})</option>
-                @for (user of users; track user.id) {
-                  @if (user.id !== authService.currentUser?.id) {
-                    <option [value]="user.id">{{ user.username }} ({{ user.role }})</option>
-                  }
-                }
-              </select>
-            </div>
+            <!-- Se marcado: Exibe Setor e depois Lista de Usuários do Setor -->
+            @if (assignToOther) {
+              <div class="assign-expanded-box">
+                <div class="field" style="margin-bottom: 0;">
+                  <label class="field-label" for="agenda-assign-sector-select">Setor</label>
+                  <select
+                    id="agenda-assign-sector-select"
+                    class="field-control"
+                    [(ngModel)]="selectedAssignSector"
+                    (ngModelChange)="onAssignSectorChange($event)"
+                    name="selectedAssignSector"
+                  >
+                    @for (type of taskTypes.slice(1); track type) {
+                      <option [value]="type">{{ type }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="field" style="margin-bottom: 0;">
+                  <label class="field-label" for="agenda-assign-user-select">Usuário do Setor</label>
+                  <select
+                    id="agenda-assign-user-select"
+                    class="field-control"
+                    [(ngModel)]="selectedAssignUserId"
+                    name="selectedAssignUserId"
+                  >
+                    <option value="none">🌐 Fila do Setor (Visível para todos)</option>
+                    @for (user of usersInSelectedSector; track user.id) {
+                      <option [value]="user.id">👤 {{ user.username }} ({{ user.email }})</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
 
             <!-- Prioridade -->
             <div class="field agenda-priority-field">

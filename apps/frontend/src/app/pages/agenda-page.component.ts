@@ -298,6 +298,24 @@ interface CalendarDay {
       padding: 0.45rem 1rem;
       box-shadow: 0 2px 8px rgba(73, 209, 125, 0.2);
     }
+    .assign-other-field {
+      padding: 0.25rem 0;
+    }
+    .assign-toggle-label {
+      font-weight: 500;
+      color: var(--color-text-primary, #F5F7F4);
+      font-size: 0.9rem;
+    }
+    .assign-expanded-box {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(88, 103, 92, 0.4);
+      border-radius: 8px;
+      animation: modalFadeIn 0.15s ease-out;
+    }
     @keyframes modalFadeIn {
       from { opacity: 0; transform: scale(0.97); }
       to { opacity: 1; transform: scale(1); }
@@ -341,6 +359,86 @@ export class AgendaPageComponent implements OnInit {
   filterUserId = ''
   currentSector: string | undefined = undefined
   isNewTaskModalOpen = false
+
+  // Atribuição de Tarefa
+  assignToOther = false
+  selectedAssignSector: AgendaTaskType = 'Vestibular'
+  selectedAssignUserId = 'none'
+
+  get usersInSelectedSector(): AuthUser[] {
+    const targetRoles = this.getRolesForTaskType(this.selectedAssignSector)
+    return this.users.filter((u) => {
+      const userRole = (u.role || '').toLowerCase()
+      return targetRoles.includes(userRole)
+    })
+  }
+
+  getRolesForTaskType(type: AgendaTaskType): string[] {
+    switch (type) {
+      case 'Administração':
+        return ['admin', 'master', 'administracao']
+      case 'Tesouraria':
+        return ['tesouraria']
+      case 'Coordenação':
+        return ['coordenacao']
+      case 'Registro Acadêmico':
+        return ['registro_academico']
+      case 'Alunos':
+        return ['aluno']
+      case 'Professores':
+        return ['professor']
+      case 'Vestibular':
+      default:
+        return ['vestibular']
+    }
+  }
+
+  getUserDefaultTaskType(): AgendaTaskType {
+    const sec = (this.currentSector || this.authService.currentUser?.role || '').toLowerCase()
+    switch (sec) {
+      case 'tesouraria':
+        return 'Tesouraria'
+      case 'secretaria':
+      case 'administracao':
+      case 'admin':
+      case 'master':
+        return 'Administração'
+      case 'coordenacao':
+        return 'Coordenação'
+      case 'registro_academico':
+        return 'Registro Acadêmico'
+      case 'aluno':
+        return 'Alunos'
+      case 'professor':
+        return 'Professores'
+      default:
+        return 'Vestibular'
+    }
+  }
+
+  getSectorRoleFromType(type: AgendaTaskType): string {
+    switch (type) {
+      case 'Tesouraria':
+        return 'tesouraria'
+      case 'Administração':
+        return 'admin'
+      case 'Coordenação':
+        return 'coordenacao'
+      case 'Registro Acadêmico':
+        return 'registro_academico'
+      case 'Alunos':
+        return 'aluno'
+      case 'Professores':
+        return 'professor'
+      default:
+        return 'vestibular'
+    }
+  }
+
+  onAssignSectorChange(newSector: AgendaTaskType): void {
+    this.selectedAssignSector = newSector
+    this.selectedAssignUserId = 'none'
+  }
 
   // Conclusão com Evidência
   completingTask: AgendaTask | null = null
@@ -468,6 +566,9 @@ export class AgendaPageComponent implements OnInit {
     } else if (!this.newTaskDate) {
       this.newTaskDate = this.toDateKey(new Date())
     }
+    this.assignToOther = false
+    this.selectedAssignSector = this.getUserDefaultTaskType()
+    this.selectedAssignUserId = 'none'
     this.errorMessage = ''
     this.isNewTaskModalOpen = true
   }
@@ -512,18 +613,29 @@ export class AgendaPageComponent implements OnInit {
     this.isSaving = true
     this.errorMessage = ''
 
-    const isSharedSector = !this.newTaskUserId || this.newTaskUserId === 'none'
-    const targetUserId = isSharedSector ? null : this.newTaskUserId
+    let taskType: AgendaTaskType
+    let targetSector: string
+    let targetUserId: string | null
+
+    if (this.assignToOther) {
+      taskType = this.selectedAssignSector
+      targetSector = this.getSectorRoleFromType(this.selectedAssignSector)
+      targetUserId = !this.selectedAssignUserId || this.selectedAssignUserId === 'none' ? null : this.selectedAssignUserId
+    } else {
+      taskType = this.getUserDefaultTaskType()
+      targetSector = this.currentSector || this.authService.currentUser?.role || 'vestibular'
+      targetUserId = this.authService.currentUser?.id || null
+    }
 
     this.agendaService
       .createTask({
         title: this.newTaskTitle,
         description: this.newTaskDescription,
         date: this.newTaskDate,
-        type: this.newTaskType,
+        type: taskType,
         isPriority: this.newTaskIsPriority,
         userId: targetUserId,
-        sector: this.currentSector || this.authService.currentUser?.role,
+        sector: targetSector,
         file: this.selectedCreationFile,
       })
       .subscribe({
@@ -533,7 +645,8 @@ export class AgendaPageComponent implements OnInit {
             !task.userId ||
             task.userId === myId ||
             this.authService.currentUser?.role === 'admin' ||
-            this.authService.currentUser?.role === 'master'
+            this.authService.currentUser?.role === 'master' ||
+            (this.currentSector && task.sector === this.currentSector)
 
           if (isForMeOrMySector) {
             this.tasks = [...this.tasks, task]
@@ -542,6 +655,7 @@ export class AgendaPageComponent implements OnInit {
           this.newTaskDescription = ''
           this.newTaskUserId = 'none'
           this.newTaskIsPriority = false
+          this.assignToOther = false
           this.removeCreationFile()
           this.closeNewTaskModal()
         },
