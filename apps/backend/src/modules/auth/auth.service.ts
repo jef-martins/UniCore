@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import argon2 from 'argon2'
 import { AccessRole } from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
 import { CreateUserDto } from './dto/create-user.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 
 export type AuthRole =
   | 'vestibular'
@@ -159,5 +160,35 @@ export class AuthService {
     })
 
     return this.toPublicUser(user)
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ success: boolean; message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.')
+    }
+
+    let passwordMatches = false
+    try {
+      passwordMatches = await argon2.verify(user.passwordHash, dto.currentPassword)
+    } catch {
+      passwordMatches = false
+    }
+
+    if (!passwordMatches) {
+      throw new BadRequestException('A senha atual informada está incorreta.')
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('A nova senha deve ser diferente da senha atual.')
+    }
+
+    const passwordHash = await argon2.hash(dto.newPassword)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    })
+
+    return { success: true, message: 'Senha alterada com sucesso.' }
   }
 }

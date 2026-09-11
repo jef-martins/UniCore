@@ -187,41 +187,58 @@ export class LayoutShellComponent {
       label: 'Vestibular',
       children: [
         { href: '/vestibular/corrigir', label: 'Corrigir Avaliação' },
-        { href: '/vestibular/agenda', label: 'Agenda' }
+        { href: '/vestibular/agenda', label: 'Agenda' },
+        { href: '/vestibular/alterar-senha', label: 'Alterar Senha' },
       ]
     },
     { 
       href: '/tesouraria', 
       label: 'Tesouraria',
-      children: [{ href: '/tesouraria/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/tesouraria/agenda', label: 'Agenda' },
+        { href: '/tesouraria/alterar-senha', label: 'Alterar Senha' },
+      ]
     },
     { 
       href: '/secretaria', 
       label: 'Secretaria',
-      children: [{ href: '/secretaria/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/secretaria/agenda', label: 'Agenda' },
+        { href: '/secretaria/alterar-senha', label: 'Alterar Senha' },
+      ]
     },
     { 
       href: '/coordenacao', 
       label: 'Coordenação',
-      children: [{ href: '/coordenacao/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/coordenacao/agenda', label: 'Agenda' },
+        { href: '/coordenacao/alterar-senha', label: 'Alterar Senha' },
+      ]
     },
     { 
       href: '/registro-academico', 
       label: 'Registro Acadêmico',
-      children: [{ href: '/registro-academico/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/registro-academico/agenda', label: 'Agenda' },
+        { href: '/registro-academico/alterar-senha', label: 'Alterar Senha' },
+      ]
     },
     { 
       href: '/professor', 
       label: 'Professor',
       children: [
         { href: '/professor/agenda', label: 'Agenda' },
-        { href: '/professor/reservas', label: 'Reserva de Itens' }
+        { href: '/professor/reservas', label: 'Reserva de Itens' },
+        { href: '/professor/alterar-senha', label: 'Alterar Senha' },
       ]
     },
     { 
       href: '/aluno', 
       label: 'Aluno',
-      children: [{ href: '/aluno/agenda', label: 'Agenda' }]
+      children: [
+        { href: '/aluno/agenda', label: 'Agenda' },
+        { href: '/aluno/alterar-senha', label: 'Alterar Senha' },
+      ]
     },
     {
       href: '/administracao',
@@ -246,7 +263,8 @@ export class LayoutShellComponent {
             { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' },
             { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' }
           ]
-        }
+        },
+        { href: '/administracao/alterar-senha', label: 'Alterar Senha' },
       ]
     },
     { 
@@ -269,7 +287,8 @@ export class LayoutShellComponent {
             { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' },
             { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' }
           ]
-        }
+        },
+        { href: '/desenvolvedor/alterar-senha', label: 'Alterar Senha' },
       ]
     },
   ]

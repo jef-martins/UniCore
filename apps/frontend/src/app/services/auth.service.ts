@@ -31,7 +31,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
   secretaria: ['/secretaria', '/aluno', '/agenda'],
   coordenacao: ['/coordenacao', '/aluno', '/professor', '/agenda'],
   registro_academico: ['/registro-academico', '/aluno', '/agenda'],
-  aluno: ['/agenda'],
+  aluno: ['/aluno', '/agenda'],
   professor: ['/professor', '/aluno', '/agenda'],
   admin: [
     '/dashboards', '/vestibular', '/tesouraria', '/secretaria',
@@ -96,9 +96,17 @@ export class AuthService {
     if (!user) return false
     const normalizedPath = this.normalizePath(path)
     if (normalizedPath === '/agenda' || normalizedPath.startsWith('/agenda/')) return true
+    if (normalizedPath === '/alterar-senha' || normalizedPath.endsWith('/alterar-senha')) return true
     
     const permissions = ROLE_PERMISSIONS[user.role] ?? []
     return permissions.some(p => normalizedPath === p || normalizedPath.startsWith(`${p}/`))
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>('/api/auth/change-password', {
+      currentPassword,
+      newPassword,
+    })
   }
 
   hasAnyRole(roles: readonly UserRole[]): boolean {

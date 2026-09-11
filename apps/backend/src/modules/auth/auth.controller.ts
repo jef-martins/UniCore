@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } fro
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { CreateUserDto } from './dto/create-user.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard'
 import { RolesGuard } from './roles.guard'
 import { Roles } from './roles.decorator'
@@ -33,5 +34,15 @@ export class AuthController {
   @Roles('admin', 'master')
   createUser(@Body() body: CreateUserDto) {
     return this.authService.createUser(body)
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(request.user.sub, body)
   }
 }
