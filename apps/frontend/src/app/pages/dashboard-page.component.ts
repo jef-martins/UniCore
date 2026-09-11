@@ -782,7 +782,38 @@ export interface FullDashboardStats {
               </table>
             </div>
 
+            <!-- Rodapé da Tabela -->
+            <div class="table-footer-bar">
+              <div class="table-footer-info">
+                <span>
+                  Mostrando <strong>{{ filteredTasks().length }}</strong> de <strong>{{ stats.overview.totalTasks }}</strong> demandas registradas
+                </span>
+                @if (filteredTasks().length < stats.overview.totalTasks) {
+                  <span class="filter-applied-badge">Filtros ativos</span>
+                }
+              </div>
+              <div class="table-footer-meta">
+                <span class="meta-dot"></span>
+                <span>Fim da listagem de tarefas</span>
+              </div>
+            </div>
+
           </section>
+
+          <!-- Rodapé da Página do Dashboard -->
+          <footer class="dashboard-page-footer">
+            <div class="footer-brand">
+              <span class="footer-icon">📊</span>
+              <span class="footer-logo">UniCore</span>
+              <span class="footer-sep">•</span>
+              <span>Relatório de Agenda & Gestão Operacional</span>
+            </div>
+            <div class="footer-actions">
+              <button type="button" class="back-to-top-btn" (click)="scrollToTop()">
+                ▲ Voltar ao topo
+              </button>
+            </div>
+          </footer>
 
         </div>
       }
@@ -790,7 +821,7 @@ export interface FullDashboardStats {
   `,
   styles: [`
     .dashboard-page {
-      padding: 1.5rem 2rem;
+      padding: 1.5rem 2rem 6rem;
       max-width: 1400px;
       margin: 0 auto;
     }
@@ -1361,7 +1392,100 @@ export interface FullDashboardStats {
       background: var(--color-surface, #181D1A);
       border: 1px solid var(--color-border, #2e3831);
       border-radius: 12px;
-      padding: 1.5rem;
+      padding: 1.5rem 1.5rem 0;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .table-footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      margin: 0.75rem -1.5rem 0;
+      background: rgba(0, 0, 0, 0.25);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.82rem;
+      color: var(--color-text-secondary, #B9C3BC);
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .table-footer-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-footer-info strong {
+      color: #fff;
+    }
+
+    .filter-applied-badge {
+      font-size: 0.72rem;
+      background: rgba(73, 209, 125, 0.12);
+      color: #49D17D;
+      border: 1px solid rgba(73, 209, 125, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .table-footer-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+    }
+
+    .meta-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #49D17D;
+      display: inline-block;
+    }
+
+    /* Page Footer */
+    .dashboard-page-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 1.5rem;
+      margin-top: 2rem;
+      margin-bottom: 2rem;
+      border-top: 1px solid var(--color-border, #2e3831);
+      color: var(--color-text-secondary, #B9C3BC);
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-icon { font-size: 1.1rem; }
+    .footer-logo { font-weight: 700; color: #fff; }
+    .footer-sep { color: var(--color-border, #3f4a42); }
+
+    .back-to-top-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--color-border, #2e3831);
+      color: var(--color-text-primary, #F5F7F4);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .back-to-top-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #fff;
     }
 
     .table-section-header {
@@ -2027,6 +2151,15 @@ export class DashboardPageComponent implements OnInit {
     const days = Math.floor(h / 24)
     const remH = h % 24
     return remH > 0 ? `${days}d ${remH}h` : `${days}d`
+  }
+
+  scrollToTop(): void {
+    const wrapper = document.querySelector('.main-wrapper')
+    if (wrapper) {
+      wrapper.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   getPercentage(value: number, total: number): number {

@@ -158,7 +158,7 @@ export interface LayoutFooterLink {
     }
     .action-link:hover { color: #fff; }
     .page-main {
-      padding: 2rem;
+      padding: 2rem 2rem 4rem;
       flex: 1;
     }
 
