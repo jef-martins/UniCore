@@ -20,15 +20,6 @@
           }
         </select>
       }
-
-      <button
-        class="button button-primary new-task-btn"
-        type="button"
-        (click)="openNewTaskModal()"
-        title="Cadastrar nova tarefa individual ou para a equipe"
-      >
-        <span>➕</span> Nova Tarefa
-      </button>
     </div>
   </header>
 
@@ -168,7 +159,9 @@
         <h2 id="agenda-day-view-title">{{ accessibleDayLabel(selectedDay) }}</h2>
         <div class="agenda-day-view-controls">
           <button class="button button-secondary" type="button" (click)="closeDayView()">Voltar ao calendário</button>
-          <button class="button button-primary" type="button" (click)="openNewTaskForDay(selectedDay.key)">Nova tarefa</button>
+          <button class="button button-primary new-task-btn" type="button" (click)="openNewTaskForDay(selectedDay.key)">
+            <span style="font-size: 1.15rem; font-weight: 700; line-height: 1;">+</span> Nova tarefa
+          </button>
         </div>
       </header>
 
