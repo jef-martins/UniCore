@@ -247,33 +247,245 @@ export class TasksService {
     if (user.role === 'master') {
       // master vê tudo
     } else if (user.role === 'admin') {
-      whereClause.user = { role: { not: 'MASTER' } }
+      whereClause.OR = [
+        { user: { role: { not: 'MASTER' } } },
+        { userId: null },
+      ]
     }
 
     const tasks = await this.prisma.task.findMany({
       where: whereClause,
       orderBy: [{ createdAt: 'desc' }],
-      include: { user: { select: { username: true } } },
+      include: {
+        user: { select: { id: true, username: true, role: true } },
+        createdBy: { select: { id: true, username: true, role: true } },
+      },
     })
+
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
 
     const totalCreated = tasks.length
     const totalResolved = tasks.filter((t) => t.completed).length
+    const totalPending = totalCreated - totalResolved
 
-    const byType = tasks.reduce(
-      (acc, task) => {
-        if (!acc[task.type]) {
-          acc[task.type] = { created: 0, resolved: 0 }
+    let totalOverdue = 0
+    let totalPriority = 0
+    let totalPriorityPending = 0
+    let totalPriorityResolved = 0
+    let tasksWithBriefing = 0
+    let tasksWithEvidence = 0
+    let sharedSectorTasks = 0
+
+    let totalResolutionTimeMs = 0
+    let resolvedCountWithDates = 0
+
+    for (const t of tasks) {
+      const taskDateStr = t.date ? new Date(t.date).toISOString().slice(0, 10) : ''
+      const isOverdue = !t.completed && taskDateStr < todayStr
+      if (isOverdue) totalOverdue++
+
+      if (t.isPriority) {
+        totalPriority++
+        if (t.completed) totalPriorityResolved++
+        else totalPriorityPending++
+      }
+
+      if (t.attachmentName) tasksWithBriefing++
+      if (t.completionAttachmentName) tasksWithEvidence++
+      if (t.userId === null) sharedSectorTasks++
+
+      if (t.completed && t.completedAt && t.createdAt) {
+        const diff = new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()
+        if (diff > 0) {
+          totalResolutionTimeMs += diff
+          resolvedCountWithDates++
         }
-        acc[task.type].created++
-        if (task.completed) {
-          acc[task.type].resolved++
+      }
+    }
+
+    const resolutionRate = totalCreated > 0 ? Math.round((totalResolved / totalCreated) * 100) : 0
+    const avgResolutionTimeHours =
+      resolvedCountWithDates > 0
+        ? Number((totalResolutionTimeMs / (resolvedCountWithDates * 3600 * 1000)).toFixed(1))
+        : 0
+
+    const TYPE_LABELS: Record<string, string> = {
+      VESTIBULAR: 'Vestibular',
+      ADMINISTRACAO: 'Administração',
+      TESOURARIA: 'Tesouraria',
+      COORDENACAO: 'Coordenação',
+      REGISTRO_ACADEMICO: 'Registro Acadêmico',
+      ALUNOS: 'Alunos',
+      PROFESSORES: 'Professores',
+    }
+
+    // Breakdown por tipo / setor
+    const byTypeMap: Record<
+      string,
+      {
+        type: string
+        label: string
+        total: number
+        completed: number
+        pending: number
+        overdue: number
+        priority: number
+        resolutionRate: number
+      }
+    > = {}
+
+    for (const type of Object.keys(TYPE_LABELS)) {
+      byTypeMap[type] = {
+        type,
+        label: TYPE_LABELS[type],
+        total: 0,
+        completed: 0,
+        pending: 0,
+        overdue: 0,
+        priority: 0,
+        resolutionRate: 0,
+      }
+    }
+
+    for (const t of tasks) {
+      if (!byTypeMap[t.type]) {
+        byTypeMap[t.type] = {
+          type: t.type,
+          label: TYPE_LABELS[t.type] || t.type,
+          total: 0,
+          completed: 0,
+          pending: 0,
+          overdue: 0,
+          priority: 0,
+          resolutionRate: 0,
         }
-        return acc
+      }
+      const entry = byTypeMap[t.type]
+      entry.total++
+      if (t.completed) {
+        entry.completed++
+      } else {
+        entry.pending++
+        const taskDateStr = t.date ? new Date(t.date).toISOString().slice(0, 10) : ''
+        if (taskDateStr < todayStr) entry.overdue++
+      }
+      if (t.isPriority) entry.priority++
+    }
+
+    for (const entry of Object.values(byTypeMap)) {
+      entry.resolutionRate = entry.total > 0 ? Math.round((entry.completed / entry.total) * 100) : 0
+    }
+
+    // Agrupamento retrocompatível byType: { [type]: { created, resolved } }
+    const legacyByType: Record<string, { created: number; resolved: number }> = {}
+    for (const entry of Object.values(byTypeMap)) {
+      legacyByType[entry.type] = { created: entry.total, resolved: entry.completed }
+    }
+
+    // Top Criadores
+    const creatorsMap: Record<string, { username: string; role: string; totalCreated: number; completed: number }> = {}
+    for (const t of tasks) {
+      const username = t.createdBy?.username || 'Sistema'
+      const role = t.createdBy?.role || '-'
+      if (!creatorsMap[username]) {
+        creatorsMap[username] = { username, role, totalCreated: 0, completed: 0 }
+      }
+      creatorsMap[username].totalCreated++
+      if (t.completed) creatorsMap[username].completed++
+    }
+    const topCreators = Object.values(creatorsMap)
+      .sort((a, b) => b.totalCreated - a.totalCreated)
+      .slice(0, 6)
+
+    // Top Executores / Responsáveis
+    const assigneesMap: Record<string, { username: string; role: string; totalAssigned: number; completed: number; rate: number }> = {}
+    for (const t of tasks) {
+      if (t.user?.username) {
+        const username = t.user.username
+        const role = t.user.role || '-'
+        if (!assigneesMap[username]) {
+          assigneesMap[username] = { username, role, totalAssigned: 0, completed: 0, rate: 0 }
+        }
+        assigneesMap[username].totalAssigned++
+        if (t.completed) assigneesMap[username].completed++
+      }
+    }
+    for (const a of Object.values(assigneesMap)) {
+      a.rate = a.totalAssigned > 0 ? Math.round((a.completed / a.totalAssigned) * 100) : 0
+    }
+    const topAssignees = Object.values(assigneesMap)
+      .sort((a, b) => b.totalAssigned - a.totalAssigned)
+      .slice(0, 6)
+
+    // Detalhamento de tarefas
+    const detailedTasks = tasks.map((t) => {
+      const taskDateStr = t.date ? new Date(t.date).toISOString().slice(0, 10) : ''
+      const isOverdue = !t.completed && taskDateStr < todayStr
+      return {
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        date: t.date,
+        type: t.type,
+        typeLabel: TYPE_LABELS[t.type] || t.type,
+        sector: t.sector,
+        completed: t.completed,
+        isPriority: t.isPriority,
+        isOverdue,
+        createdAt: t.createdAt,
+        completedAt: t.completedAt,
+        hasBriefing: !!t.attachmentName,
+        attachmentName: t.attachmentName,
+        hasEvidence: !!t.completionAttachmentName,
+        completionAttachmentName: t.completionAttachmentName,
+        completionNotes: t.completionNotes,
+        user: t.user ? { id: t.user.id, username: t.user.username, role: t.user.role } : null,
+        createdBy: t.createdBy ? { id: t.createdBy.id, username: t.createdBy.username, role: t.createdBy.role } : null,
+        isShared: t.userId === null,
+      }
+    })
+
+    return {
+      totalCreated,
+      totalResolved,
+      byType: legacyByType,
+      overview: {
+        totalTasks: totalCreated,
+        completedTasks: totalResolved,
+        pendingTasks: totalPending,
+        overdueTasks: totalOverdue,
+        priorityTasks: totalPriority,
+        priorityPendingTasks: totalPriorityPending,
+        priorityResolvedTasks: totalPriorityResolved,
+        resolutionRate,
+        avgResolutionTimeHours,
+        tasksWithBriefing,
+        tasksWithEvidence,
+        sharedSectorTasks,
       },
-      {} as Record<string, { created: number; resolved: number }>,
-    )
-
-    return { totalCreated, totalResolved, byType, tasks }
+      bySector: Object.values(byTypeMap),
+      byPriority: {
+        high: {
+          total: totalPriority,
+          completed: totalPriorityResolved,
+          pending: totalPriorityPending,
+          rate: totalPriority > 0 ? Math.round((totalPriorityResolved / totalPriority) * 100) : 0,
+        },
+        normal: {
+          total: totalCreated - totalPriority,
+          completed: totalResolved - totalPriorityResolved,
+          pending: totalPending - totalPriorityPending,
+          rate:
+            totalCreated - totalPriority > 0
+              ? Math.round(((totalResolved - totalPriorityResolved) / (totalCreated - totalPriority)) * 100)
+              : 0,
+        },
+      },
+      topCreators,
+      topAssignees,
+      tasks: detailedTasks,
+    }
   }
 
   private parseDate(value: string): Date {
