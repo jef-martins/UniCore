@@ -1,7 +1,29 @@
-import { Component, OnInit, computed, signal } from '@angular/core'
+import { Component, OnInit, computed, signal, HostListener } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
+import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser'
+
+export interface EvidenceModalState {
+  isOpen: boolean
+  taskId: string
+  taskTitle: string
+  sectorLabel: string
+  responsible: string
+  type: 'completion' | 'creation'
+  attachmentName: string | null
+  notes: string | null
+  date: string | null
+  isLoadingFile: boolean
+  blobUrl: string | null
+  safeBlobUrl: SafeUrl | null
+  safeResourceUrl: SafeResourceUrl | null
+  textContent: string | null
+  isImage: boolean
+  isText: boolean
+  isPdf: boolean
+  errorMessage: string | null
+}
 
 export interface DetailedTask {
   id: string
@@ -683,7 +705,14 @@ export interface FullDashboardStats {
                             }
                             <strong>{{ task.title }}</strong>
                             @if (task.hasBriefing) {
-                              <span class="attachment-pill" [title]="'Briefing anexado: ' + task.attachmentName">📎</span>
+                              <button
+                                type="button"
+                                class="attachment-pill clickable"
+                                (click)="openBriefing(task)"
+                                [title]="'Clique para ver o briefing: ' + task.attachmentName"
+                              >
+                                📎
+                              </button>
                             }
                           </div>
                           @if (task.description) {
@@ -751,13 +780,23 @@ export interface FullDashboardStats {
                       <!-- Evidências -->
                       <td>
                         @if (task.hasEvidence) {
-                          <span class="evidence-pill" [title]="'Evidência: ' + task.completionAttachmentName">
+                          <button
+                            type="button"
+                            class="evidence-pill clickable"
+                            (click)="openEvidence(task)"
+                            [title]="'Clique para abrir e ver a evidência: ' + task.completionAttachmentName"
+                          >
                             📄 Anexada
-                          </span>
+                          </button>
                         } @else if (task.completionNotes) {
-                          <span class="notes-pill" [title]="task.completionNotes">
+                          <button
+                            type="button"
+                            class="notes-pill clickable"
+                            (click)="openEvidence(task)"
+                            title="Clique para abrir e ler a nota de conclusão"
+                          >
                             📝 Nota
-                          </span>
+                          </button>
                         } @else {
                           <span class="text-muted">-</span>
                         }
@@ -815,6 +854,164 @@ export interface FullDashboardStats {
             </div>
           </footer>
 
+        </div>
+      }
+
+      <!-- Modal de Visualização de Evidência / Anexo -->
+      @if (modalEvidence().isOpen) {
+        <div
+          class="evidence-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="evidence-modal-title"
+          (click)="closeEvidenceModal()"
+        >
+          <div class="evidence-modal-card" (click)="$event.stopPropagation()">
+            
+            <!-- Cabeçalho do Modal -->
+            <div class="evidence-modal-header">
+              <div class="header-badge-title">
+                <span class="evidence-type-tag">
+                  {{ modalEvidence().type === 'completion' ? '✅ Evidência de Conclusão' : '📎 Anexo de Criação / Briefing' }}
+                </span>
+                <h3 id="evidence-modal-title">{{ modalEvidence().taskTitle }}</h3>
+                <div class="evidence-meta">
+                  <span><strong>Setor:</strong> {{ modalEvidence().sectorLabel }}</span>
+                  <span>•</span>
+                  <span><strong>Responsável:</strong> {{ modalEvidence().responsible }}</span>
+                  @if (modalEvidence().date) {
+                    <span>•</span>
+                    <span><strong>Data:</strong> {{ modalEvidence().date | date:'dd/MM/yyyy HH:mm' }}</span>
+                  }
+                </div>
+              </div>
+              <button
+                type="button"
+                class="close-modal-btn"
+                (click)="closeEvidenceModal()"
+                aria-label="Fechar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <!-- Corpo do Modal -->
+            <div class="evidence-modal-body">
+              
+              <!-- Observações / Notas (se houver) -->
+              @if (modalEvidence().notes) {
+                <div class="evidence-notes-section">
+                  <h4 class="section-heading">
+                    {{ modalEvidence().type === 'completion' ? '📝 Observações / Justificativa de Entrega:' : '📋 Descrição / Briefing:' }}
+                  </h4>
+                  <div class="notes-content-box">
+                    {{ modalEvidence().notes }}
+                  </div>
+                </div>
+              }
+
+              <!-- Arquivo Anexado (se houver) -->
+              @if (modalEvidence().attachmentName) {
+                <div class="evidence-file-section">
+                  <div class="file-header-bar">
+                    <div class="file-name-group">
+                      <span class="file-icon">
+                        {{ modalEvidence().isImage ? '🖼️' : modalEvidence().isPdf ? '📕' : '📄' }}
+                      </span>
+                      <div>
+                        <strong class="file-title">{{ modalEvidence().attachmentName }}</strong>
+                        <span class="file-type-label">Arquivo de evidência anexado</span>
+                      </div>
+                    </div>
+                    <div class="file-quick-actions">
+                      @if (modalEvidence().blobUrl) {
+                        <button
+                          type="button"
+                          class="button button-secondary btn-sm"
+                          (click)="openInNewTab()"
+                          title="Abrir arquivo em nova aba"
+                        >
+                          🔗 Nova Aba
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="button button-primary btn-sm"
+                        (click)="downloadCurrentAttachment()"
+                        [disabled]="modalEvidence().isLoadingFile"
+                      >
+                        📥 Baixar Arquivo
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Preview Container -->
+                  <div class="preview-container">
+                    @if (modalEvidence().isLoadingFile) {
+                      <div class="preview-loading">
+                        <div class="spinner"></div>
+                        <p>Carregando conteúdo do arquivo para visualização...</p>
+                      </div>
+                    } @else if (modalEvidence().errorMessage) {
+                      <div class="preview-error">
+                        <span class="error-icon">⚠️</span>
+                        <p>{{ modalEvidence().errorMessage }}</p>
+                      </div>
+                    } @else if (modalEvidence().isImage && modalEvidence().safeBlobUrl) {
+                      <div class="image-preview-wrapper">
+                        <img
+                          [src]="modalEvidence().safeBlobUrl"
+                          [alt]="modalEvidence().attachmentName || 'Evidência anexada'"
+                          class="evidence-image"
+                        />
+                      </div>
+                    } @else if (modalEvidence().isText && modalEvidence().textContent != null) {
+                      <div class="text-preview-wrapper">
+                        <pre class="evidence-text">{{ modalEvidence().textContent }}</pre>
+                      </div>
+                    } @else if (modalEvidence().isPdf && modalEvidence().safeResourceUrl) {
+                      <div class="pdf-preview-wrapper">
+                        <iframe
+                          [src]="modalEvidence().safeResourceUrl"
+                          class="pdf-iframe"
+                          title="Visualização de PDF"
+                        ></iframe>
+                      </div>
+                    } @else {
+                      <div class="generic-file-preview">
+                        <span class="generic-icon">📦</span>
+                        <p>Pré-visualização direta não disponível para este formato de arquivo.</p>
+                        <button
+                          type="button"
+                          class="button button-primary"
+                          (click)="downloadCurrentAttachment()"
+                        >
+                          📥 Clique aqui para baixar e visualizar
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else if (!modalEvidence().notes) {
+                <div class="no-evidence-notice">
+                  <p>Nenhum anexo ou nota associada a esta demanda.</p>
+                </div>
+              }
+
+            </div>
+
+            <!-- Rodapé do Modal -->
+            <div class="evidence-modal-footer">
+              <button
+                type="button"
+                class="button button-secondary"
+                (click)="closeEvidenceModal()"
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
         </div>
       }
     </div>
@@ -1884,6 +2081,344 @@ export interface FullDashboardStats {
 
     .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
 
+    /* Estilos Interativos para Pílulas de Evidência e Anexo */
+    .clickable {
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      outline: none;
+    }
+
+    .evidence-pill.clickable {
+      border: 1px solid rgba(73, 209, 125, 0.4);
+    }
+
+    .evidence-pill.clickable:hover {
+      background: rgba(73, 209, 125, 0.25);
+      border-color: #49D17D;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(73, 209, 125, 0.25);
+    }
+
+    .notes-pill.clickable {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .notes-pill.clickable:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .attachment-pill.clickable {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+
+    .attachment-pill.clickable:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      transform: translateY(-1px);
+    }
+
+    /* Modal de Evidências e Anexos */
+    .evidence-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 1.5rem;
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .evidence-modal-card {
+      background: #181D1A;
+      border: 1px solid #3f4a42;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 840px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(73, 209, 125, 0.2);
+      overflow: hidden;
+      animation: modalSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalSlideUp {
+      from { transform: translateY(16px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .evidence-modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid #2e3831;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: #141816;
+      gap: 1rem;
+    }
+
+    .header-badge-title {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .evidence-type-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #49D17D;
+      background: rgba(73, 209, 125, 0.12);
+      border: 1px solid rgba(73, 209, 125, 0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+
+    .evidence-modal-header h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #F5F7F4;
+    }
+
+    .evidence-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #9ea8a2;
+      flex-wrap: wrap;
+    }
+
+    .close-modal-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #9ea8a2;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      line-height: 1;
+    }
+
+    .close-modal-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .evidence-modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    .evidence-notes-section {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #2e3831;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+
+    .section-heading {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #B9C3BC;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .notes-content-box {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: #F5F7F4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .evidence-file-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .file-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #141816;
+      border: 1px solid #2e3831;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .file-name-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .file-title {
+      font-size: 0.9rem;
+      color: #F5F7F4;
+      display: block;
+      word-break: break-all;
+    }
+
+    .file-type-label {
+      font-size: 0.72rem;
+      color: #9ea8a2;
+      display: block;
+    }
+
+    .file-quick-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .preview-container {
+      background: #0d110f;
+      border: 1px solid #2e3831;
+      border-radius: 8px;
+      min-height: 260px;
+      max-height: 520px;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .preview-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 2rem;
+      color: #9ea8a2;
+      font-size: 0.9rem;
+    }
+
+    .preview-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 2rem;
+      color: #FF7A7A;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 2rem;
+    }
+
+    .image-preview-wrapper {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .evidence-image {
+      max-width: 100%;
+      max-height: 480px;
+      object-fit: contain;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .text-preview-wrapper {
+      width: 100%;
+      height: 100%;
+      padding: 1.25rem;
+      overflow: auto;
+    }
+
+    .evidence-text {
+      margin: 0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #d1d9d4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .pdf-preview-wrapper {
+      width: 100%;
+      height: 480px;
+    }
+
+    .pdf-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .generic-file-preview {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: #9ea8a2;
+    }
+
+    .generic-icon {
+      font-size: 3rem;
+    }
+
+    .no-evidence-notice {
+      padding: 2rem;
+      text-align: center;
+      color: #9ea8a2;
+      font-style: italic;
+    }
+
+    .evidence-modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #2e3831;
+      display: flex;
+      justify-content: flex-end;
+      background: #141816;
+    }
+
     @media (max-width: 768px) {
       .dashboard-page { padding: 1rem; }
       .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1912,6 +2447,28 @@ export class DashboardPageComponent implements OnInit {
   readonly selectedSector = signal<string>('ALL')
   readonly selectedUser = signal<string>('ALL')
   readonly searchQuery = signal<string>('')
+
+  // Estado do Modal de Evidência / Anexo
+  readonly modalEvidence = signal<EvidenceModalState>({
+    isOpen: false,
+    taskId: '',
+    taskTitle: '',
+    sectorLabel: '',
+    responsible: '',
+    type: 'completion',
+    attachmentName: null,
+    notes: null,
+    date: null,
+    isLoadingFile: false,
+    blobUrl: null,
+    safeBlobUrl: null,
+    safeResourceUrl: null,
+    textContent: null,
+    isImage: false,
+    isText: false,
+    isPdf: false,
+    errorMessage: null,
+  })
 
   // Análise calculada de tempo de resolução por setor e pessoa selecionados
   readonly resolutionAnalysis = computed(() => {
@@ -2067,7 +2624,10 @@ export class DashboardPageComponent implements OnInit {
     return list
   })
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly sanitizer: DomSanitizer,
+  ) {}
 
   ngOnInit(): void {
     this.refresh()
@@ -2085,6 +2645,224 @@ export class DashboardPageComponent implements OnInit {
         this.isLoading = false
       },
     })
+  }
+
+  // Handlers do Modal de Evidência e Anexo
+  openEvidence(task: DetailedTask): void {
+    const fileName = task.completionAttachmentName || null
+    const notes = task.completionNotes || null
+    const responsible = task.isShared ? 'Fila do Setor' : (task.user?.username || '-')
+
+    this.modalEvidence.set({
+      isOpen: true,
+      taskId: task.id,
+      taskTitle: task.title,
+      sectorLabel: task.typeLabel,
+      responsible,
+      type: 'completion',
+      attachmentName: fileName,
+      notes,
+      date: task.completedAt || null,
+      isLoadingFile: !!fileName,
+      blobUrl: null,
+      safeBlobUrl: null,
+      safeResourceUrl: null,
+      textContent: null,
+      isImage: false,
+      isText: false,
+      isPdf: false,
+      errorMessage: null,
+    })
+
+    if (fileName) {
+      this.loadAttachmentContent(task.id, 'completion', fileName)
+    }
+  }
+
+  openBriefing(task: DetailedTask): void {
+    const fileName = task.attachmentName || null
+    const notes = task.description || null
+    const responsible = task.isShared ? 'Fila do Setor' : (task.user?.username || '-')
+
+    this.modalEvidence.set({
+      isOpen: true,
+      taskId: task.id,
+      taskTitle: task.title,
+      sectorLabel: task.typeLabel,
+      responsible,
+      type: 'creation',
+      attachmentName: fileName,
+      notes,
+      date: task.createdAt || null,
+      isLoadingFile: !!fileName,
+      blobUrl: null,
+      safeBlobUrl: null,
+      safeResourceUrl: null,
+      textContent: null,
+      isImage: false,
+      isText: false,
+      isPdf: false,
+      errorMessage: null,
+    })
+
+    if (fileName) {
+      this.loadAttachmentContent(task.id, 'creation', fileName)
+    }
+  }
+
+  loadAttachmentContent(taskId: string, type: 'completion' | 'creation', fileName: string): void {
+    const ext = fileName.split('.').pop()?.toLowerCase() || ''
+    const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)
+    const isText = ['txt', 'csv', 'log', 'json', 'md', 'ts', 'js', 'html', 'css'].includes(ext)
+    const isPdf = ext === 'pdf'
+
+    const endpoint = `/api/tasks/${taskId}/attachment/${type}`
+
+    this.http.get(endpoint, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        // Revoga blob anterior se existir
+        const prevBlobUrl = this.modalEvidence().blobUrl
+        if (prevBlobUrl) {
+          URL.revokeObjectURL(prevBlobUrl)
+        }
+
+        const blobUrl = URL.createObjectURL(blob)
+        let safeBlobUrl: SafeUrl | null = null
+        let safeResourceUrl: SafeResourceUrl | null = null
+
+        if (isImage) {
+          safeBlobUrl = this.sanitizer.bypassSecurityTrustUrl(blobUrl)
+        } else if (isPdf) {
+          safeResourceUrl = this.sanitizer.bypassSecurityTrustResourceUrl(blobUrl)
+        }
+
+        if (isText) {
+          blob
+            .text()
+            .then((text) => {
+              this.modalEvidence.update((prev) => ({
+                ...prev,
+                isLoadingFile: false,
+                blobUrl,
+                safeBlobUrl,
+                safeResourceUrl,
+                textContent: text,
+                isImage,
+                isText,
+                isPdf,
+                errorMessage: null,
+              }))
+            })
+            .catch(() => {
+              this.modalEvidence.update((prev) => ({
+                ...prev,
+                isLoadingFile: false,
+                blobUrl,
+                safeBlobUrl,
+                safeResourceUrl,
+                textContent: '(Não foi possível ler o arquivo como texto)',
+                isImage,
+                isText,
+                isPdf,
+                errorMessage: null,
+              }))
+            })
+        } else {
+          this.modalEvidence.update((prev) => ({
+            ...prev,
+            isLoadingFile: false,
+            blobUrl,
+            safeBlobUrl,
+            safeResourceUrl,
+            textContent: null,
+            isImage,
+            isText,
+            isPdf,
+            errorMessage: null,
+          }))
+        }
+      },
+      error: (err) => {
+        console.error('Falha ao carregar arquivo de evidência/anexo:', err)
+        this.modalEvidence.update((prev) => ({
+          ...prev,
+          isLoadingFile: false,
+          errorMessage:
+            'Não foi possível carregar o arquivo. Verifique se o arquivo ainda existe no servidor ou tente baixá-lo diretamente.',
+        }))
+      },
+    })
+  }
+
+  closeEvidenceModal(): void {
+    const blobUrl = this.modalEvidence().blobUrl
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl)
+    }
+
+    this.modalEvidence.set({
+      isOpen: false,
+      taskId: '',
+      taskTitle: '',
+      sectorLabel: '',
+      responsible: '',
+      type: 'completion',
+      attachmentName: null,
+      notes: null,
+      date: null,
+      isLoadingFile: false,
+      blobUrl: null,
+      safeBlobUrl: null,
+      safeResourceUrl: null,
+      textContent: null,
+      isImage: false,
+      isText: false,
+      isPdf: false,
+      errorMessage: null,
+    })
+  }
+
+  downloadCurrentAttachment(): void {
+    const current = this.modalEvidence()
+    if (!current.taskId || !current.attachmentName) return
+
+    if (current.blobUrl) {
+      const a = document.createElement('a')
+      a.href = current.blobUrl
+      a.download = current.attachmentName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } else {
+      const endpoint = `/api/tasks/${current.taskId}/attachment/${current.type}`
+      this.http.get(endpoint, { responseType: 'blob' }).subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = current.attachmentName || 'anexo'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        },
+        error: (err) => console.error('Erro ao baixar anexo:', err),
+      })
+    }
+  }
+
+  openInNewTab(): void {
+    const blobUrl = this.modalEvidence().blobUrl
+    if (blobUrl) {
+      window.open(blobUrl, '_blank')
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapePress(): void {
+    if (this.modalEvidence().isOpen) {
+      this.closeEvidenceModal()
+    }
   }
 
   // Handlers dos Selectboxes da Seção de Resolução
