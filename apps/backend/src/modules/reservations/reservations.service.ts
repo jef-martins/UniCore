@@ -282,6 +282,271 @@ export class ReservationsService {
     }
   }
 
+  async getDashboardStats() {
+    const [items, reservations] = await Promise.all([
+      this.prisma.reservableItem.findMany({
+        include: {
+          reservations: {
+            select: {
+              id: true,
+              startDate: true,
+              endDate: true,
+              status: true,
+              requesterName: true,
+              department: true,
+            },
+          },
+        },
+      }),
+      this.prisma.itemReservation.findMany({
+        include: {
+          item: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              category: true,
+              condition: true,
+              status: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
+    // 1. Overview counts
+    const totalReservations = reservations.length
+    const activeReservations = reservations.filter(r => r.status === ReservationStatus.ACTIVE).length
+    const completedReservations = reservations.filter(r => r.status === ReservationStatus.COMPLETED).length
+    const cancelledReservations = reservations.filter(r => r.status === ReservationStatus.CANCELLED).length
+
+    const totalItems = items.length
+    const availableItems = items.filter(i => i.status === ItemStatus.AVAILABLE).length
+    const reservedItems = items.filter(i => i.status === ItemStatus.RESERVED).length
+    const maintenanceItems = items.filter(i => i.status === ItemStatus.MAINTENANCE).length
+
+    let totalHoursReserved = 0
+    for (const r of reservations) {
+      if (r.status !== ReservationStatus.CANCELLED) {
+        const diffMs = new Date(r.endDate).getTime() - new Date(r.startDate).getTime()
+        if (diffMs > 0) {
+          totalHoursReserved += diffMs / (1000 * 60 * 60)
+        }
+      }
+    }
+    totalHoursReserved = Math.round(totalHoursReserved * 10) / 10
+
+    // 2. Top Items
+    const itemMap = new Map<string, {
+      id: string
+      name: string
+      code: string
+      category: string
+      condition: ItemCondition
+      status: ItemStatus
+      reservationCount: number
+      totalHours: number
+    }>()
+
+    for (const item of items) {
+      let hours = 0
+      for (const r of item.reservations) {
+        if (r.status !== ReservationStatus.CANCELLED) {
+          const diff = new Date(r.endDate).getTime() - new Date(r.startDate).getTime()
+          if (diff > 0) hours += diff / (1000 * 60 * 60)
+        }
+      }
+      itemMap.set(item.id, {
+        id: item.id,
+        name: item.name,
+        code: item.code,
+        category: item.category,
+        condition: item.condition,
+        status: item.status,
+        reservationCount: item.reservations.length,
+        totalHours: Math.round(hours * 10) / 10,
+      })
+    }
+
+    const sortedItems = Array.from(itemMap.values()).sort((a, b) => b.reservationCount - a.reservationCount)
+    const maxItemCount = sortedItems[0]?.reservationCount || 1
+
+    const topItems = sortedItems.map(item => ({
+      ...item,
+      percentage: Math.round((item.reservationCount / maxItemCount) * 100),
+    }))
+
+    // 3. Top Requesters (Professores e Solicitantes)
+    const requesterMap = new Map<string, {
+      requesterName: string
+      department: string
+      email?: string | null
+      reservationCount: number
+      activeCount: number
+      completedCount: number
+      categoryCounts: Record<string, number>
+    }>()
+
+    for (const r of reservations) {
+      const key = r.requesterName.trim().toLowerCase()
+      const existing = requesterMap.get(key) || {
+        requesterName: r.requesterName.trim(),
+        department: r.department,
+        email: r.user?.email || null,
+        reservationCount: 0,
+        activeCount: 0,
+        completedCount: 0,
+        categoryCounts: {},
+      }
+
+      existing.reservationCount++
+      if (r.status === ReservationStatus.ACTIVE) existing.activeCount++
+      if (r.status === ReservationStatus.COMPLETED) existing.completedCount++
+
+      const cat = r.item?.category || 'Geral'
+      existing.categoryCounts[cat] = (existing.categoryCounts[cat] || 0) + 1
+
+      requesterMap.set(key, existing)
+    }
+
+    const sortedRequesters = Array.from(requesterMap.values()).sort((a, b) => b.reservationCount - a.reservationCount)
+    const maxRequesterCount = sortedRequesters[0]?.reservationCount || 1
+
+    const topRequesters = sortedRequesters.map(req => {
+      let favoriteCategory = '-'
+      let maxCatCount = 0
+      for (const [cat, count] of Object.entries(req.categoryCounts)) {
+        if (count > maxCatCount) {
+          maxCatCount = count
+          favoriteCategory = cat
+        }
+      }
+      return {
+        requesterName: req.requesterName,
+        department: req.department,
+        email: req.email,
+        reservationCount: req.reservationCount,
+        activeCount: req.activeCount,
+        completedCount: req.completedCount,
+        favoriteCategory,
+        percentage: Math.round((req.reservationCount / maxRequesterCount) * 100),
+      }
+    })
+
+    // 4. Condition Stats (Defeitos, Avarias, etc.)
+    const conditionCounts: Record<ItemCondition, number> = {
+      PERFEITO: 0,
+      COM_AVARIAS: 0,
+      DEFEITO_FUNCIONA: 0,
+      DEFEITO_PARCIAL: 0,
+      NAO_FUNCIONA: 0,
+    }
+
+    for (const item of items) {
+      if (conditionCounts[item.condition] !== undefined) {
+        conditionCounts[item.condition]++
+      } else {
+        conditionCounts.PERFEITO++
+      }
+    }
+
+    const conditionStats = {
+      byCondition: {
+        PERFEITO: { count: conditionCounts.PERFEITO, percentage: totalItems ? Math.round((conditionCounts.PERFEITO / totalItems) * 100) : 0 },
+        COM_AVARIAS: { count: conditionCounts.COM_AVARIAS, percentage: totalItems ? Math.round((conditionCounts.COM_AVARIAS / totalItems) * 100) : 0 },
+        DEFEITO_FUNCIONA: { count: conditionCounts.DEFEITO_FUNCIONA, percentage: totalItems ? Math.round((conditionCounts.DEFEITO_FUNCIONA / totalItems) * 100) : 0 },
+        DEFEITO_PARCIAL: { count: conditionCounts.DEFEITO_PARCIAL, percentage: totalItems ? Math.round((conditionCounts.DEFEITO_PARCIAL / totalItems) * 100) : 0 },
+        NAO_FUNCIONA: { count: conditionCounts.NAO_FUNCIONA, percentage: totalItems ? Math.round((conditionCounts.NAO_FUNCIONA / totalItems) * 100) : 0 },
+      },
+      totalWithIssues: conditionCounts.COM_AVARIAS + conditionCounts.DEFEITO_FUNCIONA + conditionCounts.DEFEITO_PARCIAL + conditionCounts.NAO_FUNCIONA,
+      totalCritical: conditionCounts.DEFEITO_PARCIAL + conditionCounts.NAO_FUNCIONA,
+      itemsRequiringAttention: items
+        .filter(i => i.condition === ItemCondition.NAO_FUNCIONA || i.condition === ItemCondition.DEFEITO_PARCIAL || i.status === ItemStatus.MAINTENANCE)
+        .map(i => ({
+          id: i.id,
+          name: i.name,
+          code: i.code,
+          category: i.category,
+          location: i.location,
+          condition: i.condition,
+          status: i.status,
+          description: i.description,
+        })),
+    }
+
+    // 5. Category Stats
+    const categoryMap: Record<string, { itemCount: number; reservationCount: number }> = {}
+    for (const item of items) {
+      if (!categoryMap[item.category]) {
+        categoryMap[item.category] = { itemCount: 0, reservationCount: 0 }
+      }
+      categoryMap[item.category].itemCount++
+      categoryMap[item.category].reservationCount += item.reservations.length
+    }
+
+    const categoryStats = Object.entries(categoryMap).map(([category, data]) => ({
+      category,
+      itemCount: data.itemCount,
+      reservationCount: data.reservationCount,
+      percentage: totalReservations ? Math.round((data.reservationCount / totalReservations) * 100) : 0,
+    })).sort((a, b) => b.reservationCount - a.reservationCount)
+
+    // 6. Department Stats
+    const deptMap: Record<string, number> = {}
+    for (const r of reservations) {
+      const dept = r.department.trim() || 'Não especificado'
+      deptMap[dept] = (deptMap[dept] || 0) + 1
+    }
+
+    const departmentStats = Object.entries(deptMap).map(([department, count]) => ({
+      department,
+      reservationCount: count,
+      percentage: totalReservations ? Math.round((count / totalReservations) * 100) : 0,
+    })).sort((a, b) => b.reservationCount - a.reservationCount)
+
+    // 7. Idle items (Nunca reservados)
+    const idleItems = items
+      .filter(i => i.reservations.length === 0)
+      .map(i => ({
+        id: i.id,
+        name: i.name,
+        code: i.code,
+        category: i.category,
+        location: i.location,
+        condition: i.condition,
+        status: i.status,
+      }))
+
+    return {
+      overview: {
+        totalReservations,
+        activeReservations,
+        completedReservations,
+        cancelledReservations,
+        totalItems,
+        availableItems,
+        reservedItems,
+        maintenanceItems,
+        totalHoursReserved,
+      },
+      topItems,
+      topRequesters,
+      conditionStats,
+      categoryStats,
+      departmentStats,
+      idleItems,
+    }
+  }
+
   private async syncItemStatus(itemId: string) {
     const item = await this.prisma.reservableItem.findUnique({ where: { id: itemId } })
     if (!item || item.status === ItemStatus.MAINTENANCE) return

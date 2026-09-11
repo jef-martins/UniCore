@@ -37,6 +37,20 @@ export const appRoutes: Routes = [
         data: { roles: ['admin', 'master'] },
         title: 'UniCore | Relatório de Agenda',
       },
+      {
+        path: 'administracao/dashboards/reservas',
+        loadComponent: () => import('./pages/reservation-dashboard-page.component').then(m => m.ReservationDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Relatório de Reservas',
+      },
+      {
+        path: 'desenvolvedor/dashboards/reservas',
+        loadComponent: () => import('./pages/reservation-dashboard-page.component').then(m => m.ReservationDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Relatório de Reservas',
+      },
       { path: 'agenda', component: AgendaPageComponent, title: 'UniCore | Agenda' },
       
       { path: 'vestibular/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },

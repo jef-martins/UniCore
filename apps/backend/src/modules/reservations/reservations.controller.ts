@@ -34,6 +34,12 @@ export class ReservationsController {
     return this.reservationsService.getStats()
   }
 
+  @Get('dashboard')
+  @Roles('admin', 'master')
+  getDashboard() {
+    return this.reservationsService.getDashboardStats()
+  }
+
   @Get('items')
   getItems(
     @Query('search') search?: string,

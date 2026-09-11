@@ -233,7 +233,8 @@ export class LayoutShellComponent {
           href: '/administracao/dashboards',
           label: 'Dashboards',
           children: [
-            { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' }
+            { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' },
+            { href: '/administracao/dashboards/reservas', label: 'Relatório de Reservas' }
           ]
         },
         { href: '/administracao/agenda', label: 'Agenda' },
@@ -252,6 +253,13 @@ export class LayoutShellComponent {
       href: '/desenvolvedor', 
       label: 'Desenvolvedor',
       children: [
+        {
+          href: '/desenvolvedor/dashboards',
+          label: 'Dashboards',
+          children: [
+            { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' }
+          ]
+        },
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
         { href: '/desenvolvedor/reservas', label: 'Reserva de Itens' },
         {
