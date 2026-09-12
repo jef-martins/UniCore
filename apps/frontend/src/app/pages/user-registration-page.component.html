@@ -16,8 +16,18 @@
       }
       
       @if (successMessage) {
-        <div class="alert" style="color: var(--color-success, #10b981); background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 4px;">
-          {{ successMessage }}
+        <div class="alert" style="color: var(--color-success, #10b981); background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.3);">
+          <div style="font-weight: 500;">{{ successMessage }}</div>
+          @if (createdValidationUrl) {
+            <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <a [href]="createdValidationUrl" target="_blank" class="button button-primary" style="font-size: 0.85rem; padding: 0.4rem 0.85rem; text-decoration: none; border-radius: 6px;">
+                🔗 Abrir Link de Validação
+              </a>
+              <button type="button" class="button button-outline" (click)="copyLink(createdValidationUrl)" style="font-size: 0.85rem; padding: 0.4rem 0.85rem; cursor: pointer; border-radius: 6px;">
+                {{ copiedUrl ? '✓ Copiado para Área de Transferência!' : '📋 Copiar Link' }}
+              </button>
+            </div>
+          }
         </div>
       }
 
@@ -27,8 +37,26 @@
       </div>
 
       <div class="field">
-        <label class="field-label" for="email">E-mail</label>
-        <input id="email" class="field-control" type="email" [(ngModel)]="newUser.email" name="email" required />
+        <label class="field-label" for="email">
+          E-mail Institucional
+          <span style="font-size: 0.8rem; color: #38bdf8; font-weight: normal; margin-left: 0.4rem;">
+            (obrigatório &#64;faip.edu.br)
+          </span>
+        </label>
+        <input
+          id="email"
+          class="field-control"
+          type="email"
+          [(ngModel)]="newUser.email"
+          name="email"
+          placeholder="ex: nome.sobrenome@faip.edu.br"
+          required
+        />
+        @if (newUser.email && !isInstitutional(newUser.email)) {
+          <small style="color: #f59e0b; font-size: 0.8rem; display: block; margin-top: 0.35rem;">
+            ⚠️ O e-mail deve pertencer ao domínio &#64;faip.edu.br ou subdomínio institucional.
+          </small>
+        }
       </div>
 
       <div class="field">
@@ -64,18 +92,61 @@
           <th style="padding: 0.75rem;">Usuário</th>
           <th style="padding: 0.75rem;">E-mail</th>
           <th style="padding: 0.75rem;">Setor</th>
+          <th style="padding: 0.75rem;">Status do E-mail</th>
         </tr>
       </thead>
       <tbody>
         @for (user of users; track user.id) {
           <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
-            <td style="padding: 0.75rem;">{{ user.username }}</td>
+            <td style="padding: 0.75rem; font-weight: 500;">{{ user.username }}</td>
             <td style="padding: 0.75rem;">{{ user.email }}</td>
             <td style="padding: 0.75rem;"><span class="role-badge" style="margin: 0;">{{ authService.roleLabel(user.role) }}</span></td>
+            <td style="padding: 0.75rem;">
+              @if (user.emailVerified) {
+                <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
+                  ✓ Verificado
+                </span>
+              } @else {
+                <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
+                    ⏳ Pendente
+                  </span>
+                  @if (user.validationUrl) {
+                    <a
+                      [href]="user.validationUrl"
+                      target="_blank"
+                      class="button button-outline"
+                      style="font-size: 0.75rem; padding: 2px 8px; text-decoration: none;"
+                      title="Abrir página de validação"
+                    >
+                      🔗 Validar
+                    </a>
+                    <button
+                      class="button button-outline"
+                      type="button"
+                      (click)="copyLink(user.validationUrl)"
+                      style="font-size: 0.75rem; padding: 2px 8px; cursor: pointer;"
+                      title="Copiar link de validação"
+                    >
+                      📋 Copiar
+                    </button>
+                  }
+                  <button
+                    class="button button-outline"
+                    type="button"
+                    (click)="resend(user.email)"
+                    [disabled]="resendingEmail === user.email"
+                    style="font-size: 0.75rem; padding: 2px 8px; cursor: pointer;"
+                  >
+                    {{ resendingEmail === user.email ? 'Enviando...' : 'Reenviar Link' }}
+                  </button>
+                </div>
+              }
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="3" style="padding: 1rem; text-align: center;">Nenhum usuário encontrado.</td>
+            <td colspan="4" style="padding: 1rem; text-align: center;">Nenhum usuário encontrado.</td>
           </tr>
         }
       </tbody>

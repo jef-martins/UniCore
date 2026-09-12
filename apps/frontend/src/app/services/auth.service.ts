@@ -18,6 +18,14 @@ export interface AuthUser {
   username: string
   email: string
   role: UserRole
+  emailVerified?: boolean
+  validationUrl?: string
+}
+
+export interface LoginError {
+  code?: string
+  message: string
+  email?: string
 }
 
 interface LoginResponse {
@@ -48,6 +56,7 @@ export class AuthService {
   private readonly storageKey = 'unicore.auth'
   private userValue: AuthUser | null = null
   private accessTokenValue: string | null = null
+  lastLoginError: LoginError | null = null
 
   constructor(private readonly http: HttpClient) {
     this.restoreSession()
@@ -66,6 +75,7 @@ export class AuthService {
   }
 
   login(identifier: string, password: string): Observable<boolean> {
+    this.lastLoginError = null
     if (!identifier.trim() || !password) return of(false)
 
     return this.http.post<LoginResponse>('/api/auth/login', {
@@ -78,8 +88,21 @@ export class AuthService {
         this.persistSession()
       }),
       map(() => true),
-      catchError(() => {
+      catchError((err) => {
         this.logout()
+        const errorBody = err?.error
+        if (errorBody?.code === 'EMAIL_NOT_VERIFIED') {
+          this.lastLoginError = {
+            code: 'EMAIL_NOT_VERIFIED',
+            message: errorBody.message || 'E-mail institucional ainda não validado.',
+            email: errorBody.email,
+          }
+        } else {
+          this.lastLoginError = {
+            code: 'INVALID_CREDENTIALS',
+            message: errorBody?.message || 'Usuário/e-mail ou senha inválidos.',
+          }
+        }
         return of(false)
       }),
     )
@@ -106,6 +129,18 @@ export class AuthService {
     return this.http.post<{ success: boolean; message: string }>('/api/auth/change-password', {
       currentPassword,
       newPassword,
+    })
+  }
+
+  verifyEmail(token: string): Observable<{ success: boolean; message: string; email?: string }> {
+    return this.http.post<{ success: boolean; message: string; email?: string }>('/api/auth/verify-email', {
+      token,
+    })
+  }
+
+  resendVerification(email: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>('/api/auth/resend-verification', {
+      email,
     })
   }
 

@@ -13,6 +13,11 @@ import { VestibularPageComponent } from './pages/vestibular-page.component'
 export const appRoutes: Routes = [
   { path: 'login', component: LoginPageComponent, title: 'UniCore | Login' },
   {
+    path: 'verificar-email',
+    loadComponent: () => import('./pages/verify-email-page.component').then((m) => m.VerifyEmailPageComponent),
+    title: 'UniCore | Validação de E-mail',
+  },
+  {
     path: '',
     component: LayoutShellComponent,
     canActivate: [authGuard],

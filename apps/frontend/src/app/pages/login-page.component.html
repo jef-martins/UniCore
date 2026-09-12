@@ -30,7 +30,22 @@
         />
       </div>
       @if (errorMessage) {
-        <p class="error-message" role="alert">{{ errorMessage }}</p>
+        <div class="alert" [style.color]="isEmailNotVerified ? 'var(--color-warning, #f59e0b)' : 'var(--color-danger, #ef4444)'" [style.background]="isEmailNotVerified ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.1)'" style="padding: 1rem; border-radius: 8px; margin: 1rem 0; border: 1px solid currentColor;">
+          <p style="margin: 0; font-weight: 500; line-height: 1.4;">{{ errorMessage }}</p>
+          @if (isEmailNotVerified) {
+            <div style="margin-top: 0.6rem;">
+              <button class="button button-outline" type="button" (click)="resendLink()" [disabled]="isResending" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; cursor: pointer;">
+                {{ isResending ? 'Enviando...' : '✉️ Reenviar link de validação' }}
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      @if (resendSuccessMessage) {
+        <div class="alert" style="color: var(--color-success, #10b981); background: rgba(16, 185, 129, 0.1); padding: 0.75rem 1rem; border-radius: 8px; margin: 0.75rem 0; border: 1px solid currentColor;">
+          {{ resendSuccessMessage }}
+        </div>
       }
       <button class="button button-primary auth-submit" type="submit" [disabled]="loginInProgress">
         {{ loginInProgress ? 'Entrando…' : 'Entrar' }}

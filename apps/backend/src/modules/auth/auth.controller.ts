@@ -3,6 +3,8 @@ import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { CreateUserDto } from './dto/create-user.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
+import { ResendVerificationDto } from './dto/resend-verification.dto'
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard'
 import { RolesGuard } from './roles.guard'
 import { Roles } from './roles.decorator'
@@ -48,5 +50,17 @@ export class AuthController {
     @Body() body: ChangePasswordDto,
   ) {
     return this.authService.changePassword(request.user.sub, body)
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  verifyEmail(@Body() body: VerifyEmailDto) {
+    return this.authService.verifyEmail(body.token)
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body() body: ResendVerificationDto) {
+    return this.authService.resendVerification(body.email)
   }
 }
