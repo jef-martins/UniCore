@@ -45,8 +45,7 @@ export class ClassroomController {
 
   @Get('courses')
   async listGoogleCourses() {
-    const courses = await this.googleService.listCourses()
-    return courses.map((course) => ({ id: course.id, name: course.name, alternateLink: course.alternateLink }))
+    return this.googleService.listCoursesWithTeachers()
   }
 
   @Post('rooms')

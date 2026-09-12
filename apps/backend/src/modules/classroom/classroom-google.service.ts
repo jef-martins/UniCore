@@ -176,6 +176,53 @@ export class GoogleClassroomService {
     }
   }
 
+  async listCoursesWithTeachers(): Promise<Array<{
+    id: string
+    name: string
+    section: string | null
+    descriptionHeading: string | null
+    alternateLink: string | null
+    courseState: string | null
+    teachers: Array<{ id: string; name: string | null; email: string | null }>
+  }>> {
+    const classroom = this.getClient()
+    try {
+      const coursesRes = await classroom.courses.list({ pageSize: 100, courseStates: ['ACTIVE'] })
+      const courses = coursesRes.data.courses ?? []
+
+      const results = await Promise.all(
+        courses.map(async (course) => {
+          let teachers: Array<{ id: string; name: string | null; email: string | null }> = []
+          if (course.id) {
+            try {
+              const tRes = await classroom.courses.teachers.list({ courseId: course.id })
+              teachers = (tRes.data.teachers ?? []).map((t) => ({
+                id: t.userId ?? '',
+                name: t.profile?.name?.fullName ?? null,
+                email: t.profile?.emailAddress ?? null,
+              }))
+            } catch {
+              teachers = []
+            }
+          }
+          return {
+            id: course.id ?? '',
+            name: course.name ?? '',
+            section: course.section ?? null,
+            descriptionHeading: course.descriptionHeading ?? null,
+            alternateLink: course.alternateLink ?? null,
+            courseState: course.courseState ?? 'ACTIVE',
+            teachers,
+          }
+        })
+      )
+
+      return results
+    } catch (error) {
+      this.throwGoogleError('listar as salas e professores do Google Classroom', error)
+    }
+  }
+
   async createCourse(input: { name: string; section: string; descriptionHeading: string }) {
     const classroom = this.getClient()
     try {
