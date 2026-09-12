@@ -1,9 +1,20 @@
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
 
-export interface IntegrationConnection { configured: boolean; reachable: boolean; message: string }
-export interface UnimestreStatus { unimestre: IntegrationConnection; faip: IntegrationConnection }
-export interface UnimestreCourse { id: string; name: string; offered: boolean }
+export interface IntegrationConnection {
+  configured: boolean
+  reachable: boolean
+  message: string
+  cachedCourses?: number
+  cachedClasses?: number
+  cachedStudents?: number
+}
+export interface UnimestreStatus {
+  unimestre: IntegrationConnection
+  faip: IntegrationConnection
+  local?: IntegrationConnection
+}
+export interface UnimestreCourse { id: string; name: string; offered: boolean; cached?: boolean }
 export interface UnimestreClassroom { googleCourseId: string | null; alternateLink: string | null; status: string | null }
 export interface UnimestreClass {
   classGroup: string
@@ -14,8 +25,9 @@ export interface UnimestreClass {
   teacherEmail: string | null
   studentCount: number
   classroom: UnimestreClassroom | null
+  cached?: boolean
 }
-export interface UnimestreStudent { id: string; name: string; email: string | null }
+export interface UnimestreStudent { id: string; name: string; email: string | null; cached?: boolean }
 
 @Injectable({ providedIn: 'root' })
 export class UnimestreService {

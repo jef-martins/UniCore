@@ -3,10 +3,12 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { google, type classroom_v1 } from 'googleapis'
 import { ConfigService } from '@nestjs/config'
+import { PrismaService } from '../database/prisma.service'
 
 const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses',
   'https://www.googleapis.com/auth/classroom.rosters',
+  'https://www.googleapis.com/auth/classroom.profile.emails',
 ]
 
 export type GoogleAuthType = 'oauth2' | 'service_account' | null
@@ -18,7 +20,10 @@ export class GoogleClassroomService {
   private authType: GoogleAuthType = null
   private configurationMessage: string | null = null
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     this.initClient()
   }
 
@@ -88,7 +93,7 @@ export class GoogleClassroomService {
     this.authType = null
   }
 
-  getStatus() {
+  async getStatus() {
     let authUrl: string | null = null
     if (!this.classroom && this.authType === 'oauth2') {
       try {
@@ -98,11 +103,18 @@ export class GoogleClassroomService {
       }
     }
 
+    const cachedCoursesCount = await this.prisma.googleCourseCache.count()
+
     return {
       configured: this.classroom !== null,
       authType: this.authType,
       authUrl,
-      message: this.configurationMessage,
+      cachedCoursesCount,
+      message: this.classroom !== null
+        ? this.configurationMessage
+        : cachedCoursesCount > 0
+          ? `${this.configurationMessage || 'Google Classroom desconectado.'} ${cachedCoursesCount} sala(s) salva(s) no banco local UniCore.`
+          : this.configurationMessage,
     }
   }
 
@@ -184,9 +196,10 @@ export class GoogleClassroomService {
     alternateLink: string | null
     courseState: string | null
     teachers: Array<{ id: string; name: string | null; email: string | null }>
+    cached?: boolean
   }>> {
-    const classroom = this.getClient()
     try {
+      const classroom = this.getClient()
       const coursesRes = await classroom.courses.list({ pageSize: 100, courseStates: ['ACTIVE'] })
       const courses = coursesRes.data.courses ?? []
 
@@ -217,9 +230,63 @@ export class GoogleClassroomService {
         })
       )
 
+      // Salva no banco local UniCore
+      this.saveCoursesCache(results).catch((err) => {
+        this.logger.warn(`Falha ao salvar salas do Google Classroom no cache local: ${err.message}`)
+      })
+
       return results
     } catch (error) {
+      this.logger.warn(`Consulta à API Google Classroom falhou: ${(error as Error).message}. Buscando do banco local...`)
+      const cached = await this.prisma.googleCourseCache.findMany({
+        orderBy: { name: 'asc' },
+      })
+      if (cached.length) {
+        return cached.map((c) => ({
+          id: c.id,
+          name: c.name,
+          section: c.section,
+          descriptionHeading: c.descriptionHeading,
+          alternateLink: c.alternateLink,
+          courseState: c.courseState,
+          teachers: (c.teachers as Array<{ id: string; name: string | null; email: string | null }>) || [],
+          cached: true,
+        }))
+      }
       this.throwGoogleError('listar as salas e professores do Google Classroom', error)
+    }
+  }
+
+  private async saveCoursesCache(courses: Array<{
+    id: string
+    name: string
+    section: string | null
+    descriptionHeading: string | null
+    alternateLink: string | null
+    courseState: string | null
+    teachers: Array<{ id: string; name: string | null; email: string | null }>
+  }>) {
+    for (const c of courses) {
+      await this.prisma.googleCourseCache.upsert({
+        where: { id: c.id },
+        update: {
+          name: c.name,
+          section: c.section,
+          descriptionHeading: c.descriptionHeading,
+          alternateLink: c.alternateLink,
+          courseState: c.courseState,
+          teachers: c.teachers,
+        },
+        create: {
+          id: c.id,
+          name: c.name,
+          section: c.section,
+          descriptionHeading: c.descriptionHeading,
+          alternateLink: c.alternateLink,
+          courseState: c.courseState,
+          teachers: c.teachers,
+        },
+      })
     }
   }
 
@@ -257,6 +324,60 @@ export class GoogleClassroomService {
       if (this.getStatusCode(error) === 409) return 'already-exists'
       this.throwGoogleError('adicionar o aluno', error)
     }
+  }
+
+  async listCourseStudents(courseId: string): Promise<Array<{
+    id: string
+    name: string | null
+    email: string | null
+    cached?: boolean
+  }>> {
+    try {
+      const classroom = this.getClient()
+      const students: Array<{ id: string; name: string | null; email: string | null }> = []
+      let pageToken: string | undefined
+      do {
+        const response = await classroom.courses.students.list({ courseId, pageSize: 100, pageToken })
+        for (const s of response.data.students ?? []) {
+          const profile = s.profile
+          students.push({
+            id: s.userId ?? profile?.id ?? '',
+            name: profile?.name?.fullName ?? null,
+            email: profile?.emailAddress ?? null,
+          })
+        }
+        pageToken = response.data.nextPageToken ?? undefined
+      } while (pageToken)
+
+      // Salva no banco local UniCore
+      this.saveCourseStudentsCache(courseId, students).catch((err) => {
+        this.logger.warn(`Falha ao salvar alunos do Google Classroom no cache local: ${err.message}`)
+      })
+
+      return students
+    } catch (error) {
+      this.logger.warn(`Consulta aos alunos do Google Classroom falhou: ${(error as Error).message}. Buscando do banco local...`)
+      const cachedCourse = await this.prisma.googleCourseCache.findUnique({
+        where: { id: courseId },
+      })
+      if (cachedCourse && Array.isArray(cachedCourse.students) && cachedCourse.students.length > 0) {
+        return (cachedCourse.students as Array<{ id: string; name: string | null; email: string | null }>).map((s) => ({
+          ...s,
+          cached: true,
+        }))
+      }
+      this.throwGoogleError('listar os alunos da sala', error)
+    }
+  }
+
+  private async saveCourseStudentsCache(
+    courseId: string,
+    students: Array<{ id: string; name: string | null; email: string | null }>,
+  ) {
+    await this.prisma.googleCourseCache.updateMany({
+      where: { id: courseId },
+      data: { students },
+    })
   }
 
   private persistRefreshToken(refreshToken: string) {

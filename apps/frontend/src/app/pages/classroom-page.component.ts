@@ -35,12 +35,14 @@ interface GoogleCourse {
   alternateLink: string | null
   courseState: string | null
   teachers: GoogleTeacher[]
+  cached?: boolean
 }
 
 interface GoogleStatus {
   configured: boolean
   authType?: 'oauth2' | 'service_account' | null
   authUrl?: string | null
+  cachedCoursesCount?: number
   message: string | null
 }
 interface ImportResponse { total: number; sucesso: number; ignorados: number; erros: number }
@@ -175,7 +177,24 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
             <label class="field-label" for="teacher-email">E-mail institucional do professor</label>
             <input id="teacher-email" class="field-control" type="email" required maxlength="254" [(ngModel)]="roomForm.teacherEmail" name="teacherEmail" placeholder="professor@exemplo.edu.br" />
           </div>
-          <button class="button button-primary classroom-submit" type="submit" [disabled]="isCreating || !googleStatus?.configured">{{ isCreating ? 'Criando…' : 'Criar sala e incluir professor' }}</button>
+          <div class="field classroom-form-wide classroom-students-toggle">
+            <label class="classroom-checkbox-label">
+              <input type="checkbox" [(ngModel)]="includeStudentsOnCreate" name="includeStudentsOnCreate" />
+              <span>
+                Incluir alunos automaticamente ao criar a sala
+                @if (isLoadingFormStudents) {
+                  <em>(buscando alunos no Unimestre…)</em>
+                } @else if (loadedStudentEmails.length > 0) {
+                  <strong class="students-count-tag">({{ loadedStudentEmails.length }} aluno(s) encontrado(s) no Unimestre)</strong>
+                } @else if (roomForm.subjectId && roomForm.classGroup) {
+                  <small class="unimestre-muted">(nenhum aluno localizado para esta turma)</small>
+                }
+              </span>
+            </label>
+          </div>
+          <button class="button button-primary classroom-submit" type="submit" [disabled]="isCreating || !googleStatus?.configured">
+            {{ isCreating ? 'Criando e sincronizando…' : (includeStudentsOnCreate && loadedStudentEmails.length > 0 ? 'Criar sala com professor e ' + loadedStudentEmails.length + ' alunos' : 'Criar sala e incluir professor') }}
+          </button>
         </form>
       </section>
 
@@ -236,7 +255,9 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
                       }
                       <small class="classroom-id-sub">ID: {{ gc.id }}</small>
                     </div>
-                    <span class="classroom-status" [attr.data-status]="gc.courseState">{{ gc.courseState === 'ACTIVE' ? 'Ativa' : gc.courseState }}</span>
+                    <span class="classroom-status" [attr.data-status]="gc.cached ? 'CACHED' : gc.courseState">
+                      {{ gc.cached ? 'Salvo localmente' : (gc.courseState === 'ACTIVE' ? 'Ativa' : gc.courseState) }}
+                    </span>
                   </div>
 
                   <div class="classroom-teachers-box">
@@ -254,6 +275,37 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
                       </ul>
                     } @else {
                       <span class="no-teachers">Nenhum professor registrado nesta sala</span>
+                    }
+                  </div>
+
+                  <div class="classroom-students-box">
+                    <div class="students-box-header">
+                      <span class="teachers-label">Alunos matriculados:</span>
+                      <button
+                        type="button"
+                        class="button button-text toggle-students-btn"
+                        (click)="toggleCourseStudents(gc.id)"
+                      >
+                        {{ expandedCourseStudents[gc.id] ? '▲ Ocultar alunos' : '▼ Ver alunos' }}
+                      </button>
+                    </div>
+                    @if (expandedCourseStudents[gc.id]) {
+                      @if (loadingCourseStudents[gc.id]) {
+                        <small class="unimestre-muted">Consultando alunos no Google Classroom…</small>
+                      } @else if (courseStudents[gc.id] && courseStudents[gc.id].length > 0) {
+                        <ul class="students-list">
+                          @for (st of courseStudents[gc.id]; track st.id) {
+                            <li>
+                              <strong>{{ st.name || 'Aluno' }}</strong>
+                              @if (st.email) {
+                                <small>({{ st.email }})</small>
+                              }
+                            </li>
+                          }
+                        </ul>
+                      } @else {
+                        <span class="no-teachers">Nenhum aluno matriculado nesta sala do Classroom.</span>
+                      }
                     }
                   </div>
 
@@ -301,7 +353,21 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
                 @if (room.alternateLink) { <a class="action-link classroom-link" [href]="room.alternateLink" target="_blank" rel="noopener">Abrir no Google Classroom ↗</a> }
                 @if (room.lastMessage) { <p class="classroom-room-message">{{ room.lastMessage }}</p> }
                 <div class="classroom-members">
-                  <label class="field-label" [for]="'students-' + room.id">Adicionar alunos</label>
+                  <div class="classroom-members-header">
+                    <label class="field-label" [for]="'students-' + room.id">Adicionar alunos</label>
+                    <button
+                      type="button"
+                      class="button button-text pull-students-btn"
+                      (click)="pullStudentsFromUnimestre(room)"
+                      [disabled]="pullingStudentsRoomId === room.id"
+                      title="Consultar alunos matriculados no Unimestre e preencher e-mails"
+                    >
+                      {{ pullingStudentsRoomId === room.id ? 'Puxando do Unimestre…' : '📥 Puxar alunos do Unimestre' }}
+                    </button>
+                  </div>
+                  @if (pullFeedback[room.id]) {
+                    <p class="pull-feedback" role="status">{{ pullFeedback[room.id] }}</p>
+                  }
                   <textarea class="field-control" [id]="'students-' + room.id" rows="3" [name]="'students-' + room.id" placeholder="Um e-mail por linha ou separado por vírgula" [(ngModel)]="memberInputs[room.id]"></textarea>
                   <button class="button button-secondary" type="button" (click)="syncMembers(room)" [disabled]="syncingRoomId === room.id || !googleStatus?.configured">{{ syncingRoomId === room.id ? 'Sincronizando…' : 'Sincronizar participantes' }}</button>
                 </div>
@@ -357,7 +423,7 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     .classroom-section-tag { color: var(--color-action-green); font-size: 13px; font-weight: 500; margin-top: 4px; }
     .classroom-id-sub { color: var(--color-text-secondary); font-size: 11px; }
     .classroom-status { padding: 3px 8px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 11px; white-space: nowrap; height: fit-content; }
-    .classroom-status[data-status="ACTIVE"], .classroom-status[data-status="CREATED"] { border-color: var(--color-action-green); color: var(--color-action-green); }
+    .classroom-status[data-status="ACTIVE"], .classroom-status[data-status="CREATED"], .classroom-status[data-status="CACHED"] { border-color: var(--color-action-green); color: var(--color-action-green); }
     .classroom-status[data-status="FAILED"] { border-color: var(--color-error); }
     .classroom-status[data-status="CREATED_WITH_WARNINGS"] { border-color: #d6a700; }
     .classroom-teachers-box { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 6px; }
@@ -376,6 +442,18 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     .unimestre-assistant-title { color: var(--color-action-green); font-size: 0.9rem; font-weight: 600; }
     .unimestre-loading-tag { color: var(--color-text-secondary); font-size: 0.8rem; }
     .unimestre-assistant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .classroom-students-toggle { display: flex; align-items: center; }
+    .classroom-checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; user-select: none; }
+    .classroom-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-action-green); }
+    .students-count-tag { color: var(--color-action-green); }
+    .classroom-members-header { display: flex; justify-content: space-between; align-items: center; }
+    .pull-students-btn { font-size: 12px; padding: 2px 6px; color: var(--color-action-green); }
+    .pull-feedback { font-size: 12px; color: var(--color-action-green); margin: 0; }
+    .classroom-students-box { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 6px; }
+    .students-box-header { display: flex; justify-content: space-between; align-items: center; }
+    .toggle-students-btn { font-size: 12px; padding: 0 4px; }
+    .students-list { margin: 6px 0 0 0; padding-left: 1.2rem; font-size: 13px; display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+    .students-list li small { color: var(--color-text-secondary); margin-left: 4px; }
     @media (max-width: 850px) { .classroom-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }.classroom-heading { flex-direction: column; }.classroom-form-wide { grid-column: span 1; } }
     @media (max-width: 520px) { .classroom-form { grid-template-columns: 1fr; }.classroom-list-header, .classroom-room-title { flex-direction: column; }.classroom-submit { width: 100%; } }
   `],
@@ -418,6 +496,21 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
   showCodeInput = false
   authCode = ''
   isSubmittingCode = false
+
+  // Alunos no Formulário de Criação
+  loadedStudentEmails: string[] = []
+  isLoadingFormStudents = false
+  includeStudentsOnCreate = true
+
+  // Puxar Alunos do Unimestre nas salas sincronizadas
+  pullingStudentsRoomId: string | null = null
+  pullFeedback: Record<string, string> = {}
+
+  // Ver Alunos na aba Google Classroom
+  expandedCourseStudents: Record<string, boolean> = {}
+  loadingCourseStudents: Record<string, boolean> = {}
+  courseStudents: Record<string, Array<{ id: string; name: string | null; email: string | null }>> = {}
+
   private messageListener?: (event: MessageEvent) => void
 
   constructor(
@@ -437,6 +530,10 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
 
     if (params.get('googleConnected') === 'true') {
       this.connectionMessage = 'Conta Google vinculada com sucesso ao UniCore!'
+    }
+
+    if (this.roomForm.academicCourseId && this.roomForm.subjectId && this.roomForm.classGroup) {
+      this.loadFormStudents()
     }
 
     this.messageListener = (event: MessageEvent) => {
@@ -597,7 +694,30 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
       this.roomForm.classGroup = found.classGroup
       this.roomForm.subjectName = found.subjectName
       this.roomForm.teacherEmail = found.teacherEmail || ''
+      this.loadFormStudents()
     }
+  }
+
+  loadFormStudents(): void {
+    if (!this.roomForm.semester || !this.roomForm.academicCourseId || !this.roomForm.subjectId || !this.roomForm.classGroup) {
+      this.loadedStudentEmails = []
+      return
+    }
+    this.isLoadingFormStudents = true
+    this.unimestreService.students(
+      this.roomForm.semester,
+      this.roomForm.academicCourseId,
+      this.roomForm.subjectId,
+      this.roomForm.classGroup,
+    ).pipe(finalize(() => { this.isLoadingFormStudents = false }))
+      .subscribe({
+        next: (students) => {
+          this.loadedStudentEmails = students.map((s) => s.email?.trim()).filter((e): e is string => Boolean(e))
+        },
+        error: () => {
+          this.loadedStudentEmails = []
+        },
+      })
   }
 
   testConnection(): void {
@@ -616,7 +736,13 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
   createRoom(): void {
     this.isCreating = true
     this.errorMessage = ''
-    this.http.post<{ room: ClassroomRoom; created: boolean; warnings: string[] }>('/api/classroom/rooms', this.roomForm)
+    const payload = {
+      ...this.roomForm,
+      studentEmails: this.includeStudentsOnCreate && this.loadedStudentEmails.length > 0
+        ? this.loadedStudentEmails
+        : undefined,
+    }
+    this.http.post<{ room: ClassroomRoom; created: boolean; warnings: string[] }>('/api/classroom/rooms', payload)
       .pipe(finalize(() => { this.isCreating = false }))
       .subscribe({
         next: (result) => {
@@ -684,6 +810,44 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
     }[status]
   }
 
+  pullStudentsFromUnimestre(room: ClassroomRoom): void {
+    this.pullingStudentsRoomId = room.id
+    this.pullFeedback[room.id] = ''
+    this.unimestreService.students(room.semester, room.academicCourseId, room.subjectId, room.classGroup)
+      .pipe(finalize(() => { this.pullingStudentsRoomId = null }))
+      .subscribe({
+        next: (students) => {
+          const emails = students.map((s) => s.email?.trim()).filter((e): e is string => Boolean(e))
+          if (emails.length > 0) {
+            this.memberInputs[room.id] = emails.join('\n')
+            this.pullFeedback[room.id] = `✓ ${emails.length} aluno(s) puxado(s) do Unimestre.`
+          } else {
+            this.pullFeedback[room.id] = 'Nenhum aluno encontrado no Unimestre para esta turma.'
+          }
+        },
+        error: (err) => {
+          this.pullFeedback[room.id] = `Erro ao puxar alunos: ${err.error?.message || 'Falha na consulta'}`
+        },
+      })
+  }
+
+  toggleCourseStudents(courseId: string): void {
+    this.expandedCourseStudents[courseId] = !this.expandedCourseStudents[courseId]
+    if (this.expandedCourseStudents[courseId] && !this.courseStudents[courseId]) {
+      this.loadingCourseStudents[courseId] = true
+      this.http.get<Array<{ id: string; name: string | null; email: string | null }>>(`/api/classroom/courses/${courseId}/students`)
+        .pipe(finalize(() => { this.loadingCourseStudents[courseId] = false }))
+        .subscribe({
+          next: (students) => {
+            this.courseStudents[courseId] = students
+          },
+          error: (err) => {
+            this.errorMessage = err.error?.message || 'Não foi possível carregar os alunos da sala Google Classroom.'
+          },
+        })
+    }
+  }
+
   private resetRoomForm(): void {
     this.roomForm.academicCourseId = ''
     this.roomForm.subjectId = ''
@@ -691,6 +855,7 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
     this.roomForm.subjectName = ''
     this.roomForm.teacherEmail = ''
     this.selectedClassKey = ''
+    this.loadedStudentEmails = []
   }
 
   private currentSemester(): string {

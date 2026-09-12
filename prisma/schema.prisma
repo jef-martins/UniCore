@@ -162,3 +162,65 @@ model ItemReservation {
   @@index([itemId, startDate, endDate])
   @@map("item_reservations")
 }
+
+model AcademicCourseCache {
+  id        String
+  name      String
+  semester  String
+  offered   Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([id, semester])
+  @@index([semester])
+  @@map("academic_course_cache")
+}
+
+model AcademicClassCache {
+  id                     String   @id @default(uuid()) @db.Uuid
+  semester               String
+  academicCourseId       String   @map("academic_course_id")
+  classGroup             String   @map("class_group")
+  subjectId              String   @map("subject_id")
+  subjectName            String   @map("subject_name")
+  teacherId              String?  @map("teacher_id")
+  teacherName            String?  @map("teacher_name")
+  teacherEmail           String?  @map("teacher_email")
+  studentCount           Int      @default(0) @map("student_count")
+  classroomAlternateLink String?  @map("classroom_alternate_link")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([semester, academicCourseId, classGroup, subjectId])
+  @@index([semester, academicCourseId])
+  @@map("academic_class_cache")
+}
+
+model AcademicStudentCache {
+  id               String   @id @default(uuid()) @db.Uuid
+  semester         String
+  academicCourseId String   @map("academic_course_id")
+  subjectId        String   @map("subject_id")
+  classGroup       String   @map("class_group")
+  studentId        String   @map("student_id")
+  name             String
+  email            String?
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([semester, academicCourseId, subjectId, classGroup, studentId])
+  @@index([semester, academicCourseId, subjectId, classGroup])
+  @@map("academic_student_cache")
+}
+
+model GoogleCourseCache {
+  id                 String   @id
+  name               String
+  section            String?
+  descriptionHeading String?  @map("description_heading")
+  alternateLink      String?  @map("alternate_link")
+  courseState        String?  @map("course_state")
+  teachers           Json?
+  students           Json?
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("google_course_cache")
+}
+

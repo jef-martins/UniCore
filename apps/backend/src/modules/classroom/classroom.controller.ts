@@ -48,6 +48,11 @@ export class ClassroomController {
     return this.googleService.listCoursesWithTeachers()
   }
 
+  @Get('courses/:id/students')
+  async listGoogleCourseStudents(@Param('id') courseId: string) {
+    return this.googleService.listCourseStudents(courseId)
+  }
+
   @Post('rooms')
   createRoom(@Body() body: CreateClassroomRoomDto) {
     return this.roomsService.create(body)

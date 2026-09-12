@@ -45,7 +45,10 @@ export class ClassroomRoomsService {
         where: { id: room.id },
         data: { googleCourseId: course.id, alternateLink: course.alternateLink },
       })
-      const sync = await this.syncMembers(createdRoom.id, { teacherEmail: createdRoom.teacherEmail, studentEmails: [] })
+      const sync = await this.syncMembers(createdRoom.id, {
+        teacherEmail: createdRoom.teacherEmail,
+        studentEmails: input.studentEmails ?? [],
+      })
       return { room: sync.room, created: true, warnings: sync.warnings }
     } catch (error) {
       await this.markFailed(room.id)

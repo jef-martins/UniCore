@@ -41,3 +41,29 @@ describe('Validação de E-mail Institucional', () => {
     expect(isInstitutional('   ')).toBe(false)
   })
 })
+
+describe('Normalização e Geração de E-mail de Aluno', () => {
+  function formatStudentEmail(name: string): string {
+    const clean = (name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+    return clean ? `${clean}@aluno.faip.edu.br` : ''
+  }
+
+  it('deve normalizar o nome completo removendo acentos e espaços', () => {
+    expect(formatStudentEmail('Ana Carolina Jardim Fernandes')).toBe('anacarolinajardimfernandes@aluno.faip.edu.br')
+    expect(formatStudentEmail('João da Silva Santos')).toBe('joaodasilvasantos@aluno.faip.edu.br')
+    expect(formatStudentEmail('Érica Müller Conceição')).toBe('ericamullerconceicao@aluno.faip.edu.br')
+  })
+
+  it('deve remover caracteres especiais, pontuações e apóstrofes', () => {
+    expect(formatStudentEmail("Maria D'Ávila-Souza")).toBe('mariadavilasouza@aluno.faip.edu.br')
+  })
+
+  it('deve retornar vazio se o nome for vazio ou inválido', () => {
+    expect(formatStudentEmail('')).toBe('')
+    expect(formatStudentEmail('   ')).toBe('')
+  })
+})

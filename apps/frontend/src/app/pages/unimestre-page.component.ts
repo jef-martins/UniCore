@@ -26,7 +26,14 @@ import {
       <section class="unimestre-status-grid" aria-label="Status das conexões">
         <article class="card unimestre-status" [class.status-ok]="status?.unimestre?.reachable"><h2>Unimestre</h2><p>{{ status?.unimestre?.message || 'Verificando conexão…' }}</p></article>
         <article class="card unimestre-status" [class.status-ok]="status?.faip?.reachable"><h2>FAIP — contas Google</h2><p>{{ status?.faip?.message || 'Verificando conexão…' }}</p></article>
+        <article class="card unimestre-status status-ok"><h2>Banco Local UniCore</h2><p>{{ status?.local?.message || 'Armazenamento de resiliência ativo.' }}</p></article>
       </section>
+
+      @if (isOfflineMode) {
+        <p class="unimestre-offline-alert" role="status">
+          💾 <strong>Modo de resiliência ativo:</strong> Exibindo dados salvos no banco local UniCore. As consultas continuam funcionando mesmo com a base externa offline.
+        </p>
+      }
 
       <section class="card card-outlined unimestre-filter" aria-labelledby="academic-data-title">
         <div><h2 id="academic-data-title">Dados acadêmicos</h2><p>Todos os cursos ativos do Unimestre são exibidos. Cursos ofertados no período selecionado são identificados na lista.</p></div>
@@ -62,15 +69,47 @@ import {
 
       @if (selectedClass) {
         <section class="card card-outlined unimestre-results" aria-labelledby="students-title">
-          <div class="unimestre-students-heading"><div><h2 id="students-title">Alunos — {{ selectedClass.subjectName }} / {{ selectedClass.classGroup }}</h2><p>Listagem acadêmica somente leitura, com e-mail institucional vinculado quando disponível.</p></div><button class="button button-text" type="button" (click)="closeStudents()">Fechar</button></div>
+          <div class="unimestre-students-heading">
+            <div>
+              <h2 id="students-title">Alunos — {{ selectedClass.subjectName }} / {{ selectedClass.classGroup }}</h2>
+              <p>Listagem acadêmica somente leitura, com e-mail institucional oficial dos alunos.</p>
+            </div>
+            <div class="unimestre-students-header-actions">
+              @if (students.length > 0) {
+                <button class="button button-secondary" type="button" (click)="copyAllEmails()">
+                  {{ copiedAll ? '✓ Todos copiados!' : '📋 Copiar todos os e-mails (' + students.length + ')' }}
+                </button>
+                <a class="button button-primary" [routerLink]="classroomLink" [queryParams]="classroomParamsWithStudents(selectedClass)">
+                  Usar no Classroom com alunos ↗
+                </a>
+              }
+              <button class="button button-text" type="button" (click)="closeStudents()">Fechar</button>
+            </div>
+          </div>
           @if (isLoadingStudents) { <p class="unimestre-muted">Consultando alunos matriculados…</p> }
-          <ul class="unimestre-students">@for (student of students; track student.id) { <li><strong>{{ student.name }}</strong><span>{{ student.email || 'Sem e-mail Google vinculado' }}</span></li> } @empty { <li class="unimestre-muted">Nenhum aluno encontrado para esta turma.</li> }</ul>
+          <ul class="unimestre-students">
+            @for (student of students; track student.id) {
+              <li>
+                <strong>{{ student.name }}</strong>
+                <div class="unimestre-student-email-row">
+                  <span class="unimestre-student-email">{{ student.email || 'Sem e-mail Google vinculado' }}</span>
+                  @if (student.email) {
+                    <button class="button button-text copy-single-btn" type="button" (click)="copyStudentEmail(student.email, student.id)">
+                      {{ copiedStudentId === student.id ? '✓ Copiado' : 'Copiar' }}
+                    </button>
+                  }
+                </div>
+              </li>
+            } @empty {
+              <li class="unimestre-muted">Nenhum aluno encontrado para esta turma.</li>
+            }
+          </ul>
         </section>
       }
     </section>
   `,
   styles: [`
-    .unimestre-page { display: grid; gap: 24px; max-width: 1280px; margin-inline: auto; }.unimestre-heading, .unimestre-students-heading { display:flex; justify-content:space-between; gap:16px; align-items:start; }.unimestre-heading h1,.unimestre-heading p,.unimestre-filter h2,.unimestre-filter p,.unimestre-results h2,.unimestre-results p { margin:0; }.unimestre-heading h1 { margin-block:8px; font-size:clamp(32px,4vw,40px); }.unimestre-heading>div>p:last-child,.unimestre-filter p,.unimestre-results>div>p,.unimestre-muted,.unimestre-students span { color:var(--color-text-secondary); }.unimestre-status-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }.unimestre-status { gap:8px; }.unimestre-status h2,.unimestre-status p { margin:0; }.unimestre-status.status-ok { border-color:var(--color-action-green); }.unimestre-filter,.unimestre-results { gap:20px; }.unimestre-filter-controls { display:grid; grid-template-columns:150px minmax(280px,1fr) auto; gap:16px; align-items:end; }.unimestre-course-field { min-width:0; }.unimestre-table-wrap { overflow-x:auto; }.unimestre-table { width:100%; border-collapse:collapse; min-width:900px; }.unimestre-table th,.unimestre-table td { padding:12px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:top; }.unimestre-table th { color:var(--color-text-secondary); font-size:14px; }.unimestre-table small,.unimestre-table td>a { display:block; margin-top:4px; color:var(--color-text-secondary); font-size:13px; }.unimestre-actions { display:flex; gap:8px; align-items:center; }.unimestre-empty { color:var(--color-text-secondary); text-align:center; }.unimestre-students { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:8px; list-style:none; margin:0; padding:0; }.unimestre-students li { display:grid; gap:4px; padding:12px; border:1px solid var(--color-border); border-radius:8px; }.unimestre-students strong,.unimestre-students span { overflow-wrap:anywhere; }
+    .unimestre-page { display: grid; gap: 24px; max-width: 1280px; margin-inline: auto; }.unimestre-heading, .unimestre-students-heading { display:flex; justify-content:space-between; gap:16px; align-items:start; }.unimestre-students-header-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }.unimestre-heading h1,.unimestre-heading p,.unimestre-filter h2,.unimestre-filter p,.unimestre-results h2,.unimestre-results p { margin:0; }.unimestre-heading h1 { margin-block:8px; font-size:clamp(32px,4vw,40px); }.unimestre-heading>div>p:last-child,.unimestre-filter p,.unimestre-results>div>p,.unimestre-muted,.unimestre-students span { color:var(--color-text-secondary); }.unimestre-status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }.unimestre-status { gap:8px; }.unimestre-status h2,.unimestre-status p { margin:0; }.unimestre-status.status-ok { border-color:var(--color-action-green); }.unimestre-filter,.unimestre-results { gap:20px; }.unimestre-filter-controls { display:grid; grid-template-columns:150px minmax(280px,1fr) auto; gap:16px; align-items:end; }.unimestre-course-field { min-width:0; }.unimestre-table-wrap { overflow-x:auto; }.unimestre-table { width:100%; border-collapse:collapse; min-width:900px; }.unimestre-table th,.unimestre-table td { padding:12px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:top; }.unimestre-table th { color:var(--color-text-secondary); font-size:14px; }.unimestre-table small,.unimestre-table td>a { display:block; margin-top:4px; color:var(--color-text-secondary); font-size:13px; }.unimestre-actions { display:flex; gap:8px; align-items:center; }.unimestre-empty { color:var(--color-text-secondary); text-align:center; }.unimestre-students { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:8px; list-style:none; margin:0; padding:0; }.unimestre-students li { display:grid; gap:6px; padding:12px; border:1px solid var(--color-border); border-radius:8px; }.unimestre-students strong { overflow-wrap:anywhere; }.unimestre-student-email-row { display:flex; justify-content:space-between; align-items:center; gap:8px; }.unimestre-student-email { color:var(--color-action-green) !important; font-size:13px; font-weight:500; word-break:break-all; }.copy-single-btn { font-size:12px; padding:2px 6px; }.unimestre-offline-alert { margin:0; padding:12px 16px; border:1px solid var(--color-action-green); background:rgba(73,209,125,0.08); border-radius:8px; font-size:14px; color:var(--color-text-primary); }
     @media (max-width:720px) { .unimestre-heading,.unimestre-students-heading { flex-direction:column; }.unimestre-status-grid,.unimestre-filter-controls { grid-template-columns:1fr; } }
   `],
 })
@@ -88,9 +127,21 @@ export class UnimestrePageComponent implements OnInit {
   isLoadingClasses = false
   isLoadingStudents = false
   loadingStudentsKey = ''
+  copiedAll = false
+  copiedStudentId: string | null = null
+  private copyTimeout?: ReturnType<typeof setTimeout>
 
   get selectedCourse(): UnimestreCourse | undefined {
     return this.courses.find((course) => String(course.id) === this.courseId)
+  }
+
+  get isOfflineMode(): boolean {
+    return Boolean(
+      (this.status?.unimestre && !this.status.unimestre.reachable) ||
+      this.courses.some((c) => c.cached) ||
+      this.classes.some((c) => c.cached) ||
+      this.students.some((s) => s.cached)
+    )
   }
 
   get classroomLink(): string {
@@ -179,6 +230,38 @@ export class UnimestrePageComponent implements OnInit {
       classGroup: item.classGroup,
       subjectName: item.subjectName,
       teacherEmail: item.teacherEmail || '',
+    }
+  }
+
+  classroomParamsWithStudents(item: UnimestreClass) {
+    return {
+      ...this.classroomParams(item),
+      autoLoadStudents: 'true',
+    }
+  }
+
+  async copyAllEmails(): Promise<void> {
+    const emails = this.students.map((s) => s.email?.trim()).filter((e): e is string => Boolean(e))
+    if (!emails.length) return
+    try {
+      await navigator.clipboard.writeText(emails.join(', '))
+      this.copiedAll = true
+      if (this.copyTimeout) clearTimeout(this.copyTimeout)
+      this.copyTimeout = setTimeout(() => { this.copiedAll = false }, 3000)
+    } catch {
+      this.errorMessage = 'Não foi possível copiar os e-mails para a área de transferência.'
+    }
+  }
+
+  async copyStudentEmail(email: string, studentId: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(email.trim())
+      this.copiedStudentId = studentId
+      setTimeout(() => {
+        if (this.copiedStudentId === studentId) this.copiedStudentId = null
+      }, 2000)
+    } catch {
+      this.errorMessage = 'Não foi possível copiar o e-mail.'
     }
   }
 

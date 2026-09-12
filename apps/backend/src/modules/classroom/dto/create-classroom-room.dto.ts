@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator'
+import { IsArray, IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class CreateClassroomRoomDto {
   @IsString()
@@ -29,4 +29,9 @@ export class CreateClassroomRoomDto {
   @IsEmail()
   @MaxLength(254)
   teacherEmail!: string
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  studentEmails?: string[]
 }
