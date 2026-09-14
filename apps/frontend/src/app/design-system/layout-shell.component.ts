@@ -306,6 +306,8 @@ export class LayoutShellComponent implements OnInit {
       href: '/coordenacao', 
       label: 'Coordenação',
       children: [
+        { href: '/coordenacao/unimestre', label: 'Cursos & Turmas' },
+        { href: '/coordenacao/classroom', label: 'Google Classroom' },
         { href: '/coordenacao/agenda', label: 'Agenda' },
         { href: '/coordenacao/alterar-senha', label: 'Alterar Senha' },
       ]

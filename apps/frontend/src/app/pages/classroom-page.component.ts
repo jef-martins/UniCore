@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { ActivatedRoute } from '@angular/router'
+import { ActivatedRoute, Router } from '@angular/router'
 import { finalize } from 'rxjs'
 import { UnimestreService, type UnimestreCourse, type UnimestreClass } from '../services/unimestre.service'
 
@@ -55,9 +55,15 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     <section class="classroom-page" aria-labelledby="classroom-title">
       <header class="classroom-heading">
         <div>
-          <p class="hero-eyebrow">Administrador / Master</p>
-          <h1 id="classroom-title">Google Classroom</h1>
-          <p>Crie salas e sincronize docentes e alunos usando a integração institucional do Google Workspace.</p>
+          <p class="hero-eyebrow">{{ isCoordinationRoute ? 'Coordenação Acadêmica' : 'Administrador / Master' }}</p>
+          <h1 id="classroom-title">{{ isCoordinationRoute ? 'Google Classroom — Minhas Salas' : 'Google Classroom' }}</h1>
+          <p>
+            {{
+              isCoordinationRoute
+                ? 'Crie salas das suas turmas e sincronize co-professores (coordenador, e-mail do curso e docente) e alunos.'
+                : 'Crie salas e sincronize docentes e alunos usando a integração institucional do Google Workspace.'
+            }}
+          </p>
         </div>
         <button class="button button-secondary" type="button" (click)="testConnection()" [disabled]="isTesting || !googleStatus?.configured">
           {{ isTesting ? 'Verificando…' : 'Verificar conexão Google' }}
@@ -150,6 +156,14 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
               </select>
             </div>
           </div>
+
+          @if (selectedCourse) {
+            <div class="unimestre-assistant-meta">
+              <span class="meta-tag">🎓 E-mail institucional do Curso: <strong>{{ selectedCourse.courseEmail || 'Não definido' }}</strong></span>
+              <span class="meta-tag">👤 Coordenador: <strong>{{ selectedCourse.coordinatorEmail || 'Não vinculado' }}</strong></span>
+              <small class="meta-help">O Docente, o Coordenador e o E-mail do Curso serão vinculados como professores da sala no Google Classroom automaticamente.</small>
+            </div>
+          }
         </div>
 
         <form class="classroom-form" (ngSubmit)="createRoom()">
@@ -442,6 +456,10 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     .unimestre-assistant-title { color: var(--color-action-green); font-size: 0.9rem; font-weight: 600; }
     .unimestre-loading-tag { color: var(--color-text-secondary); font-size: 0.8rem; }
     .unimestre-assistant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .unimestre-assistant-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .meta-tag { font-size: 12px; color: var(--color-text-secondary); background: rgba(255, 255, 255, 0.03); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--color-border); }
+    .meta-tag strong { color: #38bdf8; }
+    .meta-help { font-size: 11px; color: var(--color-text-secondary); width: 100%; margin-top: 2px; }
     .classroom-students-toggle { display: flex; align-items: center; }
     .classroom-checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; user-select: none; }
     .classroom-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-action-green); }
@@ -513,9 +531,18 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
 
   private messageListener?: (event: MessageEvent) => void
 
+  get isCoordinationRoute(): boolean {
+    return this.router.url.startsWith('/coordenacao')
+  }
+
+  get selectedCourse(): UnimestreCourse | undefined {
+    return this.unimestreCourses.find((c) => String(c.id) === this.selectedCourseId)
+  }
+
   constructor(
     private readonly http: HttpClient,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly unimestreService: UnimestreService,
   ) {}
 

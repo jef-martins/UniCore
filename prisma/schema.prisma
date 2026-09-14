@@ -52,6 +52,7 @@ model User {
   assignedTasks Task[]            @relation("AssignedTasks")
   createdTasks  Task[]            @relation("CreatedTasks")
   reservations  ItemReservation[]
+  coordinatedCourses AcademicCourseSetting[]
 
   @@map("users")
 }
@@ -223,4 +224,17 @@ model GoogleCourseCache {
 
   @@map("google_course_cache")
 }
+
+model AcademicCourseSetting {
+  academicCourseId  String   @id @map("academic_course_id")
+  courseName        String   @map("course_name")
+  courseEmail       String?  @map("course_email")
+  coordinatorEmail  String?  @map("coordinator_email")
+  coordinatorUserId String?  @map("coordinator_user_id") @db.Uuid
+  coordinatorUser   User?    @relation(fields: [coordinatorUserId], references: [id], onDelete: SetNull)
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("academic_course_settings")
+}
+
 

@@ -66,10 +66,28 @@ export class ClassroomRoomsService {
     let addedStudents = 0
     let existingStudents = 0
 
-    try {
-      await this.google.addTeacher(room.googleCourseId, teacherEmail)
-    } catch {
-      warnings.push(`Não foi possível sincronizar o professor ${teacherEmail}.`)
+    // Buscar configurações do curso para incluir o Coordenador e o E-mail do Curso como co-professores
+    const courseSetting = await this.prisma.academicCourseSetting.findUnique({
+      where: { academicCourseId: room.academicCourseId },
+      include: { coordinatorUser: true },
+    })
+
+    const teachersToSync = new Set<string>()
+    if (teacherEmail) teachersToSync.add(teacherEmail)
+    if (courseSetting?.courseEmail?.trim()) {
+      teachersToSync.add(courseSetting.courseEmail.trim().toLowerCase())
+    }
+    const coordinatorEmail = courseSetting?.coordinatorEmail?.trim() || courseSetting?.coordinatorUser?.email?.trim()
+    if (coordinatorEmail) {
+      teachersToSync.add(coordinatorEmail.toLowerCase())
+    }
+
+    for (const email of teachersToSync) {
+      try {
+        await this.google.addTeacher(room.googleCourseId, email)
+      } catch {
+        warnings.push(`Não foi possível sincronizar o docente/coordenador/curso ${email}.`)
+      }
     }
 
     for (const email of studentEmails) {

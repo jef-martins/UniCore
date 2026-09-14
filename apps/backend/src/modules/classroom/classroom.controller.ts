@@ -25,7 +25,7 @@ import { SyncClassroomMembersDto } from './dto/sync-classroom-members.dto'
 
 @Controller('classroom')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'master')
+@Roles('admin', 'master', 'coordenacao')
 export class ClassroomController {
   constructor(
     private readonly importService: ClassroomImportService,
@@ -67,6 +67,7 @@ export class ClassroomController {
   }
 
   @Post('importar-professores')
+  @Roles('admin', 'master')
   @UseInterceptors(FileInterceptor('arquivo', { limits: { fileSize: 5 * 1024 * 1024 } }))
   importTeachers(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Arquivo não enviado.')

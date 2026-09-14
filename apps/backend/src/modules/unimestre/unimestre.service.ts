@@ -1,7 +1,10 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { AccessRole } from '@prisma/client'
 import { createPool, type Pool, type RowDataPacket } from 'mysql2/promise'
+import type { JwtPayload } from '../auth/jwt-auth.guard'
 import { PrismaService } from '../database/prisma.service'
+import type { UpdateCourseSettingDto } from './dto/update-course-setting.dto'
 
 interface ExternalDatabaseConfig {
   host: string
@@ -53,8 +56,10 @@ export class UnimestreService {
     return { unimestre, faip, local }
   }
 
-  async courses(semester?: string) {
+  async courses(semester?: string, user?: JwtPayload) {
     const sem = semester?.trim() || ''
+    let rawCourses: Array<{ id: string; name: string; offered: boolean; cached?: boolean }> = []
+
     try {
       const rows = await this.query<CourseRow[]>(this.getUnimestrePool(), `
         SELECT c.CD_CURSO AS id, TRIM(c.DS_CURSO) AS name,
@@ -63,14 +68,12 @@ export class UnimestreService {
         WHERE c.SN_ATIVO = 'S' AND c.NR_GRAU IN (3, 33) AND TRIM(c.DS_CURSO) <> ''
         ORDER BY TRIM(c.DS_CURSO) ASC
       `, [sem])
-      const result = rows.map((row) => ({ id: row.id, name: row.name, offered: Boolean(row.offered) }))
+      rawCourses = rows.map((row) => ({ id: row.id, name: row.name, offered: Boolean(row.offered) }))
 
       // Salva ou atualiza no banco local UniCore
-      this.saveCoursesCache(sem, result).catch((err) => {
+      this.saveCoursesCache(sem, rawCourses).catch((err) => {
         this.logger.warn(`Falha ao salvar cursos no cache local: ${err.message}`)
       })
-
-      return result
     } catch (error) {
       this.logger.warn(`Consulta externa de cursos falhou: ${(error as Error).message}. Buscando do banco local...`)
       const cached = await this.prisma.academicCourseCache.findMany({
@@ -78,24 +81,60 @@ export class UnimestreService {
         orderBy: { name: 'asc' },
       })
       if (cached.length) {
-        return cached.map((c) => ({ id: c.id, name: c.name, offered: c.offered, cached: true }))
+        rawCourses = cached.map((c) => ({ id: c.id, name: c.name, offered: c.offered, cached: true }))
+      } else {
+        throw error
       }
-      throw error
     }
+
+    // Carrega configurações de cursos (e-mail do curso, coordenador) salvas no UniCore
+    const allSettings = await this.prisma.academicCourseSetting.findMany({
+      include: { coordinatorUser: { select: { id: true, username: true, email: true } } },
+    })
+    const settingsMap = new Map(allSettings.map((s) => [s.academicCourseId, s]))
+
+    // Se o usuário logado for perfil COORDENACAO, filtrar apenas os cursos atribuídos a ele
+    if (user?.role === 'coordenacao') {
+      const allowedCourseIds = await this.getAllowedCourseIdsForCoordinator(user)
+      rawCourses = rawCourses.filter((c) => allowedCourseIds.has(c.id))
+    }
+
+    return rawCourses.map((c) => {
+      const setting = settingsMap.get(c.id)
+      return {
+        id: c.id,
+        name: c.name,
+        offered: c.offered,
+        cached: c.cached,
+        courseEmail: setting?.courseEmail ?? null,
+        coordinatorEmail: setting?.coordinatorEmail ?? setting?.coordinatorUser?.email ?? null,
+        coordinatorUserId: setting?.coordinatorUserId ?? null,
+        coordinatorName: setting?.coordinatorUser?.username ?? null,
+      }
+    })
   }
 
   private async saveCoursesCache(semester: string, courses: Array<{ id: string; name: string; offered: boolean }>) {
     if (!semester || !courses.length) return
+    const semesterStr = String(semester)
     for (const c of courses) {
+      const idStr = String(c.id)
       await this.prisma.academicCourseCache.upsert({
-        where: { id_semester: { id: c.id, semester } },
-        update: { name: c.name, offered: c.offered },
-        create: { id: c.id, name: c.name, semester, offered: c.offered },
+        where: { id_semester: { id: idStr, semester: semesterStr } },
+        update: { name: String(c.name), offered: Boolean(c.offered) },
+        create: { id: idStr, name: String(c.name), semester: semesterStr, offered: Boolean(c.offered) },
       })
     }
   }
 
-  async classes(semester: string, academicCourseId: string) {
+  async classes(semester: string, academicCourseId: string, user?: JwtPayload) {
+    if (user?.role === 'coordenacao') {
+      const allowed = await this.getAllowedCourseIdsForCoordinator(user)
+      if (!allowed.has(academicCourseId)) {
+        throw new ForbiddenException('Acesso negado: este curso não está vinculado à sua coordenação.')
+      }
+    }
+
     try {
       const rows = await this.query<ClassRow[]>(this.getUnimestrePool(), `
         SELECT tp.turma AS classGroup, tp.disciplina AS subjectId, d.descricao AS subjectName,
@@ -121,11 +160,11 @@ export class UnimestreService {
         const key = `${row.classGroup}_${row.subjectId}`
         const legacyRoom = legacyRooms.get(key)
         return {
-          classGroup: row.classGroup,
-          subjectId: row.subjectId,
-          subjectName: row.subjectName,
+          classGroup: String(row.classGroup),
+          subjectId: String(row.subjectId),
+          subjectName: String(row.subjectName),
           teacherId: String(row.teacherId),
-          teacherName: row.teacherName,
+          teacherName: String(row.teacherName),
           teacherEmail: accountEmails.get(String(row.teacherId)) ?? row.unimestreEmail ?? null,
           studentCount: Number(row.studentCount),
           classroom: legacyRoom ?? null,
@@ -141,7 +180,7 @@ export class UnimestreService {
     } catch (error) {
       this.logger.warn(`Consulta externa de turmas falhou: ${(error as Error).message}. Buscando do banco local...`)
       const cached = await this.prisma.academicClassCache.findMany({
-        where: { semester, academicCourseId },
+        where: { semester: String(semester), academicCourseId: String(academicCourseId) },
         orderBy: [{ classGroup: 'asc' }, { subjectName: 'asc' }],
       })
       if (cached.length) {
@@ -162,41 +201,54 @@ export class UnimestreService {
   }
 
   private async saveClassesCache(semester: string, academicCourseId: string, classes: Array<any>) {
+    const semesterStr = String(semester)
+    const academicCourseIdStr = String(academicCourseId)
+
     for (const item of classes) {
+      const subjectIdStr = String(item.subjectId)
+      const classGroupStr = String(item.classGroup)
+
       await this.prisma.academicClassCache.upsert({
         where: {
           semester_academicCourseId_classGroup_subjectId: {
-            semester,
-            academicCourseId,
-            classGroup: item.classGroup,
-            subjectId: item.subjectId,
+            semester: semesterStr,
+            academicCourseId: academicCourseIdStr,
+            classGroup: classGroupStr,
+            subjectId: subjectIdStr,
           },
         },
         update: {
-          subjectName: item.subjectName,
-          teacherId: item.teacherId,
-          teacherName: item.teacherName,
+          subjectName: String(item.subjectName),
+          teacherId: item.teacherId ? String(item.teacherId) : null,
+          teacherName: item.teacherName ? String(item.teacherName) : null,
           teacherEmail: item.teacherEmail,
-          studentCount: item.studentCount,
+          studentCount: Number(item.studentCount) || 0,
           classroomAlternateLink: item.classroom?.alternateLink || null,
         },
         create: {
-          semester,
-          academicCourseId,
-          classGroup: item.classGroup,
-          subjectId: item.subjectId,
-          subjectName: item.subjectName,
-          teacherId: item.teacherId,
-          teacherName: item.teacherName,
+          semester: semesterStr,
+          academicCourseId: academicCourseIdStr,
+          classGroup: classGroupStr,
+          subjectId: subjectIdStr,
+          subjectName: String(item.subjectName),
+          teacherId: item.teacherId ? String(item.teacherId) : null,
+          teacherName: item.teacherName ? String(item.teacherName) : null,
           teacherEmail: item.teacherEmail,
-          studentCount: item.studentCount,
+          studentCount: Number(item.studentCount) || 0,
           classroomAlternateLink: item.classroom?.alternateLink || null,
         },
       })
     }
   }
 
-  async students(semester: string, academicCourseId: string, subjectId: string, classGroup: string) {
+  async students(semester: string, academicCourseId: string, subjectId: string, classGroup: string, user?: JwtPayload) {
+    if (user?.role === 'coordenacao') {
+      const allowed = await this.getAllowedCourseIdsForCoordinator(user)
+      if (!allowed.has(academicCourseId)) {
+        throw new ForbiddenException('Acesso negado: este curso não está vinculado à sua coordenação.')
+      }
+    }
+
     try {
       const rows = await this.query<StudentRow[]>(this.getUnimestrePool(), `
         SELECT DISTINCT f.codigoaluno AS id, p.nm_pessoa AS name
@@ -253,28 +305,34 @@ export class UnimestreService {
     classGroup: string,
     students: Array<{ id: string; name: string; email: string | null }>,
   ) {
+    const semesterStr = String(semester)
+    const academicCourseIdStr = String(academicCourseId)
+    const subjectIdStr = String(subjectId)
+    const classGroupStr = String(classGroup)
+
     for (const s of students) {
+      const studentIdStr = String(s.id)
       await this.prisma.academicStudentCache.upsert({
         where: {
           semester_academicCourseId_subjectId_classGroup_studentId: {
-            semester,
-            academicCourseId,
-            subjectId,
-            classGroup,
-            studentId: s.id,
+            semester: semesterStr,
+            academicCourseId: academicCourseIdStr,
+            subjectId: subjectIdStr,
+            classGroup: classGroupStr,
+            studentId: studentIdStr,
           },
         },
         update: {
-          name: s.name,
+          name: String(s.name),
           email: s.email,
         },
         create: {
-          semester,
-          academicCourseId,
-          subjectId,
-          classGroup,
-          studentId: s.id,
-          name: s.name,
+          semester: semesterStr,
+          academicCourseId: academicCourseIdStr,
+          subjectId: subjectIdStr,
+          classGroup: classGroupStr,
+          studentId: studentIdStr,
+          name: String(s.name),
           email: s.email,
         },
       })
@@ -378,4 +436,97 @@ export class UnimestreService {
     const [rows] = await pool.execute<T>(sql, values)
     return rows
   }
+
+  async getCoordinators() {
+    return this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: AccessRole.COORDENACAO },
+          { role: AccessRole.ADMIN },
+          { role: AccessRole.MASTER },
+        ],
+        isActive: true,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+      },
+      orderBy: { username: 'asc' },
+    })
+  }
+
+  async getCourseSettings() {
+    return this.prisma.academicCourseSetting.findMany({
+      include: {
+        coordinatorUser: {
+          select: { id: true, username: true, email: true },
+        },
+      },
+      orderBy: { courseName: 'asc' },
+    })
+  }
+
+  async updateCourseSetting(academicCourseId: string, data: UpdateCourseSettingDto) {
+    const cleanCourseEmail = data.courseEmail?.trim().toLowerCase() || null
+    let cleanCoordinatorEmail = data.coordinatorEmail?.trim().toLowerCase() || null
+    let coordinatorUserId = data.coordinatorUserId || null
+
+    if (coordinatorUserId) {
+      const user = await this.prisma.user.findUnique({ where: { id: coordinatorUserId } })
+      if (user) {
+        if (!cleanCoordinatorEmail) cleanCoordinatorEmail = user.email.toLowerCase()
+      } else {
+        coordinatorUserId = null
+      }
+    } else if (cleanCoordinatorEmail) {
+      const user = await this.prisma.user.findFirst({
+        where: { email: { equals: cleanCoordinatorEmail, mode: 'insensitive' } },
+      })
+      if (user) {
+        coordinatorUserId = user.id
+      }
+    }
+
+    return this.prisma.academicCourseSetting.upsert({
+      where: { academicCourseId },
+      update: {
+        courseName: data.courseName.trim(),
+        courseEmail: cleanCourseEmail,
+        coordinatorEmail: cleanCoordinatorEmail,
+        coordinatorUserId,
+      },
+      create: {
+        academicCourseId,
+        courseName: data.courseName.trim(),
+        courseEmail: cleanCourseEmail,
+        coordinatorEmail: cleanCoordinatorEmail,
+        coordinatorUserId,
+      },
+      include: {
+        coordinatorUser: {
+          select: { id: true, username: true, email: true },
+        },
+      },
+    })
+  }
+
+  private async getAllowedCourseIdsForCoordinator(user: JwtPayload): Promise<Set<string>> {
+    const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+    const userEmail = dbUser?.email?.trim().toLowerCase() || ''
+
+    const settings = await this.prisma.academicCourseSetting.findMany({
+      where: {
+        OR: [
+          { coordinatorUserId: user.sub },
+          ...(userEmail ? [{ coordinatorEmail: { equals: userEmail, mode: 'insensitive' as const } }] : []),
+        ],
+      },
+      select: { academicCourseId: true },
+    })
+
+    return new Set(settings.map((s) => s.academicCourseId))
+  }
 }
+

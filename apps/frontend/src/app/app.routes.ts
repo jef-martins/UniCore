@@ -124,6 +124,20 @@ export const appRoutes: Routes = [
         title: `UniCore | ${moduleTitle}`,
       })),
       {
+        path: 'coordenacao/unimestre',
+        component: UnimestrePageComponent,
+        canActivate: [roleGuard],
+        data: { roles: ['coordenacao', 'admin', 'master'] },
+        title: 'UniCore | Coordenação - Cursos e Turmas',
+      },
+      {
+        path: 'coordenacao/classroom',
+        component: ClassroomPageComponent,
+        canActivate: [roleGuard],
+        data: { roles: ['coordenacao', 'admin', 'master'] },
+        title: 'UniCore | Google Classroom',
+      },
+      {
         path: 'administracao',
         component: ModulePageComponent,
         canActivate: [roleGuard],
