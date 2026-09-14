@@ -76,6 +76,16 @@ export class SectorContextService {
     return SECTOR_LABELS[sector] ?? sector
   }
 
+  getEffectiveUser(currentRouteUrl: string, currentUser: AuthUser | null): AuthUser | null {
+    const contextUser = this.activeContextUser()
+    const contextSector = this.activeContextSector()
+    const routeSector = this.getSectorFromPath(currentRouteUrl)
+    if (contextUser && contextSector && routeSector === contextSector) {
+      return contextUser
+    }
+    return currentUser
+  }
+
   private restoreContext(): void {
     try {
       const raw = sessionStorage.getItem(this.storageKey)

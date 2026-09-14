@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ClassroomRoomStatus, type ClassroomRoom } from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
+import type { JwtPayload } from '../auth/jwt-auth.guard'
 import { GoogleClassroomService } from './classroom-google.service'
 import { CreateClassroomRoomDto } from './dto/create-classroom-room.dto'
 import { SyncClassroomMembersDto } from './dto/sync-classroom-members.dto'
@@ -12,9 +13,62 @@ export class ClassroomRoomsService {
     private readonly google: GoogleClassroomService,
   ) {}
 
-  list(semester?: string) {
+  async list(
+    semester?: string,
+    user?: JwtPayload,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    let allowedCourseIds: string[] | undefined
+    const shouldFilterCoordination = coordinationOnly || user?.role === 'coordenacao'
+    if (shouldFilterCoordination && user) {
+      let targetUserId = coordinatorUserId?.trim() || null
+      let targetUserEmail = coordinatorEmail?.trim().toLowerCase() || null
+
+      if (user.role === 'coordenacao') {
+        const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+        targetUserId = dbUser?.id || user.sub
+        targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+      } else {
+        if (targetUserId && !targetUserEmail) {
+          const found = await this.prisma.user.findUnique({ where: { id: targetUserId } })
+          if (found) targetUserEmail = found.email.trim().toLowerCase()
+        } else if (targetUserEmail && !targetUserId) {
+          const found = await this.prisma.user.findFirst({
+            where: { email: { equals: targetUserEmail, mode: 'insensitive' } },
+          })
+          if (found) targetUserId = found.id
+        } else if (!targetUserId && !targetUserEmail) {
+          const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+          targetUserId = dbUser?.id || user.sub
+          targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+        }
+      }
+
+      const settings = await this.prisma.academicCourseSetting.findMany({
+        include: { coordinatorUser: true },
+      })
+      const ids = new Set<string>()
+      for (const s of settings) {
+        if (targetUserId && s.coordinatorUserId && (s.coordinatorUserId === targetUserId || s.coordinatorUserId === user.sub)) {
+          ids.add(s.academicCourseId)
+        } else if (
+          targetUserEmail &&
+          ((s.coordinatorEmail && s.coordinatorEmail.trim().toLowerCase() === targetUserEmail) ||
+            (s.coordinatorUser?.email && s.coordinatorUser.email.trim().toLowerCase() === targetUserEmail))
+        ) {
+          ids.add(s.academicCourseId)
+        }
+      }
+      allowedCourseIds = [...ids]
+    }
+
     return this.prisma.classroomRoom.findMany({
-      where: semester ? { semester } : undefined,
+      where: {
+        ...(semester ? { semester } : {}),
+        ...(allowedCourseIds !== undefined ? { academicCourseId: { in: allowedCourseIds } } : {}),
+      },
       orderBy: [{ semester: 'desc' }, { academicCourseId: 'asc' }, { classGroup: 'asc' }, { subjectName: 'asc' }],
     })
   }

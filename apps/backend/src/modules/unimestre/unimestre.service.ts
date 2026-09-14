@@ -56,7 +56,13 @@ export class UnimestreService {
     return { unimestre, faip, local }
   }
 
-  async courses(semester?: string, user?: JwtPayload) {
+  async courses(
+    semester?: string,
+    user?: JwtPayload,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
     const sem = semester?.trim() || ''
     let rawCourses: Array<{ id: string; name: string; offered: boolean; cached?: boolean }> = []
 
@@ -93,9 +99,11 @@ export class UnimestreService {
     })
     const settingsMap = new Map(allSettings.map((s) => [s.academicCourseId, s]))
 
-    // Se o usuário logado for perfil COORDENACAO, filtrar apenas os cursos atribuídos a ele
-    if (user?.role === 'coordenacao') {
-      const allowedCourseIds = await this.getAllowedCourseIdsForCoordinator(user)
+    // Se estiver em modo coordenação (menu coordenação) ou perfil COORDENACAO,
+    // filtrar apenas os cursos atribuídos ao usuário (por ID ou por e-mail institucional)
+    const shouldFilterCoordination = coordinationOnly || user?.role === 'coordenacao'
+    if (shouldFilterCoordination && user) {
+      const allowedCourseIds = await this.getAllowedCourseIdsForCoordinator(user, coordinatorEmail, coordinatorUserId)
       rawCourses = rawCourses.filter((c) => allowedCourseIds.has(c.id))
     }
 
@@ -127,9 +135,17 @@ export class UnimestreService {
     }
   }
 
-  async classes(semester: string, academicCourseId: string, user?: JwtPayload) {
-    if (user?.role === 'coordenacao') {
-      const allowed = await this.getAllowedCourseIdsForCoordinator(user)
+  async classes(
+    semester: string,
+    academicCourseId: string,
+    user?: JwtPayload,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    const shouldFilterCoordination = coordinationOnly || user?.role === 'coordenacao'
+    if (shouldFilterCoordination && user) {
+      const allowed = await this.getAllowedCourseIdsForCoordinator(user, coordinatorEmail, coordinatorUserId)
       if (!allowed.has(academicCourseId)) {
         throw new ForbiddenException('Acesso negado: este curso não está vinculado à sua coordenação.')
       }
@@ -241,9 +257,19 @@ export class UnimestreService {
     }
   }
 
-  async students(semester: string, academicCourseId: string, subjectId: string, classGroup: string, user?: JwtPayload) {
-    if (user?.role === 'coordenacao') {
-      const allowed = await this.getAllowedCourseIdsForCoordinator(user)
+  async students(
+    semester: string,
+    academicCourseId: string,
+    subjectId: string,
+    classGroup: string,
+    user?: JwtPayload,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    const shouldFilterCoordination = coordinationOnly || user?.role === 'coordenacao'
+    if (shouldFilterCoordination && user) {
+      const allowed = await this.getAllowedCourseIdsForCoordinator(user, coordinatorEmail, coordinatorUserId)
       if (!allowed.has(academicCourseId)) {
         throw new ForbiddenException('Acesso negado: este curso não está vinculado à sua coordenação.')
       }
@@ -440,11 +466,7 @@ export class UnimestreService {
   async getCoordinators() {
     return this.prisma.user.findMany({
       where: {
-        OR: [
-          { role: AccessRole.COORDENACAO },
-          { role: AccessRole.ADMIN },
-          { role: AccessRole.MASTER },
-        ],
+        role: AccessRole.COORDENACAO,
         isActive: true,
       },
       select: {
@@ -476,7 +498,7 @@ export class UnimestreService {
     if (coordinatorUserId) {
       const user = await this.prisma.user.findUnique({ where: { id: coordinatorUserId } })
       if (user) {
-        if (!cleanCoordinatorEmail) cleanCoordinatorEmail = user.email.toLowerCase()
+        cleanCoordinatorEmail = user.email.trim().toLowerCase()
       } else {
         coordinatorUserId = null
       }
@@ -486,6 +508,7 @@ export class UnimestreService {
       })
       if (user) {
         coordinatorUserId = user.id
+        cleanCoordinatorEmail = user.email.trim().toLowerCase()
       }
     }
 
@@ -512,21 +535,57 @@ export class UnimestreService {
     })
   }
 
-  private async getAllowedCourseIdsForCoordinator(user: JwtPayload): Promise<Set<string>> {
-    const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
-    const userEmail = dbUser?.email?.trim().toLowerCase() || ''
+  private async getAllowedCourseIdsForCoordinator(
+    user: JwtPayload,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ): Promise<Set<string>> {
+    let targetUserId = coordinatorUserId?.trim() || null
+    let targetUserEmail = coordinatorEmail?.trim().toLowerCase() || null
 
-    const settings = await this.prisma.academicCourseSetting.findMany({
-      where: {
-        OR: [
-          { coordinatorUserId: user.sub },
-          ...(userEmail ? [{ coordinatorEmail: { equals: userEmail, mode: 'insensitive' as const } }] : []),
-        ],
+    if (user.role === 'coordenacao') {
+      const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+      targetUserId = dbUser?.id || user.sub
+      targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+    } else {
+      if (targetUserId && !targetUserEmail) {
+        const found = await this.prisma.user.findUnique({ where: { id: targetUserId } })
+        if (found) targetUserEmail = found.email.trim().toLowerCase()
+      } else if (targetUserEmail && !targetUserId) {
+        const found = await this.prisma.user.findFirst({
+          where: { email: { equals: targetUserEmail, mode: 'insensitive' } },
+        })
+        if (found) targetUserId = found.id
+      } else if (!targetUserId && !targetUserEmail) {
+        const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+        targetUserId = dbUser?.id || user.sub
+        targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+      }
+    }
+
+    const allSettings = await this.prisma.academicCourseSetting.findMany({
+      include: {
+        coordinatorUser: {
+          select: { id: true, email: true },
+        },
       },
-      select: { academicCourseId: true },
     })
 
-    return new Set(settings.map((s) => s.academicCourseId))
+    const allowed = new Set<string>()
+    for (const s of allSettings) {
+      // 1. Vinculação direta por ID do usuário
+      if (targetUserId && s.coordinatorUserId && (s.coordinatorUserId === targetUserId || s.coordinatorUserId === user.sub)) {
+        allowed.add(s.academicCourseId)
+        continue
+      }
+      // 2. Vinculação por e-mail do coordenador configurado no curso
+      const settingEmail = (s.coordinatorEmail || s.coordinatorUser?.email || '').trim().toLowerCase()
+      if (targetUserEmail && settingEmail && settingEmail === targetUserEmail) {
+        allowed.add(s.academicCourseId)
+      }
+    }
+
+    return allowed
   }
 }
 

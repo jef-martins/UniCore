@@ -27,8 +27,21 @@ export class UnimestreController {
   }
 
   @Get('courses')
-  courses(@Req() req: AuthenticatedRequest, @Query('semester') semester?: string) {
-    return this.unimestreService.courses(semester?.trim(), req.user)
+  courses(
+    @Req() req: AuthenticatedRequest,
+    @Query('semester') semester?: string,
+    @Query('coordinationOnly') coordinationOnly?: string,
+    @Query('coordinatorEmail') coordinatorEmail?: string,
+    @Query('coordinatorUserId') coordinatorUserId?: string,
+  ) {
+    const isCoordination = coordinationOnly === 'true' || req.user.role === 'coordenacao'
+    return this.unimestreService.courses(
+      semester?.trim(),
+      req.user,
+      isCoordination,
+      coordinatorEmail?.trim(),
+      coordinatorUserId?.trim(),
+    )
   }
 
   @Get('classes')
@@ -36,11 +49,18 @@ export class UnimestreController {
     @Req() req: AuthenticatedRequest,
     @Query('semester') semester?: string,
     @Query('course') course?: string,
+    @Query('coordinationOnly') coordinationOnly?: string,
+    @Query('coordinatorEmail') coordinatorEmail?: string,
+    @Query('coordinatorUserId') coordinatorUserId?: string,
   ) {
+    const isCoordination = coordinationOnly === 'true' || req.user.role === 'coordenacao'
     return this.unimestreService.classes(
       this.requireQuery(semester, 'semester'),
       this.requireQuery(course, 'course'),
       req.user,
+      isCoordination,
+      coordinatorEmail?.trim(),
+      coordinatorUserId?.trim(),
     )
   }
 
@@ -51,13 +71,20 @@ export class UnimestreController {
     @Query('course') course?: string,
     @Query('subject') subject?: string,
     @Query('classGroup') classGroup?: string,
+    @Query('coordinationOnly') coordinationOnly?: string,
+    @Query('coordinatorEmail') coordinatorEmail?: string,
+    @Query('coordinatorUserId') coordinatorUserId?: string,
   ) {
+    const isCoordination = coordinationOnly === 'true' || req.user.role === 'coordenacao'
     return this.unimestreService.students(
       this.requireQuery(semester, 'semester'),
       this.requireQuery(course, 'course'),
       this.requireQuery(subject, 'subject'),
       this.requireQuery(classGroup, 'classGroup'),
       req.user,
+      isCoordination,
+      coordinatorEmail?.trim(),
+      coordinatorUserId?.trim(),
     )
   }
 

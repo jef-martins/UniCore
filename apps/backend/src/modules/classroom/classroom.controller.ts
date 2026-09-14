@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -14,7 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import type { Express } from 'express'
 import 'multer'
-import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { JwtAuthGuard, type AuthenticatedRequest } from '../auth/jwt-auth.guard'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
 import { ClassroomImportService } from './classroom-import.service'
@@ -39,13 +40,37 @@ export class ClassroomController {
   }
 
   @Get('rooms')
-  listRooms(@Query('semester') semester?: string) {
-    return this.roomsService.list(semester?.trim() || undefined)
+  listRooms(
+    @Req() req: AuthenticatedRequest,
+    @Query('semester') semester?: string,
+    @Query('coordinationOnly') coordinationOnly?: string,
+    @Query('coordinatorEmail') coordinatorEmail?: string,
+    @Query('coordinatorUserId') coordinatorUserId?: string,
+  ) {
+    const isCoordination = coordinationOnly === 'true' || req.user.role === 'coordenacao'
+    return this.roomsService.list(
+      semester?.trim() || undefined,
+      req.user,
+      isCoordination,
+      coordinatorEmail?.trim(),
+      coordinatorUserId?.trim(),
+    )
   }
 
   @Get('courses')
-  async listGoogleCourses() {
-    return this.googleService.listCoursesWithTeachers()
+  async listGoogleCourses(
+    @Req() req: AuthenticatedRequest,
+    @Query('coordinationOnly') coordinationOnly?: string,
+    @Query('coordinatorEmail') coordinatorEmail?: string,
+    @Query('coordinatorUserId') coordinatorUserId?: string,
+  ) {
+    const isCoordination = coordinationOnly === 'true' || req.user.role === 'coordenacao'
+    return this.googleService.listCoursesWithTeachers(
+      req.user,
+      isCoordination,
+      coordinatorEmail?.trim(),
+      coordinatorUserId?.trim(),
+    )
   }
 
   @Get('courses/:id/students')

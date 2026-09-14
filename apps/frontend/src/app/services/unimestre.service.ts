@@ -84,24 +84,72 @@ export class UnimestreService {
     return this.http.get<UnimestreStatus>('/api/unimestre/status')
   }
 
-  courses(semester: string) {
+  courses(
+    semester: string,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    let params = new HttpParams().set('semester', semester)
+    if (coordinationOnly) {
+      params = params.set('coordinationOnly', 'true')
+    }
+    if (coordinatorEmail?.trim()) {
+      params = params.set('coordinatorEmail', coordinatorEmail.trim())
+    }
+    if (coordinatorUserId?.trim()) {
+      params = params.set('coordinatorUserId', coordinatorUserId.trim())
+    }
     return this.http.get<UnimestreCourse[]>('/api/unimestre/courses', {
-      params: new HttpParams().set('semester', semester),
+      params,
     })
   }
 
-  classes(semester: string, course: string) {
+  classes(
+    semester: string,
+    course: string,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    let params = new HttpParams().set('semester', semester).set('course', course)
+    if (coordinationOnly) {
+      params = params.set('coordinationOnly', 'true')
+    }
+    if (coordinatorEmail?.trim()) {
+      params = params.set('coordinatorEmail', coordinatorEmail.trim())
+    }
+    if (coordinatorUserId?.trim()) {
+      params = params.set('coordinatorUserId', coordinatorUserId.trim())
+    }
     return this.http.get<UnimestreClass[]>('/api/unimestre/classes', {
-      params: new HttpParams().set('semester', semester).set('course', course),
+      params,
     })
   }
 
-  students(semester: string, course: string, subject: string, classGroup: string) {
-    const params = new HttpParams()
+  students(
+    semester: string,
+    course: string,
+    subject: string,
+    classGroup: string,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ) {
+    let params = new HttpParams()
       .set('semester', semester)
       .set('course', course)
       .set('subject', subject)
       .set('classGroup', classGroup)
+    if (coordinationOnly) {
+      params = params.set('coordinationOnly', 'true')
+    }
+    if (coordinatorEmail?.trim()) {
+      params = params.set('coordinatorEmail', coordinatorEmail.trim())
+    }
+    if (coordinatorUserId?.trim()) {
+      params = params.set('coordinatorUserId', coordinatorUserId.trim())
+    }
     return this.http.get<UnimestreStudent[]>('/api/unimestre/students', { params })
   }
 

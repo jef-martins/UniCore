@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common'
-import { HttpClient } from '@angular/common/http'
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core'
+import { HttpClient, HttpParams } from '@angular/common/http'
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, untracked } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { finalize } from 'rxjs'
+import { AuthService, type AuthUser } from '../services/auth.service'
+import { SectorContextService } from '../services/sector-context.service'
 import { UnimestreService, type UnimestreCourse, type UnimestreClass } from '../services/unimestre.service'
 
 interface ClassroomRoom {
@@ -129,9 +131,17 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
                 class="field-control"
                 [(ngModel)]="selectedCourseId"
                 (change)="onCourseChange()"
-                [disabled]="isLoadingUnimestreCourses"
+                [disabled]="isLoadingUnimestreCourses || (isCoordinationRoute && unimestreCourses.length === 0)"
               >
-                <option value="">{{ isLoadingUnimestreCourses ? 'Carregando cursos…' : 'Selecione um curso' }}</option>
+                <option value="">
+                  {{
+                    isLoadingUnimestreCourses
+                      ? 'Carregando cursos…'
+                      : (isCoordinationRoute && unimestreCourses.length === 0)
+                        ? 'Nenhum curso vinculado à sua coordenação'
+                        : 'Selecione um curso'
+                  }}
+                </option>
                 @for (c of unimestreCourses; track c.id) {
                   <option [value]="c.id">{{ c.name }} ({{ c.id }}){{ c.offered ? ' — Ofertado' : '' }}</option>
                 }
@@ -156,6 +166,19 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
               </select>
             </div>
           </div>
+
+          @if (isCoordinationRoute && !isLoadingUnimestreCourses && unimestreCourses.length === 0) {
+            <div class="unimestre-no-courses-banner" role="alert">
+              <span class="banner-icon">⚠️</span>
+              <div class="banner-text">
+                <strong>Nenhum curso vinculado à sua coordenação</strong>
+                <p>
+                  O seu e-mail institucional <strong>({{ currentUserEmail || currentUsername }})</strong> não possui nenhum curso acadêmico vinculado no momento.
+                </p>
+                <small>Solicite ao Administrador o vínculo do seu e-mail aos cursos que você coordena.</small>
+              </div>
+            </div>
+          }
 
           @if (selectedCourse) {
             <div class="unimestre-assistant-meta">
@@ -217,9 +240,25 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
         <div class="classroom-section-header classroom-list-header">
           <div>
             <h2 id="rooms-title">Salas e Turmas</h2>
-            <p>Salas ativas no Google Classroom com disciplinas, turmas e professores vinculados.</p>
+            <p>
+              @if (selectedCourse) {
+                Salas ativas no Google Classroom filtradas para o curso <strong>{{ selectedCourse.name }}</strong> ({{ activeTab === 'google' ? filteredGoogleCourses.length : filteredRooms.length }} sala(s)).
+              } @else {
+                Salas ativas no Google Classroom com disciplinas, turmas e professores vinculados.
+              }
+            </p>
           </div>
           <div class="classroom-header-actions">
+            @if (selectedCourse) {
+              <button
+                class="button button-text"
+                type="button"
+                (click)="selectedCourseId = ''; onCourseChange()"
+                title="Mostrar todas as disciplinas de todos os cursos"
+              >
+                ✕ Ver todas as disciplinas
+              </button>
+            }
             <input
               class="field-control classroom-search-input"
               type="search"
@@ -241,7 +280,7 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
             [class.button-secondary]="activeTab !== 'google'"
             (click)="activeTab = 'google'"
           >
-            Google Classroom ({{ googleCourses.length }})
+            Google Classroom ({{ filteredGoogleCourses.length }})
           </button>
           <button
             type="button"
@@ -250,13 +289,44 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
             [class.button-secondary]="activeTab !== 'synced'"
             (click)="activeTab = 'synced'"
           >
-            Sincronizadas no UniCore ({{ rooms.length }})
+            Sincronizadas no UniCore ({{ filteredRooms.length }})
           </button>
         </div>
 
         @if (activeTab === 'google') {
           @if (isLoadingGoogleCourses) {
             <p class="classroom-empty">Consultando salas no Google Classroom…</p>
+          } @else if (filteredGoogleCourses.length === 0) {
+            <div class="unimestre-no-courses-banner" role="alert">
+              <span class="banner-icon">ℹ️</span>
+              <div class="banner-text">
+                <strong>
+                  {{
+                    googleSearch
+                      ? 'Nenhuma sala corresponde à busca'
+                      : selectedCourse
+                        ? 'Nenhuma sala encontrada para o curso ' + selectedCourse.name
+                        : (isCoordinationRoute ? 'Nenhuma sala vinculada à sua coordenação' : 'Nenhuma sala encontrada')
+                  }}
+                </strong>
+                <p>
+                  {{
+                    googleSearch
+                      ? 'Nenhuma sala ativa corresponde ao filtro "' + googleSearch + '".'
+                      : selectedCourse
+                        ? 'Não foram localizadas salas ativas no Google Classroom vinculadas ao curso ' + selectedCourse.name + '.'
+                        : isCoordinationRoute
+                          ? 'O seu e-mail institucional (' + (currentUserEmail || currentUsername) + ') não possui salas no Google Classroom vinculadas aos cursos sob sua coordenação.'
+                          : 'Nenhuma sala ativa encontrada no Google Classroom para esta conta.'
+                  }}
+                </p>
+                @if (selectedCourse) {
+                  <small>Selecione "Selecione um curso" na caixa de seleção acima para visualizar todas as disciplinas.</small>
+                } @else if (isCoordinationRoute) {
+                  <small>Quando houver salas do Google Classroom vinculadas ao seu e-mail institucional ou aos cursos que você coordena, elas aparecerão listadas aqui.</small>
+                }
+              </div>
+            </div>
           } @else {
             <div class="classroom-room-grid">
               @for (gc of filteredGoogleCourses; track gc.id) {
@@ -352,9 +422,40 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
           }
         } @else {
           <!-- Salas Sincronizadas no UniCore -->
-          @if (isLoadingRooms) { <p class="classroom-empty">Carregando salas…</p> }
-          <div class="classroom-room-grid">
-            @for (room of rooms; track room.id) {
+          @if (isLoadingRooms) {
+            <p class="classroom-empty">Carregando salas…</p>
+          } @else if (filteredRooms.length === 0) {
+            <div class="unimestre-no-courses-banner" role="alert">
+              <span class="banner-icon">ℹ️</span>
+              <div class="banner-text">
+                <strong>
+                  {{
+                    googleSearch
+                      ? 'Nenhuma sala sincronizada corresponde à busca'
+                      : selectedCourse
+                        ? 'Nenhuma sala sincronizada para o curso ' + selectedCourse.name
+                        : (isCoordinationRoute ? 'Nenhuma sala sincronizada vinculada à sua coordenação' : 'Nenhuma sala sincronizada encontrada')
+                  }}
+                </strong>
+                <p>
+                  {{
+                    googleSearch
+                      ? 'Nenhuma sala sincronizada corresponde ao filtro "' + googleSearch + '".'
+                      : selectedCourse
+                        ? 'Nenhuma sala do Google Classroom foi sincronizada ainda no UniCore para o curso ' + selectedCourse.name + '.'
+                        : isCoordinationRoute
+                          ? 'Nenhuma sala do Google Classroom foi sincronizada ainda para os cursos vinculados à sua coordenação (' + (currentUserEmail || currentUsername) + ').'
+                          : 'Nenhuma sala sincronizada encontrada no UniCore.'
+                  }}
+                </p>
+                @if (selectedCourse) {
+                  <small>Selecione "Selecione um curso" na caixa de seleção acima para visualizar todas as salas sincronizadas.</small>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="classroom-room-grid">
+              @for (room of filteredRooms; track room.id) {
               <article class="classroom-room">
                 <div class="classroom-room-title">
                   <div>
@@ -391,6 +492,7 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
             }
           </div>
         }
+      }
       </section>
 
       <!-- Importação em lote -->
@@ -457,6 +559,12 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
     .unimestre-loading-tag { color: var(--color-text-secondary); font-size: 0.8rem; }
     .unimestre-assistant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
     .unimestre-assistant-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .unimestre-no-courses-banner { display: flex; align-items: flex-start; gap: 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 12px 16px; margin-top: 12px; }
+    .unimestre-no-courses-banner .banner-icon { font-size: 22px; line-height: 1; }
+    .unimestre-no-courses-banner .banner-text strong { display: block; font-size: 14px; color: #fbbf24; margin-bottom: 2px; }
+    .unimestre-no-courses-banner .banner-text p { margin: 0 0 4px 0; font-size: 13px; color: var(--color-text); }
+    .unimestre-no-courses-banner .banner-text p strong { color: #38bdf8; }
+    .unimestre-no-courses-banner .banner-text small { display: block; font-size: 11px; color: var(--color-text-secondary); }
     .meta-tag { font-size: 12px; color: var(--color-text-secondary); background: rgba(255, 255, 255, 0.03); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--color-border); }
     .meta-tag strong { color: #38bdf8; }
     .meta-help { font-size: 11px; color: var(--color-text-secondary); width: 100%; margin-top: 2px; }
@@ -535,16 +643,46 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
     return this.router.url.startsWith('/coordenacao')
   }
 
+  get effectiveUser(): AuthUser | null {
+    return this.sectorContextService.getEffectiveUser(this.router.url, this.authService.currentUser)
+  }
+
+  get currentUserEmail(): string {
+    return this.effectiveUser?.email || ''
+  }
+
+  get currentUsername(): string {
+    return this.effectiveUser?.username || ''
+  }
+
   get selectedCourse(): UnimestreCourse | undefined {
     return this.unimestreCourses.find((c) => String(c.id) === this.selectedCourseId)
   }
+
+  private lastContextUserId: string | null = null
 
   constructor(
     private readonly http: HttpClient,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly unimestreService: UnimestreService,
-  ) {}
+    private readonly authService: AuthService,
+    private readonly sectorContextService: SectorContextService,
+  ) {
+    effect(() => {
+      const activeUser = this.sectorContextService.activeContextUser()
+      const currentId = activeUser?.id ?? null
+      if (this.isCoordinationRoute && this.lastContextUserId !== null && this.lastContextUserId !== currentId) {
+        this.lastContextUserId = currentId
+        untracked(() => {
+          this.loadUnimestreCourses()
+          this.loadRooms()
+        })
+      } else {
+        this.lastContextUserId = currentId
+      }
+    })
+  }
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap
@@ -635,33 +773,168 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
 
   loadRooms(): void {
     this.isLoadingRooms = true
-    this.http.get<ClassroomRoom[]>('/api/classroom/rooms').pipe(finalize(() => { this.isLoadingRooms = false })).subscribe({
+    let params = new HttpParams()
+    if (this.isCoordinationRoute) {
+      params = params.set('coordinationOnly', 'true')
+      if (this.currentUserEmail) {
+        params = params.set('coordinatorEmail', this.currentUserEmail)
+      }
+      if (this.effectiveUser?.id) {
+        params = params.set('coordinatorUserId', this.effectiveUser.id)
+      }
+    }
+    this.http.get<ClassroomRoom[]>('/api/classroom/rooms', { params }).pipe(finalize(() => { this.isLoadingRooms = false })).subscribe({
       next: (rooms) => { this.rooms = rooms },
       error: () => { this.errorMessage = 'Não foi possível carregar as salas sincronizadas.' },
     })
   }
 
+  filterGoogleCoursesForCurrentCoordinator(courses: GoogleCourse[]): GoogleCourse[] {
+    const user = this.effectiveUser
+    if (!user) return []
+    const userEmail = (user.email || '').trim().toLowerCase()
+
+    const myCoordinatedCourseIds = new Set(
+      this.unimestreCourses.map((c) => String(c.id))
+    )
+    const myCoordinatedEmails = new Set<string>()
+    if (userEmail) myCoordinatedEmails.add(userEmail)
+    for (const c of this.unimestreCourses) {
+      if (c.courseEmail?.trim()) myCoordinatedEmails.add(c.courseEmail.trim().toLowerCase())
+      if (c.coordinatorEmail?.trim()) myCoordinatedEmails.add(c.coordinatorEmail.trim().toLowerCase())
+    }
+
+    return (courses || []).filter((c) => {
+      // 1. O e-mail do usuário ou e-mail do curso está entre os professores da sala
+      if ((c.teachers || []).some((t) => t.email && myCoordinatedEmails.has(t.email.trim().toLowerCase()))) {
+        return true
+      }
+      // 2. Sala sincronizada vinculada a um dos cursos coordenados
+      const syncedRoom = this.rooms.find((r) => r.googleCourseId === c.id)
+      if (syncedRoom && myCoordinatedCourseIds.has(String(syncedRoom.academicCourseId))) {
+        return true
+      }
+      // 3. Descrição / identificador contém o código do curso coordenado
+      for (const cid of myCoordinatedCourseIds) {
+        if ((c.descriptionHeading || '').includes(cid) || (c.name || '').includes(cid)) {
+          return true
+        }
+      }
+      return false
+    })
+  }
+
   loadGoogleCourses(): void {
     this.isLoadingGoogleCourses = true
-    this.http.get<GoogleCourse[]>('/api/classroom/courses')
+    let params = new HttpParams()
+    if (this.isCoordinationRoute) {
+      params = params.set('coordinationOnly', 'true')
+      if (this.currentUserEmail) {
+        params = params.set('coordinatorEmail', this.currentUserEmail)
+      }
+      if (this.effectiveUser?.id) {
+        params = params.set('coordinatorUserId', this.effectiveUser.id)
+      }
+    }
+    this.http.get<GoogleCourse[]>('/api/classroom/courses', { params })
       .pipe(finalize(() => { this.isLoadingGoogleCourses = false }))
       .subscribe({
         next: (courses) => {
-          this.googleCourses = courses
-          if (courses.length > 0 && this.rooms.length === 0) {
+          if (this.isCoordinationRoute) {
+            this.googleCourses = this.filterGoogleCoursesForCurrentCoordinator(courses)
+          } else {
+            this.googleCourses = courses
+          }
+          if (this.googleCourses.length > 0 && this.rooms.length === 0) {
             this.activeTab = 'google'
           }
         },
         error: () => {
-          // Se não configurado ou erro, mantém vazio
+          this.googleCourses = []
         },
       })
   }
 
+  isGoogleCourseMatchingSelectedCourse(gc: GoogleCourse, course: UnimestreCourse): boolean {
+    // 1. Sala sincronizada no UniCore vinculada a este curso
+    const syncedRoom = this.rooms.find((r) => r.googleCourseId === gc.id)
+    if (syncedRoom && String(syncedRoom.academicCourseId) === String(course.id)) {
+      return true
+    }
+
+    // 2. E-mail do curso ou e-mail do coordenador nos professores da sala
+    const emailsToMatch = new Set<string>()
+    if (course.courseEmail?.trim()) emailsToMatch.add(course.courseEmail.trim().toLowerCase())
+    if (course.coordinatorEmail?.trim()) emailsToMatch.add(course.coordinatorEmail.trim().toLowerCase())
+
+    if (emailsToMatch.size > 0 && (gc.teachers || []).some((t) => t.email && emailsToMatch.has(t.email.trim().toLowerCase()))) {
+      return true
+    }
+
+    // 3. Normalização de texto sem acentos
+    const normalize = (val: string | null | undefined): string => {
+      return (val || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+    }
+
+    const normCourse = normalize(course.name)
+    if (!normCourse) return false
+
+    const text = [
+      gc.name,
+      gc.section,
+      gc.descriptionHeading,
+      ...(gc.teachers || []).map((t) => t.name || ''),
+      ...(gc.teachers || []).map((t) => t.email || ''),
+    ]
+      .map(normalize)
+      .join(' ')
+
+    // Correspondência direta do nome completo do curso
+    if (text.includes(normCourse)) {
+      return true
+    }
+
+    const stopwords = new Set(['e', 'de', 'do', 'da', 'em', 'os', 'as', 'para', '-'])
+    const words = normCourse.split(/[\s-]+/).filter((w) => w.length >= 3 && !stopwords.has(w))
+
+    if (words.length > 1) {
+      if (words.every((w) => text.includes(w))) {
+        return true
+      }
+      if (words.length === 2 && words[0] === 'engenharia') {
+        return text.includes('engenharia') && text.includes(words[1])
+      }
+      if (words[0] === 'arquitetura') {
+        return text.includes('arquitetura')
+      }
+      if (words[0] === 'estetica') {
+        return text.includes('estetica') || text.includes('cosmetica')
+      }
+    } else if (words.length === 1) {
+      if (text.includes(words[0])) {
+        return true
+      }
+    }
+
+    if (normCourse.includes('administracao') && /\badm\b/.test(text)) {
+      return true
+    }
+
+    return false
+  }
+
   get filteredGoogleCourses(): GoogleCourse[] {
+    let courses = this.googleCourses
+    if (this.selectedCourse) {
+      courses = courses.filter((gc) => this.isGoogleCourseMatchingSelectedCourse(gc, this.selectedCourse!))
+    }
     const q = this.googleSearch.trim().toLowerCase()
-    if (!q) return this.googleCourses
-    return this.googleCourses.filter((c) => {
+    if (!q) return courses
+    return courses.filter((c) => {
       const matchName = (c.name || '').toLowerCase().includes(q)
       const matchSection = (c.section || '').toLowerCase().includes(q)
       const matchTeacher = (c.teachers || []).some(
@@ -671,26 +944,79 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
     })
   }
 
+  get filteredRooms(): ClassroomRoom[] {
+    let list = this.rooms
+    if (this.selectedCourseId) {
+      list = list.filter((r) => String(r.academicCourseId) === String(this.selectedCourseId))
+    }
+    const q = this.googleSearch.trim().toLowerCase()
+    if (!q) return list
+    return list.filter((r) => {
+      const matchSubject = (r.subjectName || '').toLowerCase().includes(q)
+      const matchGroup = (r.classGroup || '').toLowerCase().includes(q)
+      const matchTeacher = (r.teacherEmail || '').toLowerCase().includes(q)
+      const matchCourse = (r.academicCourseId || '').toLowerCase().includes(q)
+      return matchSubject || matchGroup || matchTeacher || matchCourse
+    })
+  }
+
   useGoogleCourseInForm(course: GoogleCourse): void {
     this.roomForm.subjectName = course.name || ''
     this.roomForm.classGroup = course.section || ''
     if (course.teachers && course.teachers.length > 0 && course.teachers[0].email) {
       this.roomForm.teacherEmail = course.teachers[0].email
     }
+    if (!this.selectedCourseId) {
+      const matched = this.unimestreCourses.find((c) => this.isGoogleCourseMatchingSelectedCourse(course, c))
+      if (matched) {
+        this.selectedCourseId = String(matched.id)
+        this.onCourseChange()
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  filterCoursesForCurrentCoordinator(courses: UnimestreCourse[]): UnimestreCourse[] {
+    const user = this.effectiveUser
+    if (!user) return []
+    const userEmail = (user.email || '').trim().toLowerCase()
+    const userId = user.id
+
+    return (courses || []).filter((c) => {
+      if (c.coordinatorUserId && userId && c.coordinatorUserId === userId) {
+        return true
+      }
+      const coordEmail = (c.coordinatorEmail || '').trim().toLowerCase()
+      if (userEmail && coordEmail && coordEmail === userEmail) {
+        return true
+      }
+      return false
+    })
   }
 
   loadUnimestreCourses(): void {
     if (!this.roomForm.semester) return
     this.isLoadingUnimestreCourses = true
-    this.unimestreService.courses(this.roomForm.semester)
+    this.unimestreService
+      .courses(
+        this.roomForm.semester,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
       .pipe(finalize(() => { this.isLoadingUnimestreCourses = false }))
       .subscribe({
         next: (courses) => {
-          this.unimestreCourses = courses
+          if (this.isCoordinationRoute) {
+            this.unimestreCourses = this.filterCoursesForCurrentCoordinator(courses)
+          } else {
+            this.unimestreCourses = courses
+          }
+          this.loadGoogleCourses()
         },
         error: () => {
           this.unimestreCourses = []
+          this.loadGoogleCourses()
         },
       })
   }
@@ -702,7 +1028,14 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
     if (!this.selectedCourseId || !this.roomForm.semester) return
 
     this.isLoadingUnimestreClasses = true
-    this.unimestreService.classes(this.roomForm.semester, this.selectedCourseId)
+    this.unimestreService
+      .classes(
+        this.roomForm.semester,
+        this.selectedCourseId,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
       .pipe(finalize(() => { this.isLoadingUnimestreClasses = false }))
       .subscribe({
         next: (classes) => {
@@ -731,12 +1064,17 @@ export class ClassroomPageComponent implements OnInit, OnDestroy {
       return
     }
     this.isLoadingFormStudents = true
-    this.unimestreService.students(
-      this.roomForm.semester,
-      this.roomForm.academicCourseId,
-      this.roomForm.subjectId,
-      this.roomForm.classGroup,
-    ).pipe(finalize(() => { this.isLoadingFormStudents = false }))
+    this.unimestreService
+      .students(
+        this.roomForm.semester,
+        this.roomForm.academicCourseId,
+        this.roomForm.subjectId,
+        this.roomForm.classGroup,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
+      .pipe(finalize(() => { this.isLoadingFormStudents = false }))
       .subscribe({
         next: (students) => {
           this.loadedStudentEmails = students.map((s) => s.email?.trim()).filter((e): e is string => Boolean(e))

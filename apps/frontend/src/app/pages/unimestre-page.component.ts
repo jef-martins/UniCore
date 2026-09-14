@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common'
-import { Component, OnInit } from '@angular/core'
+import { Component, OnInit, effect, untracked } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { Router, RouterLink } from '@angular/router'
 import { finalize } from 'rxjs'
+import { AuthService, type AuthUser } from '../services/auth.service'
+import { SectorContextService } from '../services/sector-context.service'
 import {
   type AcademicCourseSetting,
   type CoordinatorUser,
@@ -187,9 +189,17 @@ import {
               [(ngModel)]="courseId"
               (change)="onCourseChange()"
               name="course"
-              [disabled]="isLoadingCourses"
+              [disabled]="isLoadingCourses || (isCoordinationRoute && courses.length === 0)"
             >
-              <option value="">{{ isLoadingCourses ? 'Atualizando cursos…' : 'Selecione um curso' }}</option>
+              <option value="">
+                {{
+                  isLoadingCourses
+                    ? 'Atualizando cursos…'
+                    : (isCoordinationRoute && courses.length === 0)
+                      ? 'Nenhum curso vinculado à sua coordenação'
+                      : 'Selecione um curso'
+                }}
+              </option>
               @for (course of courses; track course.id) {
                 <option [value]="course.id">
                   {{ course.name }} ({{ course.id }}){{ course.offered ? ' — ofertado no período' : '' }}
@@ -206,6 +216,19 @@ import {
             {{ isLoadingClasses ? 'Consultando…' : 'Consultar turmas' }}
           </button>
         </div>
+
+        @if (isCoordinationRoute && !isLoadingCourses && courses.length === 0) {
+          <div class="unimestre-no-courses-banner" role="alert">
+            <span class="banner-icon">⚠️</span>
+            <div class="banner-text">
+              <strong>Nenhum curso vinculado à sua coordenação</strong>
+              <p>
+                O seu e-mail institucional <strong>({{ currentUserEmail || currentUsername }})</strong> não possui nenhum curso acadêmico vinculado no momento.
+              </p>
+              <small>Caso coordene algum curso, solicite ao Administrador a vinculação do seu e-mail institucional ou usuário aos cursos correspondentes.</small>
+            </div>
+          </div>
+        }
 
         @if (courseId && !selectedCourse?.offered) {
           <p class="unimestre-muted">Este curso está ativo, mas não possui turma ofertada no período informado.</p>
@@ -647,6 +670,12 @@ import {
       .unimestre-heading, .unimestre-students-heading, .manager-header {
         flex-direction: column;
       }
+    .unimestre-no-courses-banner { display: flex; align-items: flex-start; gap: 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px 18px; margin-top: 14px; }
+    .unimestre-no-courses-banner .banner-icon { font-size: 24px; line-height: 1; }
+    .unimestre-no-courses-banner .banner-text strong { display: block; font-size: 15px; color: #fbbf24; margin-bottom: 4px; }
+    .unimestre-no-courses-banner .banner-text p { margin: 0 0 6px 0; font-size: 13px; color: var(--color-text); }
+    .unimestre-no-courses-banner .banner-text p strong { color: #38bdf8; }
+    .unimestre-no-courses-banner .banner-text small { display: block; font-size: 12px; color: var(--color-text-secondary); }
       .unimestre-status-grid, .unimestre-filter-controls {
         grid-template-columns: 1fr;
       }
@@ -698,21 +727,28 @@ export class UnimestrePageComponent implements OnInit {
     return this.router.url.startsWith('/coordenacao')
   }
 
+  get effectiveUser(): AuthUser | null {
+    return this.sectorContextService.getEffectiveUser(this.router.url, this.authService.currentUser)
+  }
+
+  get currentUserEmail(): string {
+    return this.effectiveUser?.email || ''
+  }
+
+  get currentUsername(): string {
+    return this.effectiveUser?.username || ''
+  }
+
   get isAdminRoute(): boolean {
     return !this.isCoordinationRoute
   }
 
-  get selectedCourse(): UnimestreCourse | undefined {
-    return this.courses.find((course) => String(course.id) === this.courseId)
+  get isOfflineMode(): boolean {
+    return Boolean(this.status && !this.status.unimestre?.reachable)
   }
 
-  get isOfflineMode(): boolean {
-    return Boolean(
-      (this.status?.unimestre && !this.status.unimestre.reachable) ||
-      this.courses.some((c) => c.cached) ||
-      this.classes.some((c) => c.cached) ||
-      this.students.some((s) => s.cached)
-    )
+  get selectedCourse(): UnimestreCourse | undefined {
+    return this.courses.find((c) => c.id === this.courseId)
   }
 
   get classroomLink(): string {
@@ -729,10 +765,27 @@ export class UnimestrePageComponent implements OnInit {
     )
   }
 
+  private lastContextUserId: string | null = null
+
   constructor(
     private readonly unimestreService: UnimestreService,
     private readonly router: Router,
-  ) {}
+    private readonly authService: AuthService,
+    private readonly sectorContextService: SectorContextService,
+  ) {
+    effect(() => {
+      const activeUser = this.sectorContextService.activeContextUser()
+      const currentId = activeUser?.id ?? null
+      if (this.isCoordinationRoute && this.lastContextUserId !== null && this.lastContextUserId !== currentId) {
+        this.lastContextUserId = currentId
+        untracked(() => {
+          this.loadCourses()
+        })
+      } else {
+        this.lastContextUserId = currentId
+      }
+    })
+  }
 
   ngOnInit(): void {
     this.refresh()
@@ -756,8 +809,30 @@ export class UnimestrePageComponent implements OnInit {
 
   loadCoordinators(): void {
     this.unimestreService.getCoordinators().subscribe({
-      next: (coords) => { this.coordinators = coords },
+      next: (coords) => {
+        this.coordinators = (coords || []).filter(
+          (c) => !c.role || c.role.toLowerCase() === 'coordenacao',
+        )
+      },
       error: () => { /* silencioso caso rota não permita */ },
+    })
+  }
+
+  filterCoursesForCurrentCoordinator(courses: UnimestreCourse[]): UnimestreCourse[] {
+    const user = this.effectiveUser
+    if (!user) return []
+    const userEmail = (user.email || '').trim().toLowerCase()
+    const userId = user.id
+
+    return (courses || []).filter((c) => {
+      if (c.coordinatorUserId && userId && c.coordinatorUserId === userId) {
+        return true
+      }
+      const coordEmail = (c.coordinatorEmail || '').trim().toLowerCase()
+      if (userEmail && coordEmail && coordEmail === userEmail) {
+        return true
+      }
+      return false
     })
   }
 
@@ -774,11 +849,20 @@ export class UnimestrePageComponent implements OnInit {
     this.isLoadingCourses = true
     this.errorMessage = ''
     this.unimestreService
-      .courses(semester)
+      .courses(
+        semester,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
       .pipe(finalize(() => { this.isLoadingCourses = false }))
       .subscribe({
         next: (courses) => {
-          this.courses = courses
+          if (this.isCoordinationRoute) {
+            this.courses = this.filterCoursesForCurrentCoordinator(courses)
+          } else {
+            this.courses = courses
+          }
           this.initManagerEdits(courses)
         },
         error: () => {
@@ -903,17 +987,19 @@ export class UnimestrePageComponent implements OnInit {
   }
 
   loadClasses(): void {
-    if (!this.selectedCourse?.offered) {
-      this.errorMessage = 'Este curso não possui turmas ofertadas no período selecionado.'
-      return
-    }
+    if (!this.semester || !this.courseId) return
     this.isLoadingClasses = true
-    this.errorMessage = ''
     this.classes = []
     this.selectedClass = null
     this.students = []
     this.unimestreService
-      .classes(this.semester, this.courseId)
+      .classes(
+        this.semester,
+        this.courseId,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
       .pipe(finalize(() => { this.isLoadingClasses = false }))
       .subscribe({
         next: (classes) => { this.classes = classes },
@@ -922,17 +1008,25 @@ export class UnimestrePageComponent implements OnInit {
   }
 
   loadStudents(item: UnimestreClass): void {
-    const key = item.classGroup + item.subjectId
-    this.loadingStudentsKey = key
+    if (!this.semester || !this.courseId || !item.subjectId || !item.classGroup) return
+    this.loadingStudentsKey = `${item.classGroup}_${item.subjectId}`
     this.isLoadingStudents = true
     this.selectedClass = item
     this.students = []
     this.unimestreService
-      .students(this.semester, this.courseId, item.subjectId, item.classGroup)
+      .students(
+        this.semester,
+        this.courseId,
+        item.subjectId,
+        item.classGroup,
+        this.isCoordinationRoute,
+        this.isCoordinationRoute ? this.currentUserEmail : undefined,
+        this.isCoordinationRoute ? this.effectiveUser?.id : undefined,
+      )
       .pipe(finalize(() => { this.isLoadingStudents = false; this.loadingStudentsKey = '' }))
       .subscribe({
         next: (students) => { this.students = students },
-        error: (error) => { this.errorMessage = error.error?.message || 'Não foi possível consultar os alunos desta turma.' },
+        error: (error) => { this.errorMessage = error.error?.message || 'Não foi possível carregar a lista de alunos.' },
       })
   }
 

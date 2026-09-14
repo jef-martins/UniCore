@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { google, type classroom_v1 } from 'googleapis'
 import { ConfigService } from '@nestjs/config'
+import type { JwtPayload } from '../auth/jwt-auth.guard'
 import { PrismaService } from '../database/prisma.service'
 
 const CLASSROOM_SCOPES = [
@@ -188,7 +189,12 @@ export class GoogleClassroomService {
     }
   }
 
-  async listCoursesWithTeachers(): Promise<Array<{
+  async listCoursesWithTeachers(
+    user?: JwtPayload,
+    coordinationOnly = false,
+    coordinatorEmail?: string,
+    coordinatorUserId?: string,
+  ): Promise<Array<{
     id: string
     name: string
     section: string | null
@@ -198,12 +204,23 @@ export class GoogleClassroomService {
     teachers: Array<{ id: string; name: string | null; email: string | null }>
     cached?: boolean
   }>> {
+    let results: Array<{
+      id: string
+      name: string
+      section: string | null
+      descriptionHeading: string | null
+      alternateLink: string | null
+      courseState: string | null
+      teachers: Array<{ id: string; name: string | null; email: string | null }>
+      cached?: boolean
+    }> = []
+
     try {
       const classroom = this.getClient()
       const coursesRes = await classroom.courses.list({ pageSize: 100, courseStates: ['ACTIVE'] })
       const courses = coursesRes.data.courses ?? []
 
-      const results = await Promise.all(
+      results = await Promise.all(
         courses.map(async (course) => {
           let teachers: Array<{ id: string; name: string | null; email: string | null }> = []
           if (course.id) {
@@ -234,15 +251,13 @@ export class GoogleClassroomService {
       this.saveCoursesCache(results).catch((err) => {
         this.logger.warn(`Falha ao salvar salas do Google Classroom no cache local: ${err.message}`)
       })
-
-      return results
     } catch (error) {
       this.logger.warn(`Consulta à API Google Classroom falhou: ${(error as Error).message}. Buscando do banco local...`)
       const cached = await this.prisma.googleCourseCache.findMany({
         orderBy: { name: 'asc' },
       })
       if (cached.length) {
-        return cached.map((c) => ({
+        results = cached.map((c) => ({
           id: c.id,
           name: c.name,
           section: c.section,
@@ -252,9 +267,89 @@ export class GoogleClassroomService {
           teachers: (c.teachers as Array<{ id: string; name: string | null; email: string | null }>) || [],
           cached: true,
         }))
+      } else {
+        this.throwGoogleError('listar as salas e professores do Google Classroom', error)
       }
-      this.throwGoogleError('listar as salas e professores do Google Classroom', error)
     }
+
+    const shouldFilterCoordination = coordinationOnly || user?.role === 'coordenacao'
+    if (shouldFilterCoordination && user) {
+      let targetUserId = coordinatorUserId?.trim() || null
+      let targetUserEmail = coordinatorEmail?.trim().toLowerCase() || null
+
+      if (user.role === 'coordenacao') {
+        const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+        targetUserId = dbUser?.id || user.sub
+        targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+      } else {
+        if (targetUserId && !targetUserEmail) {
+          const found = await this.prisma.user.findUnique({ where: { id: targetUserId } })
+          if (found) targetUserEmail = found.email.trim().toLowerCase()
+        } else if (targetUserEmail && !targetUserId) {
+          const found = await this.prisma.user.findFirst({
+            where: { email: { equals: targetUserEmail, mode: 'insensitive' } },
+          })
+          if (found) targetUserId = found.id
+        } else if (!targetUserId && !targetUserEmail) {
+          const dbUser = await this.prisma.user.findUnique({ where: { id: user.sub } })
+          targetUserId = dbUser?.id || user.sub
+          targetUserEmail = (dbUser?.email || (user as any).email || '').trim().toLowerCase()
+        }
+      }
+
+      const settings = await this.prisma.academicCourseSetting.findMany({
+        include: { coordinatorUser: true },
+      })
+
+      const coordinatedCourseIds = new Set<string>()
+      const coordinatedEmails = new Set<string>()
+      if (targetUserEmail) coordinatedEmails.add(targetUserEmail)
+
+      for (const s of settings) {
+        const isMatchById = Boolean(targetUserId && s.coordinatorUserId && (s.coordinatorUserId === targetUserId || s.coordinatorUserId === user.sub))
+        const isMatchByEmail = Boolean(
+          targetUserEmail &&
+            ((s.coordinatorEmail && s.coordinatorEmail.trim().toLowerCase() === targetUserEmail) ||
+              (s.coordinatorUser?.email && s.coordinatorUser.email.trim().toLowerCase() === targetUserEmail)),
+        )
+
+        if (isMatchById || isMatchByEmail) {
+          coordinatedCourseIds.add(s.academicCourseId)
+          if (s.courseEmail?.trim()) {
+            coordinatedEmails.add(s.courseEmail.trim().toLowerCase())
+          }
+          if (s.coordinatorEmail?.trim()) {
+            coordinatedEmails.add(s.coordinatorEmail.trim().toLowerCase())
+          }
+        }
+      }
+
+      const syncedRooms = await this.prisma.classroomRoom.findMany({
+        where: coordinatedCourseIds.size > 0 ? { academicCourseId: { in: [...coordinatedCourseIds] } } : { id: '__none__' },
+        select: { googleCourseId: true },
+      })
+      const allowedGoogleCourseIds = new Set(syncedRooms.map((r) => r.googleCourseId).filter(Boolean))
+
+      results = results.filter((course) => {
+        if (course.id && allowedGoogleCourseIds.has(course.id)) {
+          return true
+        }
+        const hasMatchingTeacher = (course.teachers || []).some(
+          (t) => t.email && coordinatedEmails.has(t.email.trim().toLowerCase()),
+        )
+        if (hasMatchingTeacher) {
+          return true
+        }
+        for (const cid of coordinatedCourseIds) {
+          if ((course.descriptionHeading || '').includes(cid) || (course.name || '').includes(cid)) {
+            return true
+          }
+        }
+        return false
+      })
+    }
+
+    return results
   }
 
   private async saveCoursesCache(courses: Array<{
