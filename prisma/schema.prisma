@@ -52,6 +52,7 @@ model User {
   assignedTasks Task[]            @relation("AssignedTasks")
   createdTasks  Task[]            @relation("CreatedTasks")
   reservations  ItemReservation[]
+  evaluations   ItemEvaluation[]
   coordinatedCourses AcademicCourseSetting[]
 
   @@map("users")
@@ -128,6 +129,25 @@ enum ItemCondition {
   NAO_FUNCIONA
 }
 
+enum MaintenanceType {
+  PREVENTIVA
+  CORRETIVA
+}
+
+enum MaintenanceStatus {
+  AGENDADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum ItemOperationalStatus {
+  FUNCIONANDO_PERFEITAMENTE
+  FUNCIONANDO_COM_DEFEITOS
+  COM_AVARIAS_FUNCIONANDO
+  NAO_FUNCIONANDO
+}
+
 model ReservableItem {
   id           String            @id @default(uuid()) @db.Uuid
   name         String
@@ -140,6 +160,8 @@ model ReservableItem {
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
   reservations ItemReservation[]
+  maintenances ItemMaintenance[]
+  evaluations  ItemEvaluation[]
 
   @@map("reservable_items")
 }
@@ -235,6 +257,44 @@ model AcademicCourseSetting {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("academic_course_settings")
+}
+
+model ItemMaintenance {
+  id            String            @id @default(uuid()) @db.Uuid
+  itemId        String            @map("item_id") @db.Uuid
+  item          ReservableItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  type          MaintenanceType
+  status        MaintenanceStatus @default(AGENDADA)
+  title         String
+  description   String?
+  technician    String?
+  scheduledDate DateTime          @map("scheduled_date")
+  completedDate DateTime?         @map("completed_date")
+  cost          Decimal?          @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@index([itemId])
+  @@map("item_maintenances")
+}
+
+model ItemEvaluation {
+  id                String                @id @default(uuid()) @db.Uuid
+  itemId            String                @map("item_id") @db.Uuid
+  item              ReservableItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId            String?               @map("user_id") @db.Uuid
+  user              User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studentName       String                @map("student_name")
+  rating            Int
+  operationalStatus ItemOperationalStatus @map("operational_status")
+  description       String?
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+
+  @@index([itemId])
+  @@index([userId])
+  @@map("item_evaluations")
 }
 
 

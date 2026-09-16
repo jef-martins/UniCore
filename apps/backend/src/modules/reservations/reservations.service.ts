@@ -1,7 +1,119 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
-import { ItemCondition, ItemStatus, Prisma, ReservationStatus } from '@prisma/client'
+import {
+  ItemCondition,
+  ItemOperationalStatus,
+  ItemStatus,
+  MaintenanceStatus,
+  MaintenanceType,
+  Prisma,
+  ReservationStatus,
+} from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
-import { CreateItemDto, CreateReservationDto, UpdateItemDto } from './dto/reservations.dto'
+import {
+  CreateItemDto,
+  CreateItemEvaluationDto,
+  CreateMaintenanceDto,
+  CreateReservationDto,
+  UpdateItemDto,
+  UpdateMaintenanceDto,
+} from './dto/reservations.dto'
+
+export interface ConsolidatedStatusResult {
+  consolidatedStatus: ItemOperationalStatus
+  statusCounts: Record<ItemOperationalStatus, number>
+  totalEvaluations: number
+  averageRating: number | null
+}
+
+export function computeConsolidatedStatus(
+  evaluations: { operationalStatus: ItemOperationalStatus; createdAt: Date; rating?: number }[],
+  fallbackCondition?: ItemCondition,
+): ConsolidatedStatusResult {
+  const statusCounts: Record<ItemOperationalStatus, number> = {
+    FUNCIONANDO_PERFEITAMENTE: 0,
+    FUNCIONANDO_COM_DEFEITOS: 0,
+    COM_AVARIAS_FUNCIONANDO: 0,
+    NAO_FUNCIONANDO: 0,
+  }
+
+  if (!evaluations || evaluations.length === 0) {
+    let fallback: ItemOperationalStatus = ItemOperationalStatus.FUNCIONANDO_PERFEITAMENTE
+    if (fallbackCondition === ItemCondition.NAO_FUNCIONA) {
+      fallback = ItemOperationalStatus.NAO_FUNCIONANDO
+    } else if (
+      fallbackCondition === ItemCondition.DEFEITO_PARCIAL ||
+      fallbackCondition === ItemCondition.DEFEITO_FUNCIONA
+    ) {
+      fallback = ItemOperationalStatus.FUNCIONANDO_COM_DEFEITOS
+    } else if (fallbackCondition === ItemCondition.COM_AVARIAS) {
+      fallback = ItemOperationalStatus.COM_AVARIAS_FUNCIONANDO
+    }
+    return {
+      consolidatedStatus: fallback,
+      statusCounts,
+      totalEvaluations: 0,
+      averageRating: null,
+    }
+  }
+
+  for (const ev of evaluations) {
+    if (statusCounts[ev.operationalStatus] !== undefined) {
+      statusCounts[ev.operationalStatus]++
+    }
+  }
+
+  // Maior ocorrência (Moda estatística)
+  let maxCount = -1
+  const candidates: ItemOperationalStatus[] = []
+  for (const statusKey of Object.keys(statusCounts) as ItemOperationalStatus[]) {
+    const count = statusCounts[statusKey]
+    if (count > maxCount) {
+      maxCount = count
+      candidates.length = 0
+      candidates.push(statusKey)
+    } else if (count === maxCount && count > 0) {
+      candidates.push(statusKey)
+    }
+  }
+
+  let winner: ItemOperationalStatus = ItemOperationalStatus.FUNCIONANDO_PERFEITAMENTE
+  if (candidates.length === 1) {
+    winner = candidates[0]
+  } else if (candidates.length > 1) {
+    // Em caso de empate: o que tiver a avaliação mais recente vence
+    const latestPerCandidate = new Map<ItemOperationalStatus, number>()
+    for (const ev of evaluations) {
+      if (candidates.includes(ev.operationalStatus)) {
+        const time = new Date(ev.createdAt).getTime()
+        const cur = latestPerCandidate.get(ev.operationalStatus) || 0
+        if (time > cur) {
+          latestPerCandidate.set(ev.operationalStatus, time)
+        }
+      }
+    }
+    let latestTime = -1
+    for (const cand of candidates) {
+      const t = latestPerCandidate.get(cand) || 0
+      if (t > latestTime) {
+        latestTime = t
+        winner = cand
+      }
+    }
+  }
+
+  const ratings = evaluations.filter((e) => typeof e.rating === 'number' && e.rating >= 1 && e.rating <= 5)
+  const averageRating =
+    ratings.length > 0
+      ? Number((ratings.reduce((acc, e) => acc + (e.rating || 0), 0) / ratings.length).toFixed(1))
+      : null
+
+  return {
+    consolidatedStatus: winner,
+    statusCounts,
+    totalEvaluations: evaluations.length,
+    averageRating,
+  }
+}
 
 @Injectable()
 export class ReservationsService {
@@ -44,13 +156,33 @@ export class ReservationsService {
           orderBy: { startDate: 'asc' },
           take: 1,
         },
+        maintenances: {
+          orderBy: { scheduledDate: 'desc' },
+          take: 1,
+        },
+        evaluations: {
+          select: {
+            id: true,
+            rating: true,
+            operationalStatus: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
-    return items.map((item) => ({
-      ...item,
-      currentReservation: item.reservations[0] ?? null,
-    }))
+    return items.map((item) => {
+      const stats = computeConsolidatedStatus(item.evaluations, item.condition)
+      return {
+        ...item,
+        currentReservation: item.reservations[0] ?? null,
+        latestMaintenance: item.maintenances[0] ?? null,
+        consolidatedStatus: stats.consolidatedStatus,
+        statusCounts: stats.statusCounts,
+        averageRating: stats.averageRating,
+        totalEvaluations: stats.totalEvaluations,
+      }
+    })
   }
 
   async createItem(dto: CreateItemDto) {
@@ -136,6 +268,329 @@ export class ReservationsService {
 
     return this.prisma.reservableItem.delete({ where: { id } })
   }
+
+  // --- MANUTENÇÕES PREVENTIVA E CORRETIVA ---
+
+  async createMaintenance(itemId: string, dto: CreateMaintenanceDto) {
+    const item = await this.prisma.reservableItem.findUnique({ where: { id: itemId } })
+    if (!item) {
+      throw new NotFoundException('Item não encontrado.')
+    }
+
+    const scheduled = new Date(dto.scheduledDate)
+    if (isNaN(scheduled.getTime())) {
+      throw new BadRequestException('Data agendada inválida.')
+    }
+
+    const maintenance = await this.prisma.itemMaintenance.create({
+      data: {
+        itemId,
+        type: dto.type,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        technician: dto.technician?.trim() || null,
+        scheduledDate: scheduled,
+        cost: dto.cost !== undefined && dto.cost !== null ? dto.cost : null,
+        status: MaintenanceStatus.AGENDADA,
+      },
+      include: {
+        item: true,
+      },
+    })
+
+    if (dto.markItemInMaintenance || dto.type === MaintenanceType.CORRETIVA) {
+      await this.prisma.reservableItem.update({
+        where: { id: itemId },
+        data: { status: ItemStatus.MAINTENANCE },
+      })
+    }
+
+    return maintenance
+  }
+
+  async getMaintenances(itemId?: string) {
+    const where: Prisma.ItemMaintenanceWhereInput = {}
+    if (itemId) {
+      where.itemId = itemId
+    }
+
+    return this.prisma.itemMaintenance.findMany({
+      where,
+      orderBy: { scheduledDate: 'desc' },
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            location: true,
+            status: true,
+            category: true,
+          },
+        },
+      },
+    })
+  }
+
+  async updateMaintenance(id: string, dto: UpdateMaintenanceDto) {
+    const maintenance = await this.prisma.itemMaintenance.findUnique({
+      where: { id },
+    })
+    if (!maintenance) {
+      throw new NotFoundException('Registro de manutenção não encontrado.')
+    }
+
+    const completed = dto.completedDate ? new Date(dto.completedDate) : undefined
+    if (completed && isNaN(completed.getTime())) {
+      throw new BadRequestException('Data de conclusão inválida.')
+    }
+
+    const updated = await this.prisma.itemMaintenance.update({
+      where: { id },
+      data: {
+        ...(dto.status ? { status: dto.status } : {}),
+        ...(completed !== undefined ? { completedDate: completed } : {}),
+        ...(dto.cost !== undefined ? { cost: dto.cost } : {}),
+        ...(dto.notes !== undefined ? { notes: dto.notes.trim() } : {}),
+      },
+      include: { item: true },
+    })
+
+    if (dto.restoreItemToAvailable || dto.status === MaintenanceStatus.CONCLUIDA) {
+      const pending = await this.prisma.itemMaintenance.count({
+        where: {
+          itemId: maintenance.itemId,
+          id: { not: id },
+          status: { in: [MaintenanceStatus.AGENDADA, MaintenanceStatus.EM_ANDAMENTO] },
+        },
+      })
+      if (pending === 0) {
+        await this.syncItemStatus(maintenance.itemId)
+      }
+    }
+
+    return updated
+  }
+
+  // --- CONSULTA DE SALAS / LABS E AVALIAÇÃO DE ITENS POR ALUNOS ---
+
+  async getRoomsWithStats() {
+    const totalCount = await this.prisma.reservableItem.count()
+    if (totalCount === 0) {
+      await this.seedDefaultItems()
+    }
+
+    const items = await this.prisma.reservableItem.findMany({
+      include: {
+        evaluations: {
+          select: {
+            id: true,
+            rating: true,
+            operationalStatus: true,
+            createdAt: true,
+          },
+        },
+        maintenances: {
+          where: {
+            status: { in: [MaintenanceStatus.AGENDADA, MaintenanceStatus.EM_ANDAMENTO] },
+          },
+          select: { id: true, type: true, status: true },
+        },
+      },
+      orderBy: { location: 'asc' },
+    })
+
+    const roomsMap = new Map<
+      string,
+      {
+        location: string
+        itemCount: number
+        totalEvaluations: number
+        ratingsSum: number
+        ratedCount: number
+        underMaintenanceCount: number
+        categories: Set<string>
+        items: {
+          id: string
+          name: string
+          code: string
+          category: string
+          status: ItemStatus
+          condition: ItemCondition
+          consolidatedStatus: ItemOperationalStatus
+          averageRating: number | null
+          totalEvaluations: number
+        }[]
+      }
+    >()
+
+    for (const item of items) {
+      const stats = computeConsolidatedStatus(item.evaluations, item.condition)
+      const locKey = item.location.trim()
+
+      if (!roomsMap.has(locKey)) {
+        roomsMap.set(locKey, {
+          location: locKey,
+          itemCount: 0,
+          totalEvaluations: 0,
+          ratingsSum: 0,
+          ratedCount: 0,
+          underMaintenanceCount: 0,
+          categories: new Set<string>(),
+          items: [],
+        })
+      }
+
+      const room = roomsMap.get(locKey)!
+      room.itemCount++
+      room.totalEvaluations += stats.totalEvaluations
+      if (stats.averageRating !== null) {
+        room.ratingsSum += stats.averageRating
+        room.ratedCount++
+      }
+      if (item.status === ItemStatus.MAINTENANCE || item.maintenances.length > 0) {
+        room.underMaintenanceCount++
+      }
+      room.categories.add(item.category)
+      room.items.push({
+        id: item.id,
+        name: item.name,
+        code: item.code,
+        category: item.category,
+        status: item.status,
+        condition: item.condition,
+        consolidatedStatus: stats.consolidatedStatus,
+        averageRating: stats.averageRating,
+        totalEvaluations: stats.totalEvaluations,
+      })
+    }
+
+    return Array.from(roomsMap.values()).map((room) => ({
+      location: room.location,
+      itemCount: room.itemCount,
+      totalEvaluations: room.totalEvaluations,
+      averageRating:
+        room.ratedCount > 0 ? Number((room.ratingsSum / room.ratedCount).toFixed(1)) : null,
+      underMaintenanceCount: room.underMaintenanceCount,
+      categories: Array.from(room.categories),
+      items: room.items,
+    }))
+  }
+
+  async getItemsByRoom(location: string) {
+    const items = await this.prisma.reservableItem.findMany({
+      where: {
+        location: { equals: location.trim(), mode: 'insensitive' },
+      },
+      include: {
+        evaluations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: { id: true, username: true, role: true },
+            },
+          },
+        },
+        maintenances: {
+          orderBy: { scheduledDate: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return items.map((item) => {
+      const stats = computeConsolidatedStatus(item.evaluations, item.condition)
+      return {
+        ...item,
+        consolidatedStatus: stats.consolidatedStatus,
+        statusCounts: stats.statusCounts,
+        totalEvaluations: stats.totalEvaluations,
+        averageRating: stats.averageRating,
+        evaluations: item.evaluations,
+        latestMaintenance: item.maintenances[0] ?? null,
+      }
+    })
+  }
+
+  async createEvaluation(itemId: string, userId: string | undefined, dto: CreateItemEvaluationDto) {
+    const item = await this.prisma.reservableItem.findUnique({
+      where: { id: itemId },
+      include: { evaluations: true },
+    })
+
+    if (!item) {
+      throw new NotFoundException('Item para avaliação não encontrado.')
+    }
+
+    let studentName = dto.studentName?.trim()
+    if (!studentName && userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } })
+      studentName = user?.username || 'Aluno'
+    }
+    if (!studentName) {
+      studentName = 'Aluno'
+    }
+
+    const evaluation = await this.prisma.itemEvaluation.create({
+      data: {
+        itemId,
+        userId: userId ?? null,
+        studentName,
+        rating: dto.rating,
+        operationalStatus: dto.operationalStatus,
+        description: dto.description?.trim() || null,
+      },
+      include: {
+        user: { select: { id: true, username: true, role: true } },
+      },
+    })
+
+    const allEvaluations = [...item.evaluations, evaluation]
+    const stats = computeConsolidatedStatus(allEvaluations, item.condition)
+
+    return {
+      evaluation,
+      consolidatedStatus: stats.consolidatedStatus,
+      statusCounts: stats.statusCounts,
+      averageRating: stats.averageRating,
+      totalEvaluations: stats.totalEvaluations,
+    }
+  }
+
+  async getItemEvaluations(itemId: string) {
+    const item = await this.prisma.reservableItem.findUnique({
+      where: { id: itemId },
+      include: {
+        evaluations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { id: true, username: true, role: true } },
+          },
+        },
+      },
+    })
+
+    if (!item) {
+      throw new NotFoundException('Item não encontrado.')
+    }
+
+    const stats = computeConsolidatedStatus(item.evaluations, item.condition)
+
+    return {
+      itemId: item.id,
+      itemName: item.name,
+      itemCode: item.code,
+      location: item.location,
+      consolidatedStatus: stats.consolidatedStatus,
+      statusCounts: stats.statusCounts,
+      averageRating: stats.averageRating,
+      totalEvaluations: stats.totalEvaluations,
+      evaluations: item.evaluations,
+    }
+  }
+
+  // --- RESERVAS ---
 
   async getReservations(status?: ReservationStatus) {
     const where: Prisma.ItemReservationWhereInput = {}
@@ -639,3 +1094,4 @@ export class ReservationsService {
     }
   }
 }
+

@@ -326,6 +326,7 @@ export class LayoutShellComponent implements OnInit {
       children: [
         { href: '/professor/agenda', label: 'Agenda' },
         { href: '/professor/reservas', label: 'Reserva de Itens' },
+        { href: '/professor/salas', label: 'Salas e Laboratórios' },
         { href: '/professor/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -333,6 +334,7 @@ export class LayoutShellComponent implements OnInit {
       href: '/aluno', 
       label: 'Aluno',
       children: [
+        { href: '/aluno/salas', label: 'Salas e Laboratórios' },
         { href: '/aluno/agenda', label: 'Agenda' },
         { href: '/aluno/alterar-senha', label: 'Alterar Senha' },
       ]
@@ -353,6 +355,7 @@ export class LayoutShellComponent implements OnInit {
           ]
         },
         { href: '/administracao/agenda', label: 'Agenda' },
+        { href: '/administracao/salas', label: 'Salas e Laboratórios' },
         { href: '/administracao/reservas', label: 'Reserva de Itens' },
         {
           href: '/administracao/cadastros',
@@ -381,6 +384,7 @@ export class LayoutShellComponent implements OnInit {
           ]
         },
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
+        { href: '/desenvolvedor/salas', label: 'Salas e Laboratórios' },
         { href: '/desenvolvedor/reservas', label: 'Reserva de Itens' },
         {
           href: '/desenvolvedor/cadastros',

@@ -1,5 +1,25 @@
-import { ItemCondition, ItemStatus, ReservationStatus } from '@prisma/client'
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator'
+import {
+  ItemCondition,
+  ItemOperationalStatus,
+  ItemStatus,
+  MaintenanceStatus,
+  MaintenanceType,
+  ReservationStatus,
+} from '@prisma/client'
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator'
 
 export class CreateItemDto {
   @IsString()
@@ -111,3 +131,80 @@ export class UpdateReservationStatusDto {
   @IsEnum(ReservationStatus)
   status!: ReservationStatus
 }
+
+export class CreateMaintenanceDto {
+  @IsEnum(MaintenanceType)
+  type!: MaintenanceType
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(150)
+  title!: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  technician?: string
+
+  @IsDateString()
+  scheduledDate!: string
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cost?: number
+
+  @IsOptional()
+  @IsBoolean()
+  markItemInMaintenance?: boolean
+}
+
+export class UpdateMaintenanceDto {
+  @IsOptional()
+  @IsEnum(MaintenanceStatus)
+  status?: MaintenanceStatus
+
+  @IsOptional()
+  @IsDateString()
+  completedDate?: string
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cost?: number
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string
+
+  @IsOptional()
+  @IsBoolean()
+  restoreItemToAvailable?: boolean
+}
+
+export class CreateItemEvaluationDto {
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating!: number
+
+  @IsEnum(ItemOperationalStatus)
+  operationalStatus!: ItemOperationalStatus
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  studentName?: string
+}
+
