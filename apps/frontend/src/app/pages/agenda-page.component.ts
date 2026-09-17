@@ -713,7 +713,30 @@ export class AgendaPageComponent implements OnInit {
       })
   }
 
+  isAcademicEvent(task: AgendaTask): boolean {
+    return task.id.startsWith('ev-')
+  }
+
+  navigateToEvents(): void {
+    const role = this.authService.currentUser?.role
+    if (role === 'aluno') {
+      this.router.navigateByUrl('/aluno/eventos')
+    } else if (role === 'professor') {
+      this.router.navigateByUrl('/professor/eventos')
+    } else if (role === 'coordenacao') {
+      this.router.navigateByUrl('/coordenacao/eventos')
+    } else if (role === 'admin') {
+      this.router.navigateByUrl('/administracao/eventos')
+    } else {
+      this.router.navigateByUrl('/desenvolvedor/eventos')
+    }
+  }
+
   toggleTask(task: AgendaTask): void {
+    if (this.isAcademicEvent(task)) {
+      this.navigateToEvents()
+      return
+    }
     if (!task.completed) {
       this.openCompletionModal(task)
     } else {
@@ -766,6 +789,7 @@ export class AgendaPageComponent implements OnInit {
   }
 
   toggleTaskPriority(task: AgendaTask): void {
+    if (this.isAcademicEvent(task)) return
     this.updateTask(task.id, { isPriority: !task.isPriority })
   }
 

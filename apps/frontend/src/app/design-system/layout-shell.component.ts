@@ -308,6 +308,7 @@ export class LayoutShellComponent implements OnInit {
       children: [
         { href: '/coordenacao/unimestre', label: 'Cursos & Turmas' },
         { href: '/coordenacao/classroom', label: 'Google Classroom' },
+        { href: '/coordenacao/eventos', label: 'Eventos' },
         { href: '/coordenacao/agenda', label: 'Agenda' },
         { href: '/coordenacao/alterar-senha', label: 'Alterar Senha' },
       ]
@@ -324,6 +325,7 @@ export class LayoutShellComponent implements OnInit {
       href: '/professor', 
       label: 'Professor',
       children: [
+        { href: '/professor/eventos', label: 'Eventos' },
         { href: '/professor/agenda', label: 'Agenda' },
         { href: '/professor/reservas', label: 'Reserva de Itens' },
         { href: '/professor/salas', label: 'Salas e Laboratórios' },
@@ -335,6 +337,7 @@ export class LayoutShellComponent implements OnInit {
       label: 'Aluno',
       children: [
         { href: '/aluno/salas', label: 'Salas e Laboratórios' },
+        { href: '/aluno/eventos', label: 'Eventos' },
         { href: '/aluno/agenda', label: 'Agenda' },
         { href: '/aluno/alterar-senha', label: 'Alterar Senha' },
       ]
@@ -354,15 +357,18 @@ export class LayoutShellComponent implements OnInit {
             { href: '/administracao/dashboards/reservas', label: 'Relatório de Reservas' }
           ]
         },
+        { href: '/administracao/eventos', label: 'Eventos Acadêmicos' },
         { href: '/administracao/agenda', label: 'Agenda' },
         { href: '/administracao/salas', label: 'Salas e Laboratórios' },
         { href: '/administracao/reservas', label: 'Reserva de Itens' },
+        { href: '/administracao/certificados', label: 'Gestão de Certificados' },
         {
           href: '/administracao/cadastros',
           label: 'Cadastros',
           children: [
             { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' },
-            { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' }
+            { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' },
+            { href: '/administracao/cadastros/eventos', label: 'Eventos para Certificados' }
           ]
         },
         { href: '/administracao/alterar-senha', label: 'Alterar Senha' },
@@ -383,15 +389,18 @@ export class LayoutShellComponent implements OnInit {
             { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' }
           ]
         },
+        { href: '/desenvolvedor/eventos', label: 'Eventos Acadêmicos' },
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
         { href: '/desenvolvedor/salas', label: 'Salas e Laboratórios' },
         { href: '/desenvolvedor/reservas', label: 'Reserva de Itens' },
+        { href: '/desenvolvedor/certificados', label: 'Gestão de Certificados' },
         {
           href: '/desenvolvedor/cadastros',
           label: 'Cadastros',
           children: [
             { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' },
-            { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' }
+            { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' },
+            { href: '/desenvolvedor/cadastros/eventos', label: 'Eventos para Certificados' }
           ]
         },
         { href: '/desenvolvedor/alterar-senha', label: 'Alterar Senha' },

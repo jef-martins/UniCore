@@ -83,21 +83,28 @@
             @for (task of tasksForDay(day.key); track task.id) {
               <li class="agenda-task" [class.agenda-task-completed]="task.completed">
                 <div class="agenda-task-header-row">
-                  <label class="agenda-task-toggle" (click)="$event.stopPropagation()">
-                    <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
-                    <strong class="task-card-title">{{ task.title }}</strong>
-                  </label>
-                  <div class="task-badges-wrap" (click)="$event.stopPropagation()">
-                    @if (!task.userId) {
-                      <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
-                    }
-                    @if (task.isPriority) {
-                      <span class="task-urgent-badge">Urgente</span>
-                    }
-                    <button type="button" (click)="toggleTaskPriority(task)" class="star-btn" title="Alternar Prioridade">
-                      {{ task.isPriority ? '★' : '☆' }}
-                    </button>
-                  </div>
+                  @if (isAcademicEvent(task)) {
+                    <div class="academic-event-chip" (click)="$event.stopPropagation(); navigateToEvents()" title="Clique para ver detalhes do evento acadêmico" style="cursor: pointer; display: flex; flex-direction: column; gap: 0.2rem;">
+                      <span class="sector-shared-tag" style="background: rgba(56, 189, 248, 0.2); border-color: rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 0.65rem; width: fit-content;">🎓 Evento</span>
+                      <strong class="task-card-title" style="color: #7dd3fc;">{{ task.title }}</strong>
+                    </div>
+                  } @else {
+                    <label class="agenda-task-toggle" (click)="$event.stopPropagation()">
+                      <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
+                      <strong class="task-card-title">{{ task.title }}</strong>
+                    </label>
+                    <div class="task-badges-wrap" (click)="$event.stopPropagation()">
+                      @if (!task.userId) {
+                        <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
+                      }
+                      @if (task.isPriority) {
+                        <span class="task-urgent-badge">Urgente</span>
+                      }
+                      <button type="button" (click)="toggleTaskPriority(task)" class="star-btn" title="Alternar Prioridade">
+                        {{ task.isPriority ? '★' : '☆' }}
+                      </button>
+                    </div>
+                  }
                 </div>
                 <span>{{ task.type }} · {{ task.status }}</span>
                 @if (task.description) { <span>{{ task.description }}</span> }
@@ -169,21 +176,35 @@
         @for (task of tasksForDay(selectedDay.key); track task.id) {
           <article class="agenda-day-task-card" [class.completed]="task.completed">
             <header class="agenda-day-task-header">
-              <label class="agenda-task-toggle">
-                <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
-                <h3 class="agenda-day-task-title" [style.text-decoration]="task.completed ? 'line-through' : 'none'">{{ task.title }}</h3>
-                @if (!task.userId) {
-                  <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
-                }
-                <button type="button" (click)="toggleTaskPriority(task)" style="background: none; border: none; cursor: pointer; color: #ffb86c; font-size: 1.2rem; padding: 0; margin-left: 0.2rem;" title="Alternar Prioridade">
-                  {{ task.isPriority ? '★' : '☆' }}
-                </button>
-                @if (task.isPriority) { <span style="color: #ffb86c; font-size: 0.8rem; margin-left: 0.5rem; border: 1px solid #ffb86c; padding: 0.1rem 0.3rem; border-radius: 4px;">Urgente</span> }
-              </label>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="button button-text" style="padding: 0; min-height: auto;" type="button" (click)="startEditTask(task)">Editar</button>
-                <span class="role-badge">{{ task.type }}</span>
-              </div>
+              @if (isAcademicEvent(task)) {
+                <div style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;" (click)="navigateToEvents()">
+                  <span class="sector-shared-tag" style="background: rgba(56, 189, 248, 0.2); border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;">
+                    🎓 Evento Acadêmico
+                  </span>
+                  <h3 class="agenda-day-task-title" style="color: #38bdf8;">{{ task.title }}</h3>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="button button-primary button-sm" style="padding: 0.2rem 0.6rem; min-height: auto; font-size: 0.8rem;" type="button" (click)="navigateToEvents()">
+                    Ver Evento ➔
+                  </button>
+                </div>
+              } @else {
+                <label class="agenda-task-toggle">
+                  <input class="checkbox-control" type="checkbox" [checked]="task.completed" [disabled]="savingTaskId === task.id" (change)="toggleTask(task)" />
+                  <h3 class="agenda-day-task-title" [style.text-decoration]="task.completed ? 'line-through' : 'none'">{{ task.title }}</h3>
+                  @if (!task.userId) {
+                    <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
+                  }
+                  <button type="button" (click)="toggleTaskPriority(task)" style="background: none; border: none; cursor: pointer; color: #ffb86c; font-size: 1.2rem; padding: 0; margin-left: 0.2rem;" title="Alternar Prioridade">
+                    {{ task.isPriority ? '★' : '☆' }}
+                  </button>
+                  @if (task.isPriority) { <span style="color: #ffb86c; font-size: 0.8rem; margin-left: 0.5rem; border: 1px solid #ffb86c; padding: 0.1rem 0.3rem; border-radius: 4px;">Urgente</span> }
+                </label>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="button button-text" style="padding: 0; min-height: auto;" type="button" (click)="startEditTask(task)">Editar</button>
+                  <span class="role-badge">{{ task.type }}</span>
+                </div>
+              }
             </header>
             @if (editingTaskId === task.id) {
               <div class="field" style="margin-top: 1rem;">

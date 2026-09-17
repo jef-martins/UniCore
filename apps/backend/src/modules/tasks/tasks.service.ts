@@ -30,6 +30,8 @@ export class TasksService {
   }
 
   async findAll(user: { sub: string; role: string }, sector?: string) {
+    let tasks: any[] = []
+
     if (sector) {
       const accessRole = sector.toUpperCase() as AccessRole
       const canAccessSector =
@@ -42,7 +44,7 @@ export class TasksService {
         if (accessRole === AccessRole.MASTER && user.role === 'admin') {
           // Ignora query se admin tentar buscar MASTER
         } else {
-          return this.prisma.task.findMany({
+          tasks = await this.prisma.task.findMany({
             where: {
               OR: [
                 { user: { role: accessRole } },
@@ -57,21 +59,74 @@ export class TasksService {
           })
         }
       }
+    } else {
+      const userRole = user.role.toUpperCase() as AccessRole
+      tasks = await this.prisma.task.findMany({
+        where: {
+          OR: [
+            { userId: user.sub },
+            { userId: null, sector: userRole },
+          ],
+        },
+        include: {
+          user: { select: { id: true, username: true, role: true } },
+          createdBy: { select: { id: true, username: true, role: true } },
+        },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      })
     }
 
     const userRole = user.role.toUpperCase() as AccessRole
-    return this.prisma.task.findMany({
-      where: {
-        OR: [
-          { userId: user.sub },
-          { userId: null, sector: userRole },
-        ],
-      },
-      include: {
-        user: { select: { id: true, username: true, role: true } },
-        createdBy: { select: { id: true, username: true, role: true } },
-      },
-      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+    const activeEvents = await this.prisma.certificateEvent.findMany({
+      where: { isActive: true },
+      orderBy: { startDate: 'asc' },
+    })
+
+    const eventTasks = activeEvents.map((ev) => {
+      const descParts = [
+        ev.speaker ? `Palestrante: ${ev.speaker}` : '',
+        `Carga Horária: ${ev.workloadHours}h`,
+        ev.location ? `Local: ${ev.location}` : '',
+        ev.description || '',
+      ].filter(Boolean)
+
+      return {
+        id: `ev-${ev.id}`,
+        title: `🎓 [Evento] ${ev.title}`,
+        description: descParts.join(' • '),
+        date: ev.startDate,
+        type: (userRole === AccessRole.ALUNO
+          ? TaskType.ALUNOS
+          : userRole === AccessRole.PROFESSOR
+          ? TaskType.PROFESSORES
+          : TaskType.COORDENACAO) as TaskType,
+        sector: sector ? (sector.toUpperCase() as AccessRole) : userRole,
+        completed: false,
+        isPriority: true,
+        createdAt: ev.createdAt,
+        completedAt: null,
+        updatedAt: ev.updatedAt,
+        userId: null,
+        createdById: ev.createdById,
+        attachmentName: ev.logoUrl ? 'Logo do Evento' : null,
+        attachmentPath: null,
+        attachmentSize: null,
+        attachmentMimeType: null,
+        completionNotes: null,
+        completionAttachmentName: null,
+        completionAttachmentPath: null,
+        completionAttachmentSize: null,
+        completionAttachmentMimeType: null,
+        user: null,
+        createdBy: null,
+      }
+    })
+
+    return [...tasks, ...eventTasks].sort((a, b) => {
+      const dateA = new Date(a.date).getTime()
+      const dateB = new Date(b.date).getTime()
+      if (dateA !== dateB) return dateA - dateB
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
   }
 
@@ -125,6 +180,9 @@ export class TasksService {
   }
 
   async complete(taskId: string, user: { sub: string; role: string }, notes?: string, file?: Express.Multer.File) {
+    if (taskId.startsWith('ev-')) {
+      throw new BadRequestException('Eventos acadêmicos devem ser gerenciados no painel de Eventos e Certificados.')
+    }
     const task = await this.prisma.task.findUnique({ where: { id: taskId } })
     if (!task) throw new NotFoundException('Tarefa não encontrada.')
 

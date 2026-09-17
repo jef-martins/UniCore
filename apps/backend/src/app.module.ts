@@ -10,6 +10,7 @@ import { TasksModule } from './modules/tasks/tasks.module'
 import { ClassroomModule } from './modules/classroom/classroom.module'
 import { ReservationsModule } from './modules/reservations/reservations.module'
 import { UnimestreModule } from './modules/unimestre/unimestre.module'
+import { CertificatesModule } from './modules/certificates/certificates.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UnimestreModule } from './modules/unimestre/unimestre.module'
     ClassroomModule,
     UnimestreModule,
     ReservationsModule,
+    CertificatesModule,
   ],
 })
 export class AppModule {}
