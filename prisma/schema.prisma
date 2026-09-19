@@ -57,6 +57,7 @@ model User {
   issuedCertificates CertificateEmissionLog[]
   createdEvents      CertificateEvent[]
   participatedEvents CertificateParticipant[]
+  registeredLeads    Lead[]                    @relation("RegisteredLeads")
 
   @@map("users")
 }
@@ -365,6 +366,112 @@ model CertificateParticipant {
   @@index([studentRa])
   @@index([userId])
   @@map("certificate_participants")
+}
+
+enum LeadStatus {
+  FALHOU
+  LEAD
+  INSCRICAO
+  MATRICULA
+}
+
+model Territory {
+  id             String         @id @default(uuid()) @db.Uuid
+  name           String
+  code           String?        @unique
+  description    String?
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  subterritories Subterritory[]
+
+  @@map("territories")
+}
+
+model Subterritory {
+  id            String         @id @default(uuid()) @db.Uuid
+  territoryId   String         @map("territory_id") @db.Uuid
+  territory     Territory      @relation(fields: [territoryId], references: [id], onDelete: Cascade)
+  name          String
+  code          String?
+  description   String?
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  neighborhoods Neighborhood[]
+
+  @@index([territoryId])
+  @@map("subterritories")
+}
+
+model Neighborhood {
+  id             String       @id @default(uuid()) @db.Uuid
+  subterritoryId String       @map("subterritory_id") @db.Uuid
+  subterritory   Subterritory @relation(fields: [subterritoryId], references: [id], onDelete: Cascade)
+  name           String
+  city           String?
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  streets        Street[]
+
+  @@index([subterritoryId])
+  @@map("neighborhoods")
+}
+
+model Street {
+  id             String            @id @default(uuid()) @db.Uuid
+  neighborhoodId String            @map("neighborhood_id") @db.Uuid
+  neighborhood   Neighborhood      @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  name           String
+  zipCode        String?           @map("zip_code")
+  isActive       Boolean           @default(true) @map("is_active")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  residences     ResidenceNumber[]
+
+  @@index([neighborhoodId])
+  @@map("streets")
+}
+
+model ResidenceNumber {
+  id          String   @id @default(uuid()) @db.Uuid
+  streetId    String   @map("street_id") @db.Uuid
+  street      Street   @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  number      String
+  complement  String?
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  leads       Lead[]
+
+  @@index([streetId])
+  @@map("residence_numbers")
+}
+
+model Lead {
+  id                String          @id @default(uuid()) @db.Uuid
+  residenceNumberId String          @map("residence_number_id") @db.Uuid
+  residenceNumber   ResidenceNumber @relation(fields: [residenceNumberId], references: [id], onDelete: Cascade)
+  name              String
+  whatsapp          String
+  courseOrArea      String          @map("course_or_area")
+  date              DateTime        @db.Date
+  origin            String          @default("VISITA_DOMICILIAR")
+  authorizedInfo    Boolean         @default(false) @map("authorized_info")
+  status            LeadStatus      @default(LEAD)
+  observations      String?
+  createdById       String?         @map("created_by_id") @db.Uuid
+  createdBy         User?           @relation("RegisteredLeads", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([residenceNumberId])
+  @@index([status])
+  @@index([date])
+  @@index([origin])
+  @@index([createdById])
+  @@map("leads")
 }
 
 

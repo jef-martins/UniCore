@@ -354,7 +354,8 @@ export class LayoutShellComponent implements OnInit {
           label: 'Dashboards',
           children: [
             { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' },
-            { href: '/administracao/dashboards/reservas', label: 'Relatório de Reservas' }
+            { href: '/administracao/dashboards/reservas', label: 'Relatório de Reservas' },
+            { href: '/administracao/dashboards/territorios', label: 'Territórios e Leads' }
           ]
         },
         { href: '/administracao/eventos', label: 'Eventos Acadêmicos' },
@@ -368,7 +369,9 @@ export class LayoutShellComponent implements OnInit {
           children: [
             { href: '/administracao/cadastros/usuarios', label: 'Cadastro de Usuário' },
             { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' },
-            { href: '/administracao/cadastros/eventos', label: 'Eventos para Certificados' }
+            { href: '/administracao/cadastros/eventos', label: 'Eventos para Certificados' },
+            { href: '/administracao/cadastros/territorios', label: 'Territórios' },
+            { href: '/administracao/cadastros/leads', label: 'Leads' }
           ]
         },
         { href: '/administracao/alterar-senha', label: 'Alterar Senha' },
@@ -386,7 +389,8 @@ export class LayoutShellComponent implements OnInit {
           label: 'Dashboards',
           children: [
             { href: '/desenvolvedor/dashboards/agenda', label: 'Relatório de Agenda' },
-            { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' }
+            { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' },
+            { href: '/desenvolvedor/dashboards/territorios', label: 'Territórios e Leads' }
           ]
         },
         { href: '/desenvolvedor/eventos', label: 'Eventos Acadêmicos' },
@@ -400,7 +404,9 @@ export class LayoutShellComponent implements OnInit {
           children: [
             { href: '/desenvolvedor/cadastros/usuarios', label: 'Cadastro de Usuário' },
             { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' },
-            { href: '/desenvolvedor/cadastros/eventos', label: 'Eventos para Certificados' }
+            { href: '/desenvolvedor/cadastros/eventos', label: 'Eventos para Certificados' },
+            { href: '/desenvolvedor/cadastros/territorios', label: 'Territórios' },
+            { href: '/desenvolvedor/cadastros/leads', label: 'Leads' }
           ]
         },
         { href: '/desenvolvedor/alterar-senha', label: 'Alterar Senha' },

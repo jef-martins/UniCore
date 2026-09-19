@@ -11,6 +11,7 @@ import { ClassroomModule } from './modules/classroom/classroom.module'
 import { ReservationsModule } from './modules/reservations/reservations.module'
 import { UnimestreModule } from './modules/unimestre/unimestre.module'
 import { CertificatesModule } from './modules/certificates/certificates.module'
+import { TerritoriesModule } from './modules/territories/territories.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CertificatesModule } from './modules/certificates/certificates.module'
     UnimestreModule,
     ReservationsModule,
     CertificatesModule,
+    TerritoriesModule,
   ],
 })
 export class AppModule {}

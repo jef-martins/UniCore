@@ -50,6 +50,13 @@ export const appRoutes: Routes = [
         title: 'UniCore | Relatório de Reservas',
       },
       {
+        path: 'administracao/dashboards/territorios',
+        loadComponent: () => import('./pages/territory-dashboard-page.component').then(m => m.TerritoryDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Relatório de Territórios & Leads',
+      },
+      {
         path: 'desenvolvedor/dashboards',
         component: ModulePageComponent,
         canActivate: [roleGuard],
@@ -74,6 +81,13 @@ export const appRoutes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['master'] },
         title: 'UniCore | Relatório de Reservas',
+      },
+      {
+        path: 'desenvolvedor/dashboards/territorios',
+        loadComponent: () => import('./pages/territory-dashboard-page.component').then(m => m.TerritoryDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Relatório de Territórios & Leads',
       },
       { path: 'agenda', component: AgendaPageComponent, title: 'UniCore | Agenda' },
       
@@ -253,6 +267,20 @@ export const appRoutes: Routes = [
         title: 'UniCore | Eventos para Certificados',
       },
       {
+        path: 'administracao/cadastros/territorios',
+        loadComponent: () => import('./pages/territory-management-page.component').then(m => m.TerritoryManagementPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Cadastro de Territórios',
+      },
+      {
+        path: 'administracao/cadastros/leads',
+        loadComponent: () => import('./pages/leads-page.component').then(m => m.LeadsPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Gestão de Leads',
+      },
+      {
         path: 'desenvolvedor/cadastros/usuarios',
         loadComponent: () => import('./pages/user-registration-page.component').then(m => m.UserRegistrationPageComponent),
         canActivate: [roleGuard],
@@ -277,6 +305,20 @@ export const appRoutes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['master'] },
         title: 'UniCore | Eventos para Certificados',
+      },
+      {
+        path: 'desenvolvedor/cadastros/territorios',
+        loadComponent: () => import('./pages/territory-management-page.component').then(m => m.TerritoryManagementPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Cadastro de Territórios',
+      },
+      {
+        path: 'desenvolvedor/cadastros/leads',
+        loadComponent: () => import('./pages/leads-page.component').then(m => m.LeadsPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Gestão de Leads',
       },
       {
         path: 'aluno/eventos',
