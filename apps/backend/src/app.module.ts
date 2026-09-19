@@ -19,7 +19,7 @@ import { TerritoriesModule } from './modules/territories/territories.module'
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'dist/apps/frontend/browser'),
       serveRoot: '/',
-      exclude: ['/api/(.*)'],
+      exclude: ['/api', '/api/*path'],
     }),
     DatabaseModule,
     AuthModule,
