@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { RouterModule } from '@angular/router'
+import { Router, RouterModule } from '@angular/router'
 import {
   LeadStatus,
   TerritoryDashboardData,
@@ -18,17 +18,17 @@ import {
       <!-- Cabeçalho -->
       <header class="page-header-container">
         <div class="header-info">
-          <p class="hero-eyebrow">Administração / Dashboards</p>
+          <p class="hero-eyebrow">{{ eyebrow }}</p>
           <h1 id="page-title" class="page-title">Painel Analítico de Territórios & Leads</h1>
           <p class="page-subtitle">
             Quantificação consolidada de cobertura geográfica, progressão da regra de conclusão em cascata, funil de conversão e preferências dos leads.
           </p>
         </div>
         <div class="header-actions">
-          <a class="button button-secondary" routerLink="/administracao/cadastros/territorios">
+          <a class="button button-secondary" [routerLink]="territoriesRoute">
             <span aria-hidden="true">🗺</span> Gerenciar Territórios
           </a>
-          <a class="button button-secondary" routerLink="/administracao/cadastros/leads">
+          <a class="button button-secondary" [routerLink]="leadsRoute">
             <span aria-hidden="true">📋</span> Base de Leads
           </a>
           <button class="button button-primary" (click)="loadDashboard()">
@@ -1502,7 +1502,25 @@ export class TerritoryDashboardPageComponent implements OnInit {
     origin: '',
   }
 
-  constructor(private readonly territoryService: TerritoryService) {}
+  territoriesRoute = '/administracao/cadastros/territorios'
+  leadsRoute = '/administracao/cadastros/leads'
+  eyebrow = 'Administração / Dashboards'
+
+  constructor(
+    private readonly territoryService: TerritoryService,
+    private readonly router: Router,
+  ) {
+    const url = this.router.url
+    if (url.includes('/vestibular/')) {
+      this.territoriesRoute = '/vestibular/cadastros/territorios'
+      this.leadsRoute = '/vestibular/cadastros/leads'
+      this.eyebrow = 'Vestibular / Dashboards'
+    } else if (url.includes('/desenvolvedor/')) {
+      this.territoriesRoute = '/desenvolvedor/cadastros/territorios'
+      this.leadsRoute = '/desenvolvedor/cadastros/leads'
+      this.eyebrow = 'Desenvolvedor / Dashboards'
+    }
+  }
 
   ngOnInit(): void {
     this.loadTerritories()

@@ -283,6 +283,15 @@ export class LayoutShellComponent implements OnInit {
       children: [
         { href: '/vestibular/corrigir', label: 'Corrigir Avaliação' },
         { href: '/vestibular/agenda', label: 'Agenda' },
+        {
+          href: '/vestibular/cadastros',
+          label: 'Cadastros',
+          children: [
+            { href: '/vestibular/cadastros/territorios', label: 'Territórios' },
+            { href: '/vestibular/cadastros/mapa', label: 'Mapa Interativo' },
+            { href: '/vestibular/cadastros/leads', label: 'Leads' },
+          ]
+        },
         { href: '/vestibular/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -371,6 +380,7 @@ export class LayoutShellComponent implements OnInit {
             { href: '/administracao/cadastros/itens-reserva', label: 'Itens de Reserva' },
             { href: '/administracao/cadastros/eventos', label: 'Eventos para Certificados' },
             { href: '/administracao/cadastros/territorios', label: 'Territórios' },
+            { href: '/administracao/cadastros/mapa', label: 'Mapa Interativo' },
             { href: '/administracao/cadastros/leads', label: 'Leads' }
           ]
         },
@@ -406,6 +416,7 @@ export class LayoutShellComponent implements OnInit {
             { href: '/desenvolvedor/cadastros/itens-reserva', label: 'Itens de Reserva' },
             { href: '/desenvolvedor/cadastros/eventos', label: 'Eventos para Certificados' },
             { href: '/desenvolvedor/cadastros/territorios', label: 'Territórios' },
+            { href: '/desenvolvedor/cadastros/mapa', label: 'Mapa Interativo' },
             { href: '/desenvolvedor/cadastros/leads', label: 'Leads' }
           ]
         },

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { RouterModule } from '@angular/router'
+import { Router, RouterModule } from '@angular/router'
 import {
   LeadItem,
   NeighborhoodItem,
@@ -14,6 +14,17 @@ import {
 } from '../services/territory.service'
 import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component'
 import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils'
+import {
+  TrafficLightInfo,
+  buildFullAddress,
+  classifyCompositeTrafficLight,
+  classifyNeighborhoodTrafficLight,
+  classifyStreetTrafficLight,
+  classifySubterritoryTrafficLight,
+  classifyTerritoryTrafficLight,
+  formatGoogleMapsUrl,
+  getTrafficLightInfo,
+} from './map-utils'
 
 @Component({
   selector: 'app-territory-management-page',
@@ -24,20 +35,23 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
       <!-- Cabeçalho Principal -->
       <header class="page-header-container">
         <div class="header-info">
-          <p class="hero-eyebrow">Administração / Cadastros</p>
+          <p class="hero-eyebrow">{{ eyebrow }}</p>
           <h1 id="page-title" class="page-title">Gestão Territorial e Abordagens</h1>
           <p class="page-subtitle">
             Cadastre territórios, subterritórios, bairros, ruas e residências. O status de conclusão de cada nível é atualizado automaticamente conforme os leads são registrados.
           </p>
         </div>
         <div class="header-actions">
+          <a class="button button-secondary" [routerLink]="mapRoute">
+            <span aria-hidden="true">🗺️</span> Mapa Interativo
+          </a>
           <button class="button button-primary" type="button" (click)="openCreateTerritoryModal()">
             <span aria-hidden="true">＋</span> Novo Território
           </button>
-          <a class="button button-secondary" routerLink="/administracao/cadastros/leads">
+          <a class="button button-secondary" [routerLink]="leadsRoute">
             <span aria-hidden="true">📋</span> Ver Todos os Leads
           </a>
-          <a class="button button-secondary" routerLink="/administracao/dashboards/territorios">
+          <a class="button button-secondary" [routerLink]="dashboardRoute">
             <span aria-hidden="true">📊</span> Dashboards
           </a>
         </div>
@@ -155,13 +169,22 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                     <div class="card-eyebrow" *ngIf="t.code">{{ t.code }}</div>
                     <h3 class="card-title">{{ t.name }}</h3>
                   </div>
-                  <span
-                    class="status-badge"
-                    [class.completed]="t.stats.isCompleted"
-                    [class.in-progress]="!t.stats.isCompleted && t.stats.progressPercentage > 0"
-                  >
-                    {{ t.stats.isCompleted ? '✓ Concluído' : (t.stats.progressPercentage > 0 ? t.stats.progressPercentage + '% Concluído' : 'Pendente') }}
-                  </span>
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <span
+                      class="badge-traffic"
+                      [ngClass]="getTerritoryTraffic(t).badgeClass"
+                      [title]="getTerritoryTraffic(t).description"
+                    >
+                      {{ getTerritoryTraffic(t).icon }} {{ getTerritoryTraffic(t).status }}
+                    </span>
+                    <span
+                      class="status-badge"
+                      [class.completed]="t.stats.isCompleted"
+                      [class.in-progress]="!t.stats.isCompleted && t.stats.progressPercentage > 0"
+                    >
+                      {{ t.stats.isCompleted ? '✓ Concluído' : (t.stats.progressPercentage > 0 ? t.stats.progressPercentage + '% Concluído' : 'Pendente') }}
+                    </span>
+                  </div>
                 </div>
 
                 <p class="card-desc">{{ t.description || 'Sem descrição informada.' }}</p>
@@ -269,6 +292,7 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                     <th>Residências</th>
                     <th>Progresso</th>
                     <th>Status</th>
+                    <th>Semáforo</th>
                     <th class="text-right">Ações</th>
                   </tr>
                 </thead>
@@ -298,6 +322,15 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                       <td>
                         <span class="badge" [class.badge-success]="sub.stats?.isCompleted" [class.badge-info]="!sub.stats?.isCompleted && (sub.stats?.progressPercentage || 0) > 0">
                           {{ sub.stats?.isCompleted ? 'Concluído' : ((sub.stats?.progressPercentage || 0) > 0 ? 'Em Andamento' : 'Pendente') }}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          class="badge-traffic"
+                          [ngClass]="getSubterritoryTraffic(sub).badgeClass"
+                          [title]="getSubterritoryTraffic(sub).description"
+                        >
+                          {{ getSubterritoryTraffic(sub).icon }} {{ getSubterritoryTraffic(sub).status }}
                         </span>
                       </td>
                       <td class="text-right">
@@ -357,6 +390,7 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                     <th>Residências Visitadas</th>
                     <th>Progresso</th>
                     <th>Status</th>
+                    <th>Semáforo</th>
                     <th class="text-right">Ações</th>
                   </tr>
                 </thead>
@@ -383,6 +417,15 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                       <td>
                         <span class="badge" [class.badge-success]="n.stats?.isCompleted" [class.badge-info]="!n.stats?.isCompleted && (n.stats?.progressPercentage || 0) > 0">
                           {{ n.stats?.isCompleted ? 'Concluído' : ((n.stats?.progressPercentage || 0) > 0 ? 'Em Andamento' : 'Pendente') }}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          class="badge-traffic"
+                          [ngClass]="getNeighborhoodTraffic(n).badgeClass"
+                          [title]="getNeighborhoodTraffic(n).description"
+                        >
+                          {{ getNeighborhoodTraffic(n).icon }} {{ getNeighborhoodTraffic(n).status }}
                         </span>
                       </td>
                       <td class="text-right">
@@ -441,6 +484,7 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                     <th>Residências com Lead</th>
                     <th>Progresso da Rua</th>
                     <th>Status da Rua</th>
+                    <th>Semáforo (Meta 20)</th>
                     <th class="text-right">Ações</th>
                   </tr>
                 </thead>
@@ -469,6 +513,27 @@ import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils
                         <span class="badge" [class.badge-success]="s.stats?.isCompleted" [class.badge-info]="!s.stats?.isCompleted && (s.stats?.progressPercentage || 0) > 0">
                           {{ s.stats?.isCompleted ? '✓ Rua Concluída' : ((s.stats?.progressPercentage || 0) > 0 ? 'Em Andamento' : 'Pendente') }}
                         </span>
+                      </td>
+                      <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span
+                            class="badge-traffic"
+                            [ngClass]="getStreetTraffic(s).badgeClass"
+                            [title]="getStreetTraffic(s).description"
+                          >
+                            {{ getStreetTraffic(s).icon }} {{ getStreetTraffic(s).status }} ({{ getStreetLeadCount(s) }}/20)
+                          </span>
+                          <a
+                            [href]="getStreetGoogleMapsUrl(s)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn-icon-map"
+                            title="Abrir no Google Maps"
+                            style="text-decoration: none; font-size: 1.1rem; line-height: 1;"
+                          >
+                            📍
+                          </a>
+                        </div>
                       </td>
                       <td class="text-right">
                         <button class="button button-primary btn-xs" (click)="selectStreet(s)">
@@ -1950,7 +2015,28 @@ export class TerritoryManagementPageComponent implements OnInit {
   leadResidenceContext?: ResidenceContextInfo
   leadToEdit?: LeadItem | null
 
-  constructor(private readonly territoryService: TerritoryService) {}
+  mapRoute = '/administracao/cadastros/mapa'
+  leadsRoute = '/administracao/cadastros/leads'
+  dashboardRoute = '/administracao/dashboards/territorios'
+  eyebrow = 'Administração / Cadastros'
+
+  constructor(
+    private readonly territoryService: TerritoryService,
+    private readonly router: Router,
+  ) {
+    const url = this.router.url
+    if (url.includes('/vestibular/')) {
+      this.mapRoute = '/vestibular/cadastros/mapa'
+      this.leadsRoute = '/vestibular/cadastros/leads'
+      this.dashboardRoute = '/vestibular/dashboards/territorios'
+      this.eyebrow = 'Vestibular / Cadastros'
+    } else if (url.includes('/desenvolvedor/')) {
+      this.mapRoute = '/desenvolvedor/cadastros/mapa'
+      this.leadsRoute = '/desenvolvedor/cadastros/leads'
+      this.dashboardRoute = '/desenvolvedor/dashboards/territorios'
+      this.eyebrow = 'Desenvolvedor / Cadastros'
+    }
+  }
 
   ngOnInit(): void {
     this.loadTerritories()
@@ -2701,5 +2787,71 @@ export class TerritoryManagementPageComponent implements OnInit {
       if (modalType === 'residence') this.showResidenceModal = false
       if (modalType === 'batchResidence') this.showBatchResidenceModal = false
     }
+  }
+
+  // --- Métodos de Semáforo Hierárquico e Google Maps ---
+
+  getTerritoryTraffic(t: TerritoryItem): TrafficLightInfo {
+    if (t.stats?.isCompleted) {
+      return getTrafficLightInfo('VERDE')
+    }
+    if (this.activeTerritory && this.activeTerritory.id === t.id && this.activeTerritory.subterritories?.length > 0) {
+      const subStatuses = this.activeTerritory.subterritories.map(sub => this.getSubterritoryTraffic(sub).status)
+      return getTrafficLightInfo(classifyCompositeTrafficLight(subStatuses))
+    }
+    const avgLeadsPerStreet = t.stats.totalStreets > 0 ? (t.stats.totalLeads / t.stats.totalStreets) : 0
+    return getTrafficLightInfo(classifyStreetTrafficLight(avgLeadsPerStreet))
+  }
+
+  getSubterritoryTraffic(sub: SubterritoryItem): TrafficLightInfo {
+    const isCompleted = sub.stats?.isCompleted === true || (sub.stats?.totalNeighborhoods != null && sub.stats.totalNeighborhoods > 0 && sub.stats.completedNeighborhoods === sub.stats.totalNeighborhoods)
+    if (isCompleted) {
+      return getTrafficLightInfo('VERDE')
+    }
+    if (sub.neighborhoods && sub.neighborhoods.length > 0) {
+      const nStatuses = sub.neighborhoods.map(n => this.getNeighborhoodTraffic(n).status)
+      return getTrafficLightInfo(classifyCompositeTrafficLight(nStatuses))
+    }
+    const avg = (sub.stats?.totalStreets && sub.stats.totalStreets > 0)
+      ? ((sub.stats.visitedResidences || 0) / sub.stats.totalStreets)
+      : 0
+    return getTrafficLightInfo(classifyStreetTrafficLight(avg))
+  }
+
+  getNeighborhoodTraffic(n: NeighborhoodItem): TrafficLightInfo {
+    const isCompleted = n.stats?.isCompleted === true || (n.stats?.totalStreets != null && n.stats.totalStreets > 0 && n.stats.completedStreets === n.stats.totalStreets)
+    if (isCompleted) {
+      return getTrafficLightInfo('VERDE')
+    }
+    if (n.streets && n.streets.length > 0) {
+      const sStatuses = n.streets.map(s => this.getStreetTraffic(s).status)
+      return getTrafficLightInfo(classifyCompositeTrafficLight(sStatuses))
+    }
+    const count = n.stats?.visitedResidences || 0
+    return getTrafficLightInfo(classifyStreetTrafficLight(count))
+  }
+
+  getStreetLeadCount(s: StreetItem): number {
+    if (s.residences && s.residences.length > 0) {
+      return s.residences.reduce((acc, r) => acc + (r.leads?.length || 0), 0)
+    }
+    return s.stats?.visitedResidences || 0
+  }
+
+  getStreetTraffic(s: StreetItem): TrafficLightInfo {
+    const isCompleted = s.stats?.isCompleted === true || (s.stats?.totalResidences != null && s.stats.totalResidences > 0 && s.stats.visitedResidences === s.stats.totalResidences)
+    return getTrafficLightInfo(classifyStreetTrafficLight(this.getStreetLeadCount(s), isCompleted))
+  }
+
+  getStreetGoogleMapsUrl(s: StreetItem): string {
+    const neighborhoodName = this.activeNeighborhood?.name || ''
+    const cityName = this.activeNeighborhood?.city || 'Marília'
+    const full = buildFullAddress({
+      streetName: s.name,
+      neighborhoodName,
+      cityName,
+      cep: s.zipCode || undefined,
+    })
+    return formatGoogleMapsUrl(full)
   }
 }

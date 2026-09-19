@@ -1,7 +1,7 @@
-import { CommonModule } from '@angular/common'
-import { Component, OnInit } from '@angular/core'
+import { CommonModule, isPlatformBrowser } from '@angular/common'
+import { Component, Inject, OnDestroy, OnInit, PLATFORM_ID } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { RouterModule } from '@angular/router'
+import { Router, RouterModule } from '@angular/router'
 import {
   LeadItem,
   LeadStatus,
@@ -9,6 +9,15 @@ import {
   TerritoryService,
 } from '../services/territory.service'
 import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component'
+import {
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+  buildFullAddress,
+  createMapPinSvg,
+  formatGoogleMapsRouteUrl,
+  formatGoogleMapsUrl,
+  getDeterministicCoordinates,
+} from './map-utils'
 
 @Component({
   selector: 'app-leads-page',
@@ -19,17 +28,23 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
       <!-- Cabeçalho -->
       <header class="page-header-container">
         <div class="header-info">
-          <p class="hero-eyebrow">Administração / Cadastros</p>
+          <p class="hero-eyebrow">{{ eyebrow }}</p>
           <h1 id="page-title" class="page-title">Gestão e Acompanhamento de Leads</h1>
           <p class="page-subtitle">
             Consulte, filtre e acompanhe todas as abordagens e visitas domiciliares realizadas no território com status de conversão e contato via WhatsApp.
           </p>
         </div>
         <div class="header-actions">
-          <a class="button button-secondary" routerLink="/administracao/cadastros/territorios">
-            <span aria-hidden="true">🗺</span> Mapa de Territórios
+          <button class="button button-primary" type="button" (click)="openCreateLeadModal()">
+            <span aria-hidden="true">＋</span> Cadastrar Lead
+          </button>
+          <a class="button button-secondary" [routerLink]="mapRoute">
+            <span aria-hidden="true">🗺️</span> Mapa de Territórios
           </a>
-          <a class="button button-secondary" routerLink="/administracao/dashboards/territorios">
+          <a class="button button-secondary" [routerLink]="territoriesRoute">
+            <span aria-hidden="true">🏢</span> Gestão Territorial
+          </a>
+          <a class="button button-secondary" [routerLink]="dashboardRoute">
             <span aria-hidden="true">📊</span> Dashboards & Funil
           </a>
         </div>
@@ -150,13 +165,44 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
         </div>
       </div>
 
+      <!-- Barra de Alternância de Visão -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button
+          type="button"
+          class="button"
+          [ngClass]="activeView === 'tabela' ? 'button-primary' : 'button-secondary'"
+          (click)="setView('tabela')"
+        >
+          📋 Modo Tabela ({{ leads.length }})
+        </button>
+        <button
+          type="button"
+          class="button"
+          [ngClass]="activeView === 'mapa' ? 'button-primary' : 'button-secondary'"
+          (click)="setView('mapa')"
+        >
+          🗺️ Visualização no Mapa
+        </button>
+      </div>
+
+      <!-- VISÃO: MAPA INTERATIVO -->
+      @if (activeView === 'mapa') {
+        <div style="margin-bottom: 24px;">
+          <div id="leads-map-canvas" style="height: 600px; width: 100%; border-radius: 14px; border: 1px solid var(--border-color, #3f3f46);"></div>
+        </div>
+      }
+
       <!-- Tabela de Leads -->
+      @if (activeView === 'tabela') {
       <div class="table-container">
         @if (isLoading) {
           <div class="loading-state">Carregando leads...</div>
         } @else if (leads.length === 0) {
           <div class="empty-state">
             <p>Nenhum lead encontrado com os filtros selecionados.</p>
+            <button class="button button-primary" type="button" (click)="openCreateLeadModal()" style="margin-top: 12px;">
+              <span aria-hidden="true">＋</span> Cadastrar Primeiro Lead
+            </button>
           </div>
         } @else {
           <table class="leads-table">
@@ -200,9 +246,21 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
                   </td>
                   <td>
                     <div class="location-stack">
-                      <span class="street-name">
-                        {{ lead.residenceNumber?.street?.name }}, nº {{ lead.residenceNumber?.number }}
-                      </span>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="street-name">
+                          {{ lead.residenceNumber?.street?.name }}, nº {{ lead.residenceNumber?.number }}
+                        </span>
+                        <a
+                          [href]="getLeadGoogleMapsUrl(lead)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="btn-icon-map"
+                          title="Abrir no Google Maps"
+                          style="text-decoration: none; font-size: 1rem; line-height: 1;"
+                        >
+                          📍
+                        </a>
+                      </div>
                       <span class="area-sub">
                         {{ lead.residenceNumber?.street?.neighborhood?.name }} — 
                         {{ lead.residenceNumber?.street?.neighborhood?.subterritory?.territory?.name }}
@@ -237,6 +295,7 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
           </table>
         }
       </div>
+      }
 
       <!-- Modal de Edição de Lead -->
       <app-lead-modal
@@ -500,12 +559,17 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
     }
   `],
 })
-export class LeadsPageComponent implements OnInit {
+export class LeadsPageComponent implements OnInit, OnDestroy {
   leads: LeadItem[] = []
   territories: TerritoryItem[] = []
   isLoading = false
   globalSuccess = ''
   globalError = ''
+
+  activeView: 'tabela' | 'mapa' = 'tabela'
+  private map: any = null
+  private leaflet: any = null
+  private markerInstances: any[] = []
 
   filters = {
     search: '',
@@ -518,11 +582,40 @@ export class LeadsPageComponent implements OnInit {
   selectedResidenceContext?: ResidenceContextInfo
   selectedLeadToEdit?: LeadItem | null
 
-  constructor(private readonly territoryService: TerritoryService) {}
+  mapRoute = '/administracao/cadastros/mapa'
+  territoriesRoute = '/administracao/cadastros/territorios'
+  dashboardRoute = '/administracao/dashboards/territorios'
+  eyebrow = 'Administração / Cadastros'
+
+  constructor(
+    private readonly territoryService: TerritoryService,
+    @Inject(PLATFORM_ID) private readonly platformId: object,
+    private readonly router: Router,
+  ) {
+    const url = this.router.url
+    if (url.includes('/vestibular/')) {
+      this.mapRoute = '/vestibular/cadastros/mapa'
+      this.territoriesRoute = '/vestibular/cadastros/territorios'
+      this.dashboardRoute = '/vestibular/dashboards/territorios'
+      this.eyebrow = 'Vestibular / Cadastros'
+    } else if (url.includes('/desenvolvedor/')) {
+      this.mapRoute = '/desenvolvedor/cadastros/mapa'
+      this.territoriesRoute = '/desenvolvedor/cadastros/territorios'
+      this.dashboardRoute = '/desenvolvedor/dashboards/territorios'
+      this.eyebrow = 'Desenvolvedor / Cadastros'
+    }
+  }
 
   ngOnInit(): void {
     this.loadTerritories()
     this.loadLeads()
+  }
+
+  ngOnDestroy(): void {
+    if (this.map) {
+      this.map.remove()
+      this.map = null
+    }
   }
 
   loadTerritories(): void {
@@ -544,6 +637,9 @@ export class LeadsPageComponent implements OnInit {
         next: (data) => {
           this.leads = data
           this.isLoading = false
+          if (this.activeView === 'mapa') {
+            this.renderLeadsOnMap()
+          }
         },
         error: () => {
           this.globalError = 'Erro ao carregar lista de leads.'
@@ -609,8 +705,14 @@ export class LeadsPageComponent implements OnInit {
     this.showLeadModal = true
   }
 
-  onLeadSaved(updated: LeadItem): void {
-    this.globalSuccess = `Lead de ${updated.name} atualizado!`
+  openCreateLeadModal(): void {
+    this.selectedLeadToEdit = null
+    this.selectedResidenceContext = undefined
+    this.showLeadModal = true
+  }
+
+  onLeadSaved(savedLead: LeadItem): void {
+    this.globalSuccess = `Lead de ${savedLead.name} salvo com sucesso!`
     this.loadLeads()
   }
 
@@ -682,5 +784,121 @@ export class LeadsPageComponent implements OnInit {
     const raw = phone.replace(/\D/g, '')
     const full = raw.startsWith('55') ? raw : `55${raw}`
     return `https://wa.me/${full}`
+  }
+
+  // --- Visualização em Mapa e Integração com Google Maps ---
+
+  setView(view: 'tabela' | 'mapa'): void {
+    this.activeView = view
+    if (view === 'mapa') {
+      setTimeout(() => {
+        this.initLeadsMap()
+      }, 50)
+    }
+  }
+
+  getLeadFullAddress(lead: LeadItem): string {
+    return buildFullAddress({
+      streetName: lead.residenceNumber?.street?.name,
+      number: lead.residenceNumber?.number,
+      neighborhoodName: lead.residenceNumber?.street?.neighborhood?.name,
+      cityName: 'Marília',
+    })
+  }
+
+  getLeadGoogleMapsUrl(lead: LeadItem): string {
+    return formatGoogleMapsUrl(this.getLeadFullAddress(lead))
+  }
+
+  private async initLeadsMap(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) return
+
+    const container = document.getElementById('leads-map-canvas')
+    if (!container) return
+
+    if (!this.leaflet) {
+      this.leaflet = await import('leaflet')
+    }
+
+    if (this.map) {
+      this.map.remove()
+      this.map = null
+    }
+
+    const L = this.leaflet
+    this.map = L.map('leads-map-canvas', {
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+    })
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(this.map)
+
+    this.renderLeadsOnMap()
+  }
+
+  private renderLeadsOnMap(): void {
+    if (!this.map || !this.leaflet) return
+
+    this.markerInstances.forEach(m => this.map.removeLayer(m))
+    this.markerInstances = []
+
+    const L = this.leaflet
+
+    this.leads.forEach((lead, idx) => {
+      const fullAddress = this.getLeadFullAddress(lead)
+      const seed = `${lead.name}_${lead.residenceNumber?.street?.name}_${lead.residenceNumber?.number}`
+      const coords = getDeterministicCoordinates(seed, idx)
+
+      let fillColor = '#3b82f6'
+      if (lead.status === 'MATRICULA') fillColor = '#22c55e'
+      else if (lead.status === 'INSCRICAO') fillColor = '#f59e0b'
+      else if (lead.status === 'FALHOU') fillColor = '#ef4444'
+
+      const customIcon = L.divIcon({
+        className: 'custom-leaflet-lead-pin',
+        html: createMapPinSvg({
+          fillColor,
+          borderColor: '#ffffff',
+          iconChar: '👤',
+          size: 32,
+        }),
+        iconSize: [32, 42],
+        iconAnchor: [16, 42],
+        popupAnchor: [0, -38],
+      })
+
+      const popupHtml = `
+        <div style="min-width: 220px;">
+          <div class="map-popup-header">
+            <h4 class="map-popup-title">${lead.name}</h4>
+            <span class="badge ${this.getLeadStatusBadgeClass(lead.status)}" style="font-size: 0.72rem; padding: 2px 6px;">
+              ${this.getLeadStatusLabel(lead.status)}
+            </span>
+          </div>
+          <div style="font-size: 0.8rem; color: #93c5fd; margin-bottom: 4px;">
+            🎓 ${lead.courseOrArea}
+          </div>
+          <p class="map-popup-address">📍 ${fullAddress}</p>
+          <div class="map-popup-actions">
+            <a href="${this.getWhatsappLink(lead.whatsapp)}" target="_blank" rel="noopener noreferrer" class="map-action-btn map-action-btn-primary">
+              💬 WhatsApp
+            </a>
+            <a href="${this.getLeadGoogleMapsUrl(lead)}" target="_blank" rel="noopener noreferrer" class="map-action-btn map-action-btn-secondary">
+              📍 Google Maps
+            </a>
+          </div>
+        </div>
+      `
+
+      const marker = L.marker([coords[0], coords[1]], { icon: customIcon })
+        .bindPopup(popupHtml)
+        .addTo(this.map)
+
+      this.markerInstances.push(marker)
+    })
   }
 }

@@ -11,6 +11,12 @@ import { FormsModule } from '@angular/forms'
 import {
   LeadItem,
   LeadStatus,
+  NeighborhoodItem,
+  ResidenceNumberItem,
+  StreetItem,
+  SubterritoryItem,
+  TerritoryHierarchy,
+  TerritoryItem,
   TerritoryService,
 } from '../services/territory.service'
 
@@ -33,17 +39,29 @@ export interface ResidenceContextInfo {
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
           <header class="modal-header">
             <div>
-              <div class="breadcrumb-context">
-                {{ residenceContext?.territoryName }} ❯ 
-                {{ residenceContext?.subterritoryName }} ❯ 
-                {{ residenceContext?.neighborhoodName }}
-              </div>
-              <h2 id="modal-title" class="modal-title">
-                {{ leadToEdit ? 'Editar Lead' : 'Cadastrar Lead / Visita' }} — Nº {{ residenceContext?.residenceNumber }}
-              </h2>
-              <p class="residence-sub">
-                Logradouro: <strong>{{ residenceContext?.streetName }}, nº {{ residenceContext?.residenceNumber }}</strong>
-              </p>
+              @if (residenceContext) {
+                <div class="breadcrumb-context">
+                  {{ residenceContext.territoryName }} ❯ 
+                  {{ residenceContext.subterritoryName }} ❯ 
+                  {{ residenceContext.neighborhoodName }}
+                </div>
+                <h2 id="modal-title" class="modal-title">
+                  {{ leadToEdit ? 'Editar Lead' : 'Cadastrar Lead / Visita' }} — Nº {{ residenceContext.residenceNumber }}
+                </h2>
+                <p class="residence-sub">
+                  Logradouro: <strong>{{ residenceContext.streetName }}, nº {{ residenceContext.residenceNumber }}</strong>
+                </p>
+              } @else {
+                <div class="breadcrumb-context">
+                  Captação Territorial & Leads
+                </div>
+                <h2 id="modal-title" class="modal-title">
+                  {{ leadToEdit ? 'Editar Lead' : 'Cadastrar Novo Lead' }}
+                </h2>
+                <p class="residence-sub">
+                  Preencha as informações do lead e selecione o endereço de localização.
+                </p>
+              }
             </div>
             <button class="btn-close" type="button" (click)="closeModal()" aria-label="Fechar">✕</button>
           </header>
@@ -52,6 +70,136 @@ export interface ResidenceContextInfo {
             @if (errorMessage) {
               <div class="alert-box alert-error">
                 <span>⚠ {{ errorMessage }}</span>
+              </div>
+            }
+
+            @if (!residenceContext && !leadToEdit) {
+              <div class="location-picker-card">
+                <div class="location-picker-title">
+                  <span>📍</span> Localização Residencial da Abordagem
+                </div>
+                
+                <div class="form-grid location-grid">
+                  <!-- Território -->
+                  <div class="form-group">
+                    <label for="lead-sel-territory">Território *</label>
+                    <select
+                      id="lead-sel-territory"
+                      class="form-control"
+                      [(ngModel)]="selectedTerritoryId"
+                      (change)="onTerritoryChange()"
+                      name="selTerritory"
+                      required
+                    >
+                      <option value="" disabled selected>Selecione um Território...</option>
+                      @for (t of territoryList; track t.id) {
+                        <option [value]="t.id">{{ t.name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <!-- Subterritório -->
+                  <div class="form-group">
+                    <label for="lead-sel-sub">Subterritório *</label>
+                    <select
+                      id="lead-sel-sub"
+                      class="form-control"
+                      [(ngModel)]="selectedSubterritoryId"
+                      (change)="onSubterritoryChange()"
+                      name="selSub"
+                      [disabled]="!subterritoryList.length"
+                      required
+                    >
+                      <option value="" disabled selected>Selecione um Subterritório...</option>
+                      @for (sub of subterritoryList; track sub.id) {
+                        <option [value]="sub.id">{{ sub.name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <!-- Bairro -->
+                  <div class="form-group">
+                    <label for="lead-sel-neigh">Bairro *</label>
+                    <select
+                      id="lead-sel-neigh"
+                      class="form-control"
+                      [(ngModel)]="selectedNeighborhoodId"
+                      (change)="onNeighborhoodChange()"
+                      name="selNeigh"
+                      [disabled]="!neighborhoodList.length"
+                      required
+                    >
+                      <option value="" disabled selected>Selecione um Bairro...</option>
+                      @for (n of neighborhoodList; track n.id) {
+                        <option [value]="n.id">{{ n.name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <!-- Rua -->
+                  <div class="form-group">
+                    <label for="lead-sel-street">Rua / Logradouro *</label>
+                    <select
+                      id="lead-sel-street"
+                      class="form-control"
+                      [(ngModel)]="selectedStreetId"
+                      (change)="onStreetChange()"
+                      name="selStreet"
+                      [disabled]="!streetList.length"
+                      required
+                    >
+                      <option value="" disabled selected>Selecione uma Rua...</option>
+                      @for (s of streetList; track s.id) {
+                        <option [value]="s.id">{{ s.name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <!-- Residência / Número -->
+                  <div class="form-group full-width">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label for="lead-sel-residence">Número da Residência *</label>
+                      <button
+                        type="button"
+                        (click)="toggleCustomNumber()"
+                        style="background: none; border: none; color: #60a5fa; font-size: 0.8rem; cursor: pointer; text-decoration: underline;"
+                      >
+                        {{ isCustomNumber ? '⬅ Escolher número já mapeado' : '＋ Digitar outro número predial' }}
+                      </button>
+                    </div>
+
+                    @if (!isCustomNumber) {
+                      <select
+                        id="lead-sel-residence"
+                        class="form-control"
+                        [(ngModel)]="selectedResidenceId"
+                        name="selResidence"
+                        [disabled]="!residenceList.length"
+                        required
+                      >
+                        <option value="" disabled selected>Selecione o Número da Casa...</option>
+                        @for (r of residenceList; track r.id) {
+                          <option [value]="r.id">Nº {{ r.number }} {{ r.complement ? '(' + r.complement + ')' : '' }}</option>
+                        }
+                      </select>
+                      @if (selectedStreetId && residenceList.length === 0) {
+                        <p style="font-size: 0.8rem; color: #f59e0b; margin: 4px 0 0 0;">
+                          Nenhum número cadastrado nesta rua. Clique em "Digitar outro número predial" acima.
+                        </p>
+                      }
+                    } @else {
+                      <input
+                        id="lead-custom-number"
+                        type="text"
+                        class="form-control"
+                        placeholder="Ex: 120, 45-B, S/N"
+                        [(ngModel)]="customResidenceNumber"
+                        name="customNumber"
+                        required
+                      />
+                    }
+                  </div>
+                </div>
               </div>
             }
 
@@ -479,8 +627,30 @@ export interface ResidenceContextInfo {
       opacity: 0.5;
       cursor: not-allowed;
     }
+    .location-picker-card {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .location-picker-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #93c5fd;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .location-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
     @media (max-width: 600px) {
       .form-grid { grid-template-columns: 1fr; }
+      .location-grid { grid-template-columns: 1fr; }
       .full-width { grid-column: span 1; }
       .status-selector { grid-template-columns: repeat(2, 1fr); }
     }
@@ -519,6 +689,20 @@ export class LeadModalComponent implements OnChanges {
   isSaving = false
   errorMessage = ''
 
+  territoryList: TerritoryItem[] = []
+  subterritoryList: SubterritoryItem[] = []
+  neighborhoodList: NeighborhoodItem[] = []
+  streetList: StreetItem[] = []
+  residenceList: ResidenceNumberItem[] = []
+
+  selectedTerritoryId = ''
+  selectedSubterritoryId = ''
+  selectedNeighborhoodId = ''
+  selectedStreetId = ''
+  selectedResidenceId = ''
+  isCustomNumber = false
+  customResidenceNumber = ''
+
   constructor(private readonly territoryService: TerritoryService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -538,17 +722,123 @@ export class LeadModalComponent implements OnChanges {
         }
       } else {
         this.resetForm()
+        if (!this.residenceContext) {
+          this.loadTerritoryOptions()
+        }
       }
     }
   }
 
+  loadTerritoryOptions(): void {
+    this.territoryService.getTerritories().subscribe({
+      next: (data) => {
+        this.territoryList = data || []
+        if (this.territoryList.length === 1) {
+          this.selectedTerritoryId = this.territoryList[0].id
+          this.onTerritoryChange()
+        }
+      },
+    })
+  }
+
+  onTerritoryChange(): void {
+    this.selectedSubterritoryId = ''
+    this.selectedNeighborhoodId = ''
+    this.selectedStreetId = ''
+    this.selectedResidenceId = ''
+    this.subterritoryList = []
+    this.neighborhoodList = []
+    this.streetList = []
+    this.residenceList = []
+
+    if (!this.selectedTerritoryId) return
+
+    this.territoryService.getTerritoryHierarchy(this.selectedTerritoryId).subscribe({
+      next: (hierarchy: TerritoryHierarchy) => {
+        this.subterritoryList = hierarchy.subterritories || []
+        if (this.subterritoryList.length === 1) {
+          this.selectedSubterritoryId = this.subterritoryList[0].id
+          this.onSubterritoryChange()
+        }
+      },
+    })
+  }
+
+  onSubterritoryChange(): void {
+    this.selectedNeighborhoodId = ''
+    this.selectedStreetId = ''
+    this.selectedResidenceId = ''
+    this.neighborhoodList = []
+    this.streetList = []
+    this.residenceList = []
+
+    const sub = this.subterritoryList.find((s) => s.id === this.selectedSubterritoryId)
+    if (sub) {
+      this.neighborhoodList = sub.neighborhoods || []
+      if (this.neighborhoodList.length === 1) {
+        this.selectedNeighborhoodId = this.neighborhoodList[0].id
+        this.onNeighborhoodChange()
+      }
+    }
+  }
+
+  onNeighborhoodChange(): void {
+    this.selectedStreetId = ''
+    this.selectedResidenceId = ''
+    this.streetList = []
+    this.residenceList = []
+
+    const neigh = this.neighborhoodList.find((n) => n.id === this.selectedNeighborhoodId)
+    if (neigh) {
+      this.streetList = neigh.streets || []
+      if (this.streetList.length === 1) {
+        this.selectedStreetId = this.streetList[0].id
+        this.onStreetChange()
+      }
+    }
+  }
+
+  onStreetChange(): void {
+    this.selectedResidenceId = ''
+    this.residenceList = []
+
+    const street = this.streetList.find((s) => s.id === this.selectedStreetId)
+    if (street && street.residences && street.residences.length > 0) {
+      this.residenceList = street.residences
+      this.isCustomNumber = false
+    } else {
+      this.isCustomNumber = true
+    }
+  }
+
+  toggleCustomNumber(): void {
+    this.isCustomNumber = !this.isCustomNumber
+    if (this.isCustomNumber) {
+      this.selectedResidenceId = ''
+    }
+  }
+
   get isValid(): boolean {
-    return (
+    const basicValid =
       this.formData.name.trim().length >= 2 &&
       this.formData.whatsapp.trim().length >= 8 &&
       this.formData.courseOrArea.trim().length >= 2 &&
       Boolean(this.formData.date)
-    )
+
+    if (!basicValid) return false
+
+    // Se estiver editando ou tiver residenceContext prévio, localização já está garantida
+    if (this.leadToEdit || this.residenceContext?.residenceId) {
+      return true
+    }
+
+    // Caso contrário, precisa ter rua e residência selecionada ou número customizado informado
+    const hasStreet = Boolean(this.selectedStreetId)
+    const hasResidence = this.isCustomNumber
+      ? Boolean(this.customResidenceNumber.trim())
+      : Boolean(this.selectedResidenceId)
+
+    return hasStreet && hasResidence
   }
 
   get canOpenWhatsapp(): boolean {
@@ -602,39 +892,67 @@ export class LeadModalComponent implements OnChanges {
               err?.error?.message || 'Erro ao atualizar o lead.'
           },
         })
+    } else if (this.residenceContext?.residenceId) {
+      this.executeCreateLead(this.residenceContext.residenceId)
     } else {
-      if (!this.residenceContext?.residenceId) {
-        this.errorMessage = 'Identificador da residência ausente.'
-        this.isSaving = false
-        return
-      }
+      // Cadastro direto pela tela de leads
+      if (this.isCustomNumber && this.customResidenceNumber.trim()) {
+        if (!this.selectedStreetId) {
+          this.errorMessage = 'Selecione a rua antes de informar o número.'
+          this.isSaving = false
+          return
+        }
 
-      this.territoryService
-        .createLead({
-          residenceNumberId: this.residenceContext.residenceId,
-          name: this.formData.name.trim(),
-          whatsapp: this.formData.whatsapp.trim(),
-          courseOrArea: this.formData.courseOrArea.trim(),
-          date: this.formData.date,
-          origin: this.formData.origin,
-          authorizedInfo: this.formData.authorizedInfo,
-          effectiveContact: this.formData.effectiveContact,
-          status: this.formData.status,
-          observations: this.formData.observations.trim() || undefined,
-        })
-        .subscribe({
-          next: (created) => {
-            this.isSaving = false
-            this.saved.emit(created)
-            this.closeModal()
-          },
-          error: (err) => {
-            this.isSaving = false
-            this.errorMessage =
-              err?.error?.message || 'Erro ao cadastrar o lead.'
-          },
-        })
+        this.territoryService
+          .createResidenceNumber({
+            streetId: this.selectedStreetId,
+            number: this.customResidenceNumber.trim(),
+          })
+          .subscribe({
+            next: (newResidence) => {
+              this.executeCreateLead(newResidence.id)
+            },
+            error: (err) => {
+              this.isSaving = false
+              this.errorMessage =
+                err?.error?.message || 'Erro ao criar número de residência.'
+            },
+          })
+      } else if (this.selectedResidenceId) {
+        this.executeCreateLead(this.selectedResidenceId)
+      } else {
+        this.errorMessage = 'Selecione uma residência ou informe um número predial.'
+        this.isSaving = false
+      }
     }
+  }
+
+  private executeCreateLead(residenceId: string): void {
+    this.territoryService
+      .createLead({
+        residenceNumberId: residenceId,
+        name: this.formData.name.trim(),
+        whatsapp: this.formData.whatsapp.trim(),
+        courseOrArea: this.formData.courseOrArea.trim(),
+        date: this.formData.date,
+        origin: this.formData.origin,
+        authorizedInfo: this.formData.authorizedInfo,
+        effectiveContact: this.formData.effectiveContact,
+        status: this.formData.status,
+        observations: this.formData.observations.trim() || undefined,
+      })
+      .subscribe({
+        next: (created) => {
+          this.isSaving = false
+          this.saved.emit(created)
+          this.closeModal()
+        },
+        error: (err) => {
+          this.isSaving = false
+          this.errorMessage =
+            err?.error?.message || 'Erro ao cadastrar o lead.'
+        },
+      })
   }
 
   private resetForm(): void {
