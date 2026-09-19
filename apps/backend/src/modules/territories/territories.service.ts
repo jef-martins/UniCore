@@ -519,8 +519,19 @@ export class TerritoriesService {
       const step = dto.step && dto.step > 0 ? dto.step : 1
       const start = Math.min(dto.fromNumber, dto.toNumber)
       const end = Math.max(dto.fromNumber, dto.toNumber)
+      const parity = dto.parity || 'ALL'
 
-      for (let i = start; i <= end; i += step) {
+      let initial = start
+      if (parity === 'EVEN' && initial % 2 !== 0) {
+        initial += 1
+      } else if (parity === 'ODD' && initial % 2 === 0) {
+        initial += 1
+      }
+
+      for (let i = initial; i <= end; i += step) {
+        if (parity === 'EVEN' && i % 2 !== 0) continue
+        if (parity === 'ODD' && i % 2 === 0) continue
+
         const numStr = String(i)
         if (!existingNumbers.has(numStr.toLowerCase())) {
           existingNumbers.add(numStr.toLowerCase())
@@ -661,6 +672,10 @@ export class TerritoriesService {
         date: new Date(dto.date),
         origin: dto.origin?.trim() || 'VISITA_DOMICILIAR',
         authorizedInfo: dto.authorizedInfo ?? false,
+        effectiveContact:
+          dto.effectiveContact !== undefined
+            ? dto.effectiveContact
+            : dto.status !== LeadStatus.FALHOU,
         status: dto.status ?? LeadStatus.LEAD,
         observations: dto.observations?.trim() || null,
         createdById: userId || null,
@@ -706,6 +721,9 @@ export class TerritoriesService {
         }),
         ...(dto.authorizedInfo !== undefined && {
           authorizedInfo: dto.authorizedInfo,
+        }),
+        ...(dto.effectiveContact !== undefined && {
+          effectiveContact: dto.effectiveContact,
         }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.observations !== undefined && {
@@ -793,6 +811,7 @@ export class TerritoriesService {
     const dailyCounts: Record<string, { total: number; matricula: number; inscricao: number }> = {}
 
     let authorizedCount = 0
+    let effectiveContactsCount = 0
 
     leads.forEach((l) => {
       if (statusCounts[l.status] !== undefined) {
@@ -800,6 +819,9 @@ export class TerritoriesService {
       }
       if (l.authorizedInfo) {
         authorizedCount += 1
+      }
+      if (l.effectiveContact || l.status !== LeadStatus.FALHOU) {
+        effectiveContactsCount += 1
       }
 
       // Origem
@@ -821,17 +843,171 @@ export class TerritoriesService {
     })
 
     const totalFilteredLeads = leads.length
+    const qualifiedLeadsCount =
+      statusCounts.LEAD + statusCounts.INSCRICAO + statusCounts.MATRICULA
+    const inscricoesCount = statusCounts.INSCRICAO + statusCounts.MATRICULA
+    const matriculasCount = statusCounts.MATRICULA
+
+    // Taxas de conversão exatas do painel executivo
+    const conversions = {
+      contatoPorCasa:
+        totalResidences > 0
+          ? Number(((effectiveContactsCount / totalResidences) * 100).toFixed(1))
+          : 0,
+      leadPorContato:
+        effectiveContactsCount > 0
+          ? Number(((qualifiedLeadsCount / effectiveContactsCount) * 100).toFixed(1))
+          : 0,
+      leadPorCasa:
+        totalResidences > 0
+          ? Number(((qualifiedLeadsCount / totalResidences) * 100).toFixed(1))
+          : 0,
+      inscricaoPorLead:
+        qualifiedLeadsCount > 0
+          ? Number(((inscricoesCount / qualifiedLeadsCount) * 100).toFixed(1))
+          : 0,
+      matriculaPorLead:
+        qualifiedLeadsCount > 0
+          ? Number(((matriculasCount / qualifiedLeadsCount) * 100).toFixed(1))
+          : 0,
+    }
+
+    // Metas do Piloto — 10 Dias
+    const pilotGoals = [
+      {
+        indicator: 'Residências',
+        meta: 1000,
+        realizado: totalResidences,
+        pctMeta: Number(((totalResidences / 1000) * 100).toFixed(1)),
+      },
+      {
+        indicator: 'Contatos efetivos',
+        meta: 600,
+        realizado: effectiveContactsCount,
+        pctMeta: Number(((effectiveContactsCount / 600) * 100).toFixed(1)),
+      },
+      {
+        indicator: 'Leads mínimos',
+        meta: 200,
+        realizado: qualifiedLeadsCount,
+        pctMeta: Number(((qualifiedLeadsCount / 200) * 100).toFixed(1)),
+      },
+      {
+        indicator: 'Leads desejáveis',
+        meta: 300,
+        realizado: qualifiedLeadsCount,
+        pctMeta: Number(((qualifiedLeadsCount / 300) * 100).toFixed(1)),
+      },
+    ]
+
+    // Semáforo dos Setores (Subterritórios)
+    const subterritories = await this.prisma.subterritory.findMany({
+      include: {
+        territory: { select: { id: true, name: true } },
+        neighborhoods: {
+          include: {
+            streets: {
+              include: {
+                residences: {
+                  include: {
+                    leads: {
+                      select: {
+                        id: true,
+                        status: true,
+                        effectiveContact: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    let verdeCount = 0
+    let amareloCount = 0
+    let vermelhoCount = 0
+
+    const sectorTrafficLight = subterritories.map((sub) => {
+      let subRes = 0
+      let subVisited = 0
+      let subLeads = 0
+      let subContatos = 0
+      let subInsc = 0
+      let subMatr = 0
+
+      sub.neighborhoods.forEach((n) => {
+        n.streets.forEach((s) => {
+          subRes += s.residences.length
+          s.residences.forEach((r) => {
+            if (r.leads.length > 0) {
+              subVisited += 1
+              r.leads.forEach((l) => {
+                if (l.effectiveContact || l.status !== LeadStatus.FALHOU) {
+                  subContatos += 1
+                }
+                if (
+                  l.status === LeadStatus.LEAD ||
+                  l.status === LeadStatus.INSCRICAO ||
+                  l.status === LeadStatus.MATRICULA
+                ) {
+                  subLeads += 1
+                }
+                if (
+                  l.status === LeadStatus.INSCRICAO ||
+                  l.status === LeadStatus.MATRICULA
+                ) {
+                  subInsc += 1
+                }
+                if (l.status === LeadStatus.MATRICULA) {
+                  subMatr += 1
+                }
+              })
+            }
+          })
+        })
+      })
+
+      const leadsPer100Houses =
+        subRes > 0 ? Number(((subLeads / subRes) * 100).toFixed(1)) : 0
+
+      let classification: 'VERDE' | 'AMARELO' | 'VERMELHO' = 'VERMELHO'
+      if (leadsPer100Houses >= 20) {
+        classification = 'VERDE'
+        verdeCount += 1
+      } else if (leadsPer100Houses >= 10) {
+        classification = 'AMARELO'
+        amareloCount += 1
+      } else {
+        classification = 'VERMELHO'
+        vermelhoCount += 1
+      }
+
+      return {
+        subterritoryId: sub.id,
+        subterritoryName: sub.name,
+        territoryName: sub.territory.name,
+        totalResidences: subRes,
+        visitedResidences: subVisited,
+        leadsCount: subLeads,
+        contatosCount: subContatos,
+        inscricoesCount: subInsc,
+        matriculasCount: subMatr,
+        leadsPer100Houses,
+        classification,
+      }
+    })
+
     const conversionRateToInscricao =
       totalFilteredLeads > 0
-        ? Math.round(
-            ((statusCounts.INSCRICAO + statusCounts.MATRICULA) /
-              totalFilteredLeads) *
-              100,
-          )
+        ? Math.round((inscricoesCount / totalFilteredLeads) * 100)
         : 0
     const conversionRateToMatricula =
       totalFilteredLeads > 0
-        ? Math.round((statusCounts.MATRICULA / totalFilteredLeads) * 100)
+        ? Math.round((matriculasCount / totalFilteredLeads) * 100)
         : 0
     const coveragePercentage =
       totalResidences > 0
@@ -955,6 +1131,30 @@ export class TerritoriesService {
             : 0,
         conversionRateToInscricao,
         conversionRateToMatricula,
+      },
+      mainIndicators: {
+        residencias: totalResidences,
+        contatos: effectiveContactsCount,
+        leads: qualifiedLeadsCount,
+        inscricoes: inscricoesCount,
+        matriculas: matriculasCount,
+      },
+      conversions,
+      pilotGoals,
+      trafficLight: {
+        summary: {
+          verde: verdeCount,
+          amarelo: amareloCount,
+          vermelho: vermelhoCount,
+        },
+        sectors: sectorTrafficLight,
+        stages: {
+          casas: totalResidences,
+          contatos: effectiveContactsCount,
+          leads: qualifiedLeadsCount,
+          inscricoes: inscricoesCount,
+          matriculas: matriculasCount,
+        },
       },
       statusBreakdown: {
         counts: statusCounts,

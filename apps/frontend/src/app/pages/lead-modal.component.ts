@@ -181,6 +181,21 @@ export interface ResidenceContextInfo {
                 </div>
               </div>
 
+              <!-- Contato Efetivo -->
+              <div class="form-group full-width consent-box">
+                <label class="checkbox-container">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="formData.effectiveContact"
+                    name="effectiveContact"
+                  />
+                  <span class="checkbox-custom"></span>
+                  <span class="consent-text">
+                    <strong>Contato Efetivo Realizado:</strong> Houve diálogo direto com o morador da residência (desmarque se a casa estava vazia ou ninguém atendeu).
+                  </span>
+                </label>
+              </div>
+
               <!-- Autoriza Receber Informações (LGPD) -->
               <div class="form-group full-width consent-box">
                 <label class="checkbox-container">
@@ -486,6 +501,7 @@ export class LeadModalComponent implements OnChanges {
     date: string
     origin: string
     authorizedInfo: boolean
+    effectiveContact: boolean
     status: LeadStatus
     observations: string
   } = {
@@ -495,6 +511,7 @@ export class LeadModalComponent implements OnChanges {
     date: new Date().toISOString().split('T')[0],
     origin: 'VISITA_DOMICILIAR',
     authorizedInfo: false,
+    effectiveContact: true,
     status: 'LEAD',
     observations: '',
   }
@@ -515,6 +532,7 @@ export class LeadModalComponent implements OnChanges {
           date: this.leadToEdit.date.split('T')[0],
           origin: this.leadToEdit.origin || 'VISITA_DOMICILIAR',
           authorizedInfo: this.leadToEdit.authorizedInfo,
+          effectiveContact: this.leadToEdit.effectiveContact ?? (this.leadToEdit.status !== 'FALHOU'),
           status: this.leadToEdit.status,
           observations: this.leadToEdit.observations || '',
         }
@@ -568,6 +586,7 @@ export class LeadModalComponent implements OnChanges {
           date: this.formData.date,
           origin: this.formData.origin,
           authorizedInfo: this.formData.authorizedInfo,
+          effectiveContact: this.formData.effectiveContact,
           status: this.formData.status,
           observations: this.formData.observations.trim() || undefined,
         })
@@ -599,6 +618,7 @@ export class LeadModalComponent implements OnChanges {
           date: this.formData.date,
           origin: this.formData.origin,
           authorizedInfo: this.formData.authorizedInfo,
+          effectiveContact: this.formData.effectiveContact,
           status: this.formData.status,
           observations: this.formData.observations.trim() || undefined,
         })
@@ -625,6 +645,7 @@ export class LeadModalComponent implements OnChanges {
       date: new Date().toISOString().split('T')[0],
       origin: 'VISITA_DOMICILIAR',
       authorizedInfo: false,
+      effectiveContact: true,
       status: 'LEAD',
       observations: '',
     }

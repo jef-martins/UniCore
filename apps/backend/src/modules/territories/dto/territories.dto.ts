@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -234,7 +235,11 @@ export class BatchCreateResidenceNumbersDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  step?: number // 1: all, 2: even/odd
+  step?: number // 1: all, 2: even/odd, or metric lot step (4, 5, 6, 8, 10)
+
+  @IsOptional()
+  @IsIn(['ALL', 'EVEN', 'ODD'])
+  parity?: 'ALL' | 'EVEN' | 'ODD'
 
   @IsOptional()
   @IsArray()
@@ -273,6 +278,10 @@ export class CreateLeadDto {
   @IsOptional()
   @IsBoolean()
   authorizedInfo?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  effectiveContact?: boolean
 
   @IsOptional()
   @IsEnum(LeadStatus)
@@ -315,6 +324,10 @@ export class UpdateLeadDto {
   @IsOptional()
   @IsBoolean()
   authorizedInfo?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  effectiveContact?: boolean
 
   @IsOptional()
   @IsEnum(LeadStatus)

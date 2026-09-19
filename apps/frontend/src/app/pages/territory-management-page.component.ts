@@ -13,6 +13,7 @@ import {
   TerritoryService,
 } from '../services/territory.service'
 import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component'
+import { cleanCep, formatCep, generateResidenceNumbers } from './territory-utils'
 
 @Component({
   selector: 'app-territory-management-page',
@@ -684,14 +685,79 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
               <button class="btn-close" (click)="showNeighborhoodModal = false">✕</button>
             </header>
             <form (ngSubmit)="saveNeighborhood()" class="modal-body">
+              <p class="form-hint">
+                Informe o CEP para preenchimento automático de endereço via serviço público (ViaCEP).
+              </p>
+
+              <!-- Input CEP com Busca -->
               <div class="form-group">
-                <label>Nome do Bairro *</label>
-                <input type="text" class="form-control" [(ngModel)]="neighborhoodForm.name" name="name" required placeholder="Ex: Jardim das Flores, Centro" />
+                <label for="neighborhood-cep">CEP</label>
+                <div class="cep-input-row">
+                  <input
+                    id="neighborhood-cep"
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="neighborhoodForm.cep"
+                    name="cep"
+                    maxlength="9"
+                    placeholder="Ex: 01001-000 ou 17500-010"
+                    (input)="onNeighborhoodCepInput()"
+                    (keydown.enter)="$event.preventDefault(); searchNeighborhoodCep()"
+                  />
+                  <button
+                    type="button"
+                    class="button button-secondary btn-cep-search"
+                    (click)="searchNeighborhoodCep()"
+                    [disabled]="isSearchingNeighborhoodCep"
+                    title="Pesquisar CEP no ViaCEP"
+                  >
+                    @if (isSearchingNeighborhoodCep) {
+                      <span>⏳ Buscando...</span>
+                    } @else {
+                      <span>🔍 Buscar</span>
+                    }
+                  </button>
+                </div>
+                @if (neighborhoodCepSuccess) {
+                  <span class="cep-badge-success">✓ {{ neighborhoodCepSuccess }}</span>
+                }
+                @if (neighborhoodCepError) {
+                  <span class="cep-badge-error">⚠ {{ neighborhoodCepError }}</span>
+                }
               </div>
+
+              <!-- Nome do Bairro (preenchido ou manual) -->
               <div class="form-group">
-                <label>Cidade / Polo</label>
-                <input type="text" class="form-control" [(ngModel)]="neighborhoodForm.city" name="city" placeholder="Ex: Marília, Bauru..." />
+                <label for="neighborhood-name">Nome do Bairro *</label>
+                <input
+                  id="neighborhood-name"
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="neighborhoodForm.name"
+                  name="name"
+                  required
+                  placeholder="Ex: Jardim das Flores, Sé, Centro"
+                />
               </div>
+
+              <!-- Nome da Rua / Logradouro (preenchido ou opcional) -->
+              @if (!editingNeighborhoodId) {
+                <div class="form-group">
+                  <label for="neighborhood-street">Nome da Rua / Logradouro <span class="label-optional">(opcional)</span></label>
+                  <input
+                    id="neighborhood-street"
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="neighborhoodForm.streetName"
+                    name="streetName"
+                    placeholder="Ex: Praça da Sé, Rua das Acácias..."
+                  />
+                  <small class="form-hint-inline">
+                    Se preenchido, esta rua será criada automaticamente vinculada a este novo bairro.
+                  </small>
+                </div>
+              }
+
               <footer class="modal-footer">
                 <button type="button" class="button button-secondary" (click)="showNeighborhoodModal = false">Cancelar</button>
                 <button type="submit" class="button button-primary" [disabled]="!neighborhoodForm.name.trim()">Salvar</button>
@@ -711,12 +777,52 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
             </header>
             <form (ngSubmit)="saveStreet()" class="modal-body">
               <div class="form-group">
-                <label>Nome da Rua / Logradouro *</label>
-                <input type="text" class="form-control" [(ngModel)]="streetForm.name" name="name" required placeholder="Ex: Rua das Acácias, Av. Brasil" />
+                <label for="street-cep">CEP</label>
+                <div class="cep-input-row">
+                  <input
+                    id="street-cep"
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="streetForm.zipCode"
+                    name="zipCode"
+                    maxlength="9"
+                    placeholder="Ex: 17500-000"
+                    (input)="onStreetCepInput()"
+                    (keydown.enter)="$event.preventDefault(); searchStreetCep()"
+                  />
+                  <button
+                    type="button"
+                    class="button button-secondary btn-cep-search"
+                    (click)="searchStreetCep()"
+                    [disabled]="isSearchingStreetCep"
+                    title="Pesquisar CEP no ViaCEP"
+                  >
+                    @if (isSearchingStreetCep) {
+                      <span>⏳ Buscando...</span>
+                    } @else {
+                      <span>🔍 Buscar</span>
+                    }
+                  </button>
+                </div>
+                @if (streetCepSuccess) {
+                  <span class="cep-badge-success">✓ {{ streetCepSuccess }}</span>
+                }
+                @if (streetCepError) {
+                  <span class="cep-badge-error">⚠ {{ streetCepError }}</span>
+                }
               </div>
+
               <div class="form-group">
-                <label>CEP</label>
-                <input type="text" class="form-control" [(ngModel)]="streetForm.zipCode" name="zipCode" placeholder="Ex: 17500-000" />
+                <label for="street-name">Nome da Rua / Logradouro *</label>
+                <input
+                  id="street-name"
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="streetForm.name"
+                  name="name"
+                  required
+                  placeholder="Ex: Rua das Acácias, Av. Brasil"
+                />
               </div>
               <footer class="modal-footer">
                 <button type="button" class="button button-secondary" (click)="showStreetModal = false">Cancelar</button>
@@ -760,49 +866,226 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
       <!-- Modal Residências em Lote -->
       @if (showBatchResidenceModal) {
         <div class="modal-backdrop" (click)="onBackdropClick($event, 'batchResidence')">
-          <div class="modal-dialog">
+          <div class="modal-dialog modal-dialog-wide">
             <header class="modal-header">
               <h3>⚡ Gerar Números em Lote</h3>
               <button class="btn-close" (click)="showBatchResidenceModal = false">✕</button>
             </header>
             <form (ngSubmit)="saveBatchResidences()" class="modal-body">
               <p class="form-hint">
-                Gere múltiplos números para a rua <strong>{{ activeStreet?.name }}</strong> rapidamente por intervalo ou lista personalizada.
+                Gere múltiplos números para a rua <strong>{{ activeStreet?.name }}</strong> rapidamente por metragem do terreno e lado da rua (paridade).
               </p>
 
+              <!-- Lado da Rua / Paridade -->
+              <div class="form-group">
+                <label>Lado da Rua (Paridade)</label>
+                <div class="parity-pill-group">
+                  <button
+                    type="button"
+                    class="parity-pill"
+                    [class.active]="batchForm.side === 'PAR'"
+                    (click)="setBatchSide('PAR')"
+                  >
+                    <span class="pill-indicator dot-even">●</span>
+                    <div class="pill-text">
+                      <strong>Lado Par</strong>
+                      <small>Números pares</small>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="parity-pill"
+                    [class.active]="batchForm.side === 'IMPAR'"
+                    (click)="setBatchSide('IMPAR')"
+                  >
+                    <span class="pill-indicator dot-odd">●</span>
+                    <div class="pill-text">
+                      <strong>Lado Ímpar</strong>
+                      <small>Números ímpares</small>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="parity-pill"
+                    [class.active]="batchForm.side === 'AMBOS'"
+                    (click)="setBatchSide('AMBOS')"
+                  >
+                    <span class="pill-indicator dot-all">●</span>
+                    <div class="pill-text">
+                      <strong>Ambos os Lados</strong>
+                      <small>Sem filtro</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tamanho do Terreno / Passo da Numeração -->
+              <div class="form-group">
+                <label>Tamanho do Terreno / Passo da Numeração</label>
+                <div class="step-chips-grid">
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '10'"
+                    (click)="setBatchStepType('10')"
+                  >
+                    <span class="chip-title">10m</span>
+                    <span class="chip-desc">Pula 10 em 10 (Padrão)</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '8'"
+                    (click)="setBatchStepType('8')"
+                  >
+                    <span class="chip-title">8m</span>
+                    <span class="chip-desc">Pula 8 em 8</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '6'"
+                    (click)="setBatchStepType('6')"
+                  >
+                    <span class="chip-title">6m</span>
+                    <span class="chip-desc">Pula 6 em 6</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '5'"
+                    (click)="setBatchStepType('5')"
+                  >
+                    <span class="chip-title">5m</span>
+                    <span class="chip-desc">Pula 5 em 5</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '4'"
+                    (click)="setBatchStepType('4')"
+                  >
+                    <span class="chip-title">4m</span>
+                    <span class="chip-desc">Pula 4 em 4</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '2'"
+                    (click)="setBatchStepType('2')"
+                  >
+                    <span class="chip-title">2 em 2</span>
+                    <span class="chip-desc">Sequencial</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === '1'"
+                    (click)="setBatchStepType('1')"
+                  >
+                    <span class="chip-title">1 em 1</span>
+                    <span class="chip-desc">Consecutivo</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="step-chip"
+                    [class.active]="batchForm.stepType === 'custom'"
+                    (click)="setBatchStepType('custom')"
+                  >
+                    <span class="chip-title">Outro</span>
+                    <span class="chip-desc">Personalizado</span>
+                  </button>
+                </div>
+
+                @if (batchForm.stepType === 'custom') {
+                  <div class="custom-step-input-box">
+                    <label>Metragem personalizada do lote (metros):</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      [(ngModel)]="batchForm.customStep"
+                      name="customStep"
+                      min="1"
+                      placeholder="Ex: 12"
+                    />
+                  </div>
+                }
+              </div>
+
+              <!-- Intervalo: Do Número Até o Número -->
               <div class="form-grid-2">
                 <div class="form-group">
-                  <label>Do Número</label>
-                  <input type="number" class="form-control" [(ngModel)]="batchForm.fromNumber" name="fromNumber" placeholder="Ex: 10" />
+                  <label>Do Número (Início)</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    [(ngModel)]="batchForm.fromNumber"
+                    name="fromNumber"
+                    min="1"
+                    placeholder="Ex: 10"
+                  />
                 </div>
                 <div class="form-group">
-                  <label>Até o Número</label>
-                  <input type="number" class="form-control" [(ngModel)]="batchForm.toNumber" name="toNumber" placeholder="Ex: 100" />
+                  <label>Até o Número (Fim)</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    [(ngModel)]="batchForm.toNumber"
+                    name="toNumber"
+                    min="1"
+                    placeholder="Ex: 100"
+                  />
                 </div>
               </div>
 
-              <div class="form-group">
-                <label>Passo / Paridade</label>
-                <select class="form-control" [(ngModel)]="batchForm.step" name="step">
-                  <option [ngValue]="1">Todos os números (1, 2, 3...)</option>
-                  <option [ngValue]="2">Pular de 2 em 2 (somente pares ou ímpares)</option>
-                </select>
+              <!-- Pré-visualização Dinâmica dos Números -->
+              <div class="batch-preview-box">
+                <div class="preview-header">
+                  <span class="preview-title">
+                    📋 Prévia da numeração (<strong>{{ newBatchNumbersToInsert.length }}</strong> novas residências):
+                  </span>
+                  @if (previewBatchNumbers.length - newBatchNumbersToInsert.length > 0) {
+                    <span class="preview-dup-badge">
+                      {{ previewBatchNumbers.length - newBatchNumbersToInsert.length }} já existem na rua
+                    </span>
+                  }
+                </div>
+                <div class="preview-chips-container">
+                  @if (newBatchNumbersToInsert.length === 0) {
+                    <span class="preview-empty">Nenhum número novo a ser gerado para o intervalo atual.</span>
+                  } @else {
+                    @for (num of newBatchNumbersToInsert.slice(0, 32); track num) {
+                      <span class="preview-num-chip">Nº {{ num }}</span>
+                    }
+                    @if (newBatchNumbersToInsert.length > 32) {
+                      <span class="preview-more-chip">+{{ newBatchNumbersToInsert.length - 32 }} números...</span>
+                    }
+                  }
+                </div>
               </div>
 
+              <!-- Ou lista específica personalizada -->
               <div class="form-group">
-                <label>Ou digite números separados por vírgula:</label>
+                <label>Ou digite números específicos separados por vírgula:</label>
                 <textarea
                   rows="2"
                   class="form-control"
                   [(ngModel)]="batchForm.customList"
                   name="customList"
-                  placeholder="Ex: 10, 12, 14, 20-A, 25, 30"
+                  placeholder="Ex: 10, 10-A, 12, 14, 20-B, 25"
                 ></textarea>
+                <small class="form-hint-inline">Se preenchido, esta lista terá prioridade sobre o gerador por metragem.</small>
               </div>
 
               <footer class="modal-footer">
                 <button type="button" class="button button-secondary" (click)="showBatchResidenceModal = false">Cancelar</button>
-                <button type="submit" class="button button-primary">Gerar Números</button>
+                <button
+                  type="submit"
+                  class="button button-primary"
+                  [disabled]="newBatchNumbersToInsert.length === 0"
+                >
+                  Gerar {{ newBatchNumbersToInsert.length }} Residências
+                </button>
               </footer>
             </form>
           </div>
@@ -1433,6 +1716,170 @@ import { LeadModalComponent, ResidenceContextInfo } from './lead-modal.component
     .form-control:focus { outline: none; border-color: var(--primary-color, #3b82f6); }
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     .form-hint { font-size: 0.825rem; color: #a1a1aa; margin: 0 0 0.5rem; }
+    .form-hint-inline { font-size: 0.775rem; color: var(--text-color-secondary, #a1a1aa); margin-top: 0.25rem; display: block; }
+    .label-optional { font-weight: normal; color: var(--text-color-secondary, #a1a1aa); font-size: 0.775rem; }
+    .cep-input-row { display: flex; gap: 0.5rem; align-items: stretch; }
+    .cep-input-row .form-control { flex: 1; }
+    .btn-cep-search { padding: 0.5rem 0.95rem; white-space: nowrap; font-size: 0.85rem; }
+    .cep-badge-success {
+      font-size: 0.775rem;
+      color: #86efac;
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      width: fit-content;
+      margin-top: 0.25rem;
+    }
+    .cep-badge-error {
+      font-size: 0.775rem;
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      width: fit-content;
+      margin-top: 0.25rem;
+    }
+    .modal-dialog-wide { max-width: 600px; }
+
+    /* Parity pill buttons */
+    .parity-pill-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .parity-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color, #3f3f46);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      color: #d4d4d8;
+    }
+    .parity-pill:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .parity-pill.active {
+      border-color: var(--primary-color, #3b82f6);
+      background: rgba(59, 130, 246, 0.15);
+      color: #fff;
+    }
+    .pill-indicator { font-size: 1.1rem; line-height: 1; }
+    .dot-even { color: #60a5fa; }
+    .dot-odd { color: #c084fc; }
+    .dot-all { color: #94a3b8; }
+    .pill-text { display: flex; flex-direction: column; gap: 0.1rem; }
+    .pill-text strong { font-size: 0.825rem; font-weight: 700; }
+    .pill-text small { font-size: 0.7rem; color: var(--text-color-secondary, #a1a1aa); }
+
+    /* Step chips */
+    .step-chips-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+    .step-chip {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color, #3f3f46);
+      border-radius: 8px;
+      padding: 0.55rem 0.4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      cursor: pointer;
+      text-align: center;
+      color: #d4d4d8;
+      transition: all 0.15s ease;
+    }
+    .step-chip:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .step-chip.active {
+      border-color: var(--primary-color, #3b82f6);
+      background: rgba(59, 130, 246, 0.15);
+      color: #fff;
+      font-weight: 700;
+    }
+    .chip-title { font-size: 0.95rem; font-weight: 700; }
+    .chip-desc { font-size: 0.675rem; color: var(--text-color-secondary, #a1a1aa); }
+    .custom-step-input-box {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    /* Batch Preview Box */
+    .batch-preview-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color, #3f3f46);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .preview-title { font-size: 0.825rem; color: #fff; }
+    .preview-dup-badge {
+      font-size: 0.725rem;
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .preview-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      max-height: 110px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+    .preview-num-chip {
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.775rem;
+      font-weight: 600;
+    }
+    .preview-more-chip {
+      font-size: 0.75rem;
+      color: var(--text-color-secondary, #a1a1aa);
+      align-self: center;
+      padding: 2px 5px;
+    }
+    .preview-empty {
+      font-size: 0.8rem;
+      color: #71717a;
+      font-style: italic;
+    }
+
     .modal-footer {
       display: flex;
       justify-content: flex-end;
@@ -1466,17 +1913,37 @@ export class TerritoryManagementPageComponent implements OnInit {
 
   showNeighborhoodModal = false
   editingNeighborhoodId: string | null = null
-  neighborhoodForm = { name: '', city: '' }
+  neighborhoodForm = { cep: '', name: '', city: '', streetName: '' }
+  isSearchingNeighborhoodCep = false
+  neighborhoodCepError = ''
+  neighborhoodCepSuccess = ''
 
   showStreetModal = false
   editingStreetId: string | null = null
   streetForm = { name: '', zipCode: '' }
+  isSearchingStreetCep = false
+  streetCepError = ''
+  streetCepSuccess = ''
 
   showResidenceModal = false
   residenceForm = { number: '', complement: '', notes: '' }
 
   showBatchResidenceModal = false
-  batchForm = { fromNumber: 1, toNumber: 50, step: 1, customList: '' }
+  batchForm: {
+    fromNumber: number
+    toNumber: number
+    side: 'PAR' | 'IMPAR' | 'AMBOS'
+    stepType: '10' | '8' | '6' | '5' | '4' | '2' | '1' | 'custom'
+    customStep: number
+    customList: string
+  } = {
+    fromNumber: 10,
+    toNumber: 100,
+    side: 'PAR',
+    stepType: '10',
+    customStep: 10,
+    customList: '',
+  }
 
   // Modal de Lead
   showLeadModal = false
@@ -1750,18 +2217,89 @@ export class TerritoryManagementPageComponent implements OnInit {
   // Bairro CRUD
   openCreateNeighborhoodModal(): void {
     this.editingNeighborhoodId = null
-    this.neighborhoodForm = { name: '', city: '' }
+    this.neighborhoodForm = { cep: '', name: '', city: '', streetName: '' }
+    this.neighborhoodCepError = ''
+    this.neighborhoodCepSuccess = ''
     this.showNeighborhoodModal = true
   }
 
   openEditNeighborhoodModal(n: NeighborhoodItem): void {
     this.editingNeighborhoodId = n.id
-    this.neighborhoodForm = { name: n.name, city: n.city || '' }
+    this.neighborhoodForm = {
+      cep: '',
+      name: n.name,
+      city: n.city || '',
+      streetName: '',
+    }
+    this.neighborhoodCepError = ''
+    this.neighborhoodCepSuccess = ''
     this.showNeighborhoodModal = true
+  }
+
+  onNeighborhoodCepInput(): void {
+    this.neighborhoodForm.cep = formatCep(this.neighborhoodForm.cep)
+    const clean = cleanCep(this.neighborhoodForm.cep)
+    this.neighborhoodCepError = ''
+    this.neighborhoodCepSuccess = ''
+
+    if (clean.length === 8) {
+      this.searchNeighborhoodCep()
+    }
+  }
+
+  searchNeighborhoodCep(): void {
+    const clean = cleanCep(this.neighborhoodForm.cep)
+    if (clean.length !== 8) {
+      this.neighborhoodCepError = 'Informe um CEP válido com 8 dígitos.'
+      return
+    }
+
+    this.isSearchingNeighborhoodCep = true
+    this.neighborhoodCepError = ''
+    this.neighborhoodCepSuccess = ''
+
+    this.territoryService.lookupCep(clean).subscribe({
+      next: (data) => {
+        this.isSearchingNeighborhoodCep = false
+        if (data.erro === true || data.erro === 'true') {
+          this.neighborhoodCepError = 'CEP não encontrado no ViaCEP.'
+          return
+        }
+
+        if (data.bairro) {
+          this.neighborhoodForm.name = data.bairro
+        }
+        if (data.logradouro) {
+          this.neighborhoodForm.streetName = data.logradouro
+        }
+        if (data.localidade) {
+          this.neighborhoodForm.city = data.uf
+            ? `${data.localidade} - ${data.uf}`
+            : data.localidade
+        }
+        const parts = [data.localidade, data.uf].filter(Boolean).join(' - ')
+        this.neighborhoodCepSuccess = parts
+          ? `Localidade identificada: ${parts}`
+          : 'Endereço localizado via ViaCEP!'
+      },
+      error: () => {
+        this.isSearchingNeighborhoodCep = false
+        this.neighborhoodCepError =
+          'Falha ao consultar CEP no ViaCEP. Verifique sua conexão ou preencha manualmente.'
+      },
+    })
   }
 
   saveNeighborhood(): void {
     if (!this.activeSubterritory || !this.neighborhoodForm.name.trim()) return
+
+    const streetNameToCreate =
+      !this.editingNeighborhoodId && this.neighborhoodForm.streetName?.trim()
+        ? this.neighborhoodForm.streetName.trim()
+        : null
+    const streetZipCode = cleanCep(this.neighborhoodForm.cep)
+      ? formatCep(this.neighborhoodForm.cep)
+      : undefined
 
     if (this.editingNeighborhoodId) {
       this.territoryService
@@ -1771,9 +2309,12 @@ export class TerritoryManagementPageComponent implements OnInit {
         })
         .subscribe({
           next: () => {
-            this.globalSuccess = 'Bairro atualizado!'
+            this.globalSuccess = 'Bairro atualizado com sucesso!'
             this.showNeighborhoodModal = false
             this.refreshActiveHierarchy()
+          },
+          error: (err) => {
+            this.globalError = err?.error?.message || 'Erro ao atualizar bairro.'
           },
         })
     } else {
@@ -1784,10 +2325,34 @@ export class TerritoryManagementPageComponent implements OnInit {
           city: this.neighborhoodForm.city || undefined,
         })
         .subscribe({
-          next: () => {
-            this.globalSuccess = 'Bairro cadastrado!'
-            this.showNeighborhoodModal = false
-            this.refreshActiveHierarchy()
+          next: (createdNeigh) => {
+            if (streetNameToCreate) {
+              this.territoryService
+                .createStreet({
+                  neighborhoodId: createdNeigh.id,
+                  name: streetNameToCreate,
+                  zipCode: streetZipCode,
+                })
+                .subscribe({
+                  next: () => {
+                    this.globalSuccess = `Bairro "${createdNeigh.name}" e rua "${streetNameToCreate}" cadastrados com sucesso!`
+                    this.showNeighborhoodModal = false
+                    this.refreshActiveHierarchy()
+                  },
+                  error: () => {
+                    this.globalSuccess = `Bairro "${createdNeigh.name}" cadastrado! (Aviso: não foi possível cadastrar a rua automaticamente)`
+                    this.showNeighborhoodModal = false
+                    this.refreshActiveHierarchy()
+                  },
+                })
+            } else {
+              this.globalSuccess = `Bairro "${createdNeigh.name}" cadastrado com sucesso!`
+              this.showNeighborhoodModal = false
+              this.refreshActiveHierarchy()
+            }
+          },
+          error: (err) => {
+            this.globalError = err?.error?.message || 'Erro ao cadastrar bairro.'
           },
         })
     }
@@ -1808,23 +2373,75 @@ export class TerritoryManagementPageComponent implements OnInit {
   openCreateStreetModal(): void {
     this.editingStreetId = null
     this.streetForm = { name: '', zipCode: '' }
+    this.streetCepError = ''
+    this.streetCepSuccess = ''
     this.showStreetModal = true
   }
 
   openEditStreetModal(s: StreetItem): void {
     this.editingStreetId = s.id
     this.streetForm = { name: s.name, zipCode: s.zipCode || '' }
+    this.streetCepError = ''
+    this.streetCepSuccess = ''
     this.showStreetModal = true
+  }
+
+  onStreetCepInput(): void {
+    this.streetForm.zipCode = formatCep(this.streetForm.zipCode)
+    const clean = cleanCep(this.streetForm.zipCode)
+    this.streetCepError = ''
+    this.streetCepSuccess = ''
+
+    if (clean.length === 8) {
+      this.searchStreetCep()
+    }
+  }
+
+  searchStreetCep(): void {
+    const clean = cleanCep(this.streetForm.zipCode)
+    if (clean.length !== 8) {
+      this.streetCepError = 'Informe um CEP válido com 8 dígitos.'
+      return
+    }
+
+    this.isSearchingStreetCep = true
+    this.streetCepError = ''
+    this.streetCepSuccess = ''
+
+    this.territoryService.lookupCep(clean).subscribe({
+      next: (data) => {
+        this.isSearchingStreetCep = false
+        if (data.erro === true || data.erro === 'true') {
+          this.streetCepError = 'CEP não encontrado no ViaCEP.'
+          return
+        }
+
+        if (data.logradouro) {
+          this.streetForm.name = data.logradouro
+        }
+        const parts = [data.bairro, data.localidade].filter(Boolean).join(', ')
+        this.streetCepSuccess = parts
+          ? `Localizado: ${parts}`
+          : 'Endereço localizado com sucesso!'
+      },
+      error: () => {
+        this.isSearchingStreetCep = false
+        this.streetCepError = 'Falha ao consultar CEP no ViaCEP.'
+      },
+    })
   }
 
   saveStreet(): void {
     if (!this.activeNeighborhood || !this.streetForm.name.trim()) return
 
+    const clean = cleanCep(this.streetForm.zipCode)
+    const formattedZip = clean ? formatCep(this.streetForm.zipCode) : undefined
+
     if (this.editingStreetId) {
       this.territoryService
         .updateStreet(this.editingStreetId, {
           name: this.streetForm.name,
-          zipCode: this.streetForm.zipCode || undefined,
+          zipCode: formattedZip,
         })
         .subscribe({
           next: () => {
@@ -1832,19 +2449,25 @@ export class TerritoryManagementPageComponent implements OnInit {
             this.showStreetModal = false
             this.refreshActiveHierarchy()
           },
+          error: (err) => {
+            this.globalError = err?.error?.message || 'Erro ao atualizar rua.'
+          },
         })
     } else {
       this.territoryService
         .createStreet({
           neighborhoodId: this.activeNeighborhood.id,
           name: this.streetForm.name,
-          zipCode: this.streetForm.zipCode || undefined,
+          zipCode: formattedZip,
         })
         .subscribe({
           next: () => {
             this.globalSuccess = 'Rua cadastrada!'
             this.showStreetModal = false
             this.refreshActiveHierarchy()
+          },
+          error: (err) => {
+            this.globalError = err?.error?.message || 'Erro ao cadastrar rua.'
           },
         })
     }
@@ -1889,29 +2512,97 @@ export class TerritoryManagementPageComponent implements OnInit {
       })
   }
 
+  get effectiveBatchStep(): number {
+    return this.batchForm.stepType === 'custom'
+      ? Math.max(1, this.batchForm.customStep || 1)
+      : Number(this.batchForm.stepType)
+  }
+
+  get previewBatchNumbers(): string[] {
+    if (this.batchForm.customList.trim()) {
+      return this.batchForm.customList
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    }
+
+    const step = this.effectiveBatchStep
+    const parity =
+      this.batchForm.side === 'PAR'
+        ? 'EVEN'
+        : this.batchForm.side === 'IMPAR'
+          ? 'ODD'
+          : 'ALL'
+
+    return generateResidenceNumbers({
+      fromNumber: this.batchForm.fromNumber || 1,
+      toNumber: this.batchForm.toNumber || 1,
+      step,
+      parity,
+    })
+  }
+
+  get existingStreetNumbersSet(): Set<string> {
+    if (!this.activeStreet?.residences) return new Set()
+    return new Set(
+      this.activeStreet.residences.map((r) => r.number.trim().toLowerCase()),
+    )
+  }
+
+  get newBatchNumbersToInsert(): string[] {
+    const existing = this.existingStreetNumbersSet
+    return this.previewBatchNumbers.filter((n) => !existing.has(n.toLowerCase()))
+  }
+
+  setBatchSide(side: 'PAR' | 'IMPAR' | 'AMBOS'): void {
+    this.batchForm.side = side
+    if (side === 'PAR') {
+      if (this.batchForm.fromNumber % 2 !== 0) {
+        this.batchForm.fromNumber =
+          this.batchForm.fromNumber === 1 ? 10 : this.batchForm.fromNumber + 1
+      }
+    } else if (side === 'IMPAR') {
+      if (this.batchForm.fromNumber % 2 === 0) {
+        this.batchForm.fromNumber =
+          this.batchForm.fromNumber === 10 ? 11 : this.batchForm.fromNumber + 1
+      }
+    }
+  }
+
+  setBatchStepType(
+    type: '10' | '8' | '6' | '5' | '4' | '2' | '1' | 'custom',
+  ): void {
+    this.batchForm.stepType = type
+    if (type !== 'custom') {
+      this.batchForm.customStep = Number(type)
+    }
+  }
+
   openBatchResidenceModal(): void {
-    this.batchForm = { fromNumber: 1, toNumber: 50, step: 1, customList: '' }
+    this.batchForm = {
+      fromNumber: 10,
+      toNumber: 100,
+      side: 'PAR',
+      stepType: '10',
+      customStep: 10,
+      customList: '',
+    }
     this.showBatchResidenceModal = true
   }
 
   saveBatchResidences(): void {
     if (!this.activeStreet) return
 
-    let customNumbers: string[] | undefined
-    if (this.batchForm.customList.trim()) {
-      customNumbers = this.batchForm.customList
-        .split(/[,\n]/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
+    const numbersToInsert = this.newBatchNumbersToInsert
+    if (numbersToInsert.length === 0) {
+      this.globalError = 'Nenhum número novo a ser gerado para o intervalo configurado.'
+      return
     }
 
     this.territoryService
       .batchCreateResidenceNumbers({
         streetId: this.activeStreet.id,
-        fromNumber: this.batchForm.fromNumber,
-        toNumber: this.batchForm.toNumber,
-        step: this.batchForm.step,
-        customNumbers,
+        customNumbers: numbersToInsert,
       })
       .subscribe({
         next: (res) => {

@@ -174,3 +174,83 @@ export function formatWhatsappUrl(phone: string): string {
   const full = digits.startsWith('55') ? digits : `55${digits}`
   return `https://wa.me/${full}`
 }
+
+export interface PilotConversions {
+  contatoPorCasa: number
+  leadPorContato: number
+  leadPorCasa: number
+  inscricaoPorLead: number
+  matriculaPorLead: number
+}
+
+export function computeConversions(
+  casas: number,
+  contatos: number,
+  leads: number,
+  inscricoes: number,
+  matriculas: number,
+): PilotConversions {
+  return {
+    contatoPorCasa: casas > 0 ? Number(((contatos / casas) * 100).toFixed(1)) : 0,
+    leadPorContato: contatos > 0 ? Number(((leads / contatos) * 100).toFixed(1)) : 0,
+    leadPorCasa: casas > 0 ? Number(((leads / casas) * 100).toFixed(1)) : 0,
+    inscricaoPorLead: leads > 0 ? Number(((inscricoes / leads) * 100).toFixed(1)) : 0,
+    matriculaPorLead: leads > 0 ? Number(((matriculas / leads) * 100).toFixed(1)) : 0,
+  }
+}
+
+export function classifySectorTrafficLight(leads: number, casas: number): {
+  leadsPer100Houses: number
+  classification: 'VERDE' | 'AMARELO' | 'VERMELHO'
+} {
+  const leadsPer100Houses = casas > 0 ? Number(((leads / casas) * 100).toFixed(1)) : 0
+  if (leadsPer100Houses >= 20) {
+    return { leadsPer100Houses, classification: 'VERDE' }
+  }
+  if (leadsPer100Houses >= 10) {
+    return { leadsPer100Houses, classification: 'AMARELO' }
+  }
+  return { leadsPer100Houses, classification: 'VERMELHO' }
+}
+
+export function cleanCep(cep: string): string {
+  return (cep || '').replace(/\D/g, '')
+}
+
+export function formatCep(value: string): string {
+  if (!value) return ''
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 5) return digits
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`
+}
+
+export interface GenerateResidenceNumbersOptions {
+  fromNumber: number
+  toNumber: number
+  step?: number
+  parity?: 'ALL' | 'EVEN' | 'ODD'
+}
+
+export function generateResidenceNumbers(options: GenerateResidenceNumbersOptions): string[] {
+  const { fromNumber, toNumber, step = 1, parity = 'ALL' } = options
+  const start = Math.min(fromNumber, toNumber)
+  const end = Math.max(fromNumber, toNumber)
+  const effectiveStep = step > 0 ? step : 1
+
+  let initial = start
+  if (parity === 'EVEN' && initial % 2 !== 0) {
+    initial += 1
+  } else if (parity === 'ODD' && initial % 2 === 0) {
+    initial += 1
+  }
+
+  const results: string[] = []
+  for (let i = initial; i <= end; i += effectiveStep) {
+    if (parity === 'EVEN' && i % 2 !== 0) continue
+    if (parity === 'ODD' && i % 2 === 0) continue
+    results.push(String(i))
+  }
+
+  return results
+}
+

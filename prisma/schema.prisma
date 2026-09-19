@@ -459,6 +459,7 @@ model Lead {
   date              DateTime        @db.Date
   origin            String          @default("VISITA_DOMICILIAR")
   authorizedInfo    Boolean         @default(false) @map("authorized_info")
+  effectiveContact  Boolean         @default(true) @map("effective_contact")
   status            LeadStatus      @default(LEAD)
   observations      String?
   createdById       String?         @map("created_by_id") @db.Uuid

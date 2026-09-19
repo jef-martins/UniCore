@@ -13,6 +13,7 @@ export interface LeadItem {
   date: string
   origin: string
   authorizedInfo: boolean
+  effectiveContact?: boolean
   status: LeadStatus
   observations?: string | null
   createdById?: string | null
@@ -161,6 +162,53 @@ export interface TerritoryDashboardData {
     conversionRateToInscricao: number
     conversionRateToMatricula: number
   }
+  mainIndicators: {
+    residencias: number
+    contatos: number
+    leads: number
+    inscricoes: number
+    matriculas: number
+  }
+  conversions: {
+    contatoPorCasa: number
+    leadPorContato: number
+    leadPorCasa: number
+    inscricaoPorLead: number
+    matriculaPorLead: number
+  }
+  pilotGoals: Array<{
+    indicator: string
+    meta: number
+    realizado: number
+    pctMeta: number
+  }>
+  trafficLight: {
+    summary: {
+      verde: number
+      amarelo: number
+      vermelho: number
+    }
+    sectors: Array<{
+      subterritoryId: string
+      subterritoryName: string
+      territoryName: string
+      totalResidences: number
+      visitedResidences: number
+      leadsCount: number
+      contatosCount: number
+      inscricoesCount: number
+      matriculasCount: number
+      leadsPer100Houses: number
+      classification: 'VERDE' | 'AMARELO' | 'VERMELHO'
+    }>
+    stages: {
+      casas: number
+      contatos: number
+      leads: number
+      inscricoes: number
+      matriculas: number
+    }
+  }
   statusBreakdown: {
     counts: Record<LeadStatus, number>
     percentages: Record<LeadStatus, number>
@@ -218,11 +266,31 @@ export interface TerritoryDashboardData {
   }>
 }
 
+export interface ViaCepResponse {
+  cep?: string
+  logradouro?: string
+  complemento?: string
+  bairro?: string
+  localidade?: string
+  uf?: string
+  ibge?: string
+  gia?: string
+  ddd?: string
+  siafi?: string
+  erro?: boolean | string
+}
+
 @Injectable({ providedIn: 'root' })
 export class TerritoryService {
   private readonly baseUrl = '/api/territories'
 
   constructor(private readonly http: HttpClient) {}
+
+  // Consulta pública de CEP (ViaCEP)
+  lookupCep(rawCep: string): Observable<ViaCepResponse> {
+    const clean = rawCep.replace(/\D/g, '')
+    return this.http.get<ViaCepResponse>(`https://viacep.com.br/ws/${clean}/json/`)
+  }
 
   // Territórios
   getTerritories(): Observable<TerritoryItem[]> {
@@ -358,6 +426,7 @@ export class TerritoryService {
     fromNumber?: number
     toNumber?: number
     step?: number
+    parity?: 'ALL' | 'EVEN' | 'ODD'
     customNumbers?: string[]
   }): Observable<{ count: number; message: string }> {
     return this.http.post<{ count: number; message: string }>(
@@ -411,6 +480,7 @@ export class TerritoryService {
     date: string
     origin?: string
     authorizedInfo?: boolean
+    effectiveContact?: boolean
     status?: LeadStatus
     observations?: string
   }): Observable<LeadItem> {
@@ -426,6 +496,7 @@ export class TerritoryService {
       date?: string
       origin?: string
       authorizedInfo?: boolean
+      effectiveContact?: boolean
       status?: LeadStatus
       observations?: string
     },

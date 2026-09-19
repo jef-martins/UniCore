@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cleanCep,
   computeNeighborhoodProgress,
   computeStreetProgress,
   computeSubterritoryProgress,
   computeTerritoryProgress,
+  formatCep,
   formatWhatsappUrl,
+  generateResidenceNumbers,
   ResidenceWithLeads,
   StreetWithResidences,
 } from './territory-utils'
@@ -158,4 +161,119 @@ describe('Módulo de Gestão de Territórios & Regra de Conclusão em Cascata', 
     expect(formatWhatsappUrl('+55 14 99999-8888')).toBe('https://wa.me/5514999998888')
     expect(formatWhatsappUrl('')).toBe('')
   })
+
+  it('limpeza e formatação de CEP brasileiro', () => {
+    expect(cleanCep('17500-010')).toBe('17500010')
+    expect(cleanCep('01.001-000')).toBe('01001000')
+    expect(cleanCep('abc 17500 010 xyz')).toBe('17500010')
+    expect(cleanCep('')).toBe('')
+
+    expect(formatCep('17500010')).toBe('17500-010')
+    expect(formatCep('17500')).toBe('17500')
+    expect(formatCep('17500-010')).toBe('17500-010')
+    expect(formatCep('')).toBe('')
+  })
+
+  it('geração em lote de numeração predial por tamanho do terreno (metragem) e paridade de rua', () => {
+    // Terreno de 10m no lado par (pula de 10 em 10)
+    const pares10m = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 50,
+      step: 10,
+      parity: 'EVEN',
+    })
+    expect(pares10m).toEqual(['10', '20', '30', '40', '50'])
+
+    // Terreno de 10m no lado ímpar (pula de 10 em 10)
+    const impares10m = generateResidenceNumbers({
+      fromNumber: 11,
+      toNumber: 51,
+      step: 10,
+      parity: 'ODD',
+    })
+    expect(impares10m).toEqual(['11', '21', '31', '41', '51'])
+
+    // Terreno de 8m no lado par
+    const pares8m = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 50,
+      step: 8,
+      parity: 'EVEN',
+    })
+    expect(pares8m).toEqual(['10', '18', '26', '34', '42', '50'])
+
+    // Terreno de 8m no lado ímpar
+    const impares8m = generateResidenceNumbers({
+      fromNumber: 11,
+      toNumber: 51,
+      step: 8,
+      parity: 'ODD',
+    })
+    expect(impares8m).toEqual(['11', '19', '27', '35', '43', '51'])
+
+    // Terreno de 6m no lado par
+    const pares6m = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 46,
+      step: 6,
+      parity: 'EVEN',
+    })
+    expect(pares6m).toEqual(['10', '16', '22', '28', '34', '40', '46'])
+
+    // Terreno de 4m no lado par
+    const pares4m = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 30,
+      step: 4,
+      parity: 'EVEN',
+    })
+    expect(pares4m).toEqual(['10', '14', '18', '22', '26', '30'])
+
+    // Terreno de 5m (meio lote) com paridade par (pula para próximos pares)
+    const pares5m = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 30,
+      step: 5,
+      parity: 'EVEN',
+    })
+    expect(pares5m).toEqual(['10', '20', '30'])
+
+    // Terreno de 5m com paridade ímpar
+    const impares5m = generateResidenceNumbers({
+      fromNumber: 5,
+      toNumber: 35,
+      step: 5,
+      parity: 'ODD',
+    })
+    expect(impares5m).toEqual(['5', '15', '25', '35'])
+
+    // Ajuste automático caso o usuário digite número inicial ímpar querendo lado par
+    const ajustePar = generateResidenceNumbers({
+      fromNumber: 1,
+      toNumber: 40,
+      step: 10,
+      parity: 'EVEN',
+    })
+    expect(ajustePar).toEqual(['2', '12', '22', '32'])
+
+    // Ajuste automático caso o usuário digite número inicial par querendo lado ímpar
+    const ajusteImpar = generateResidenceNumbers({
+      fromNumber: 10,
+      toNumber: 50,
+      step: 10,
+      parity: 'ODD',
+    })
+    expect(ajusteImpar).toEqual(['11', '21', '31', '41'])
+
+    // Ambos os lados consecutivo
+    const ambos = generateResidenceNumbers({
+      fromNumber: 1,
+      toNumber: 5,
+      step: 1,
+      parity: 'ALL',
+    })
+    expect(ambos).toEqual(['1', '2', '3', '4', '5'])
+  })
 })
+
+
