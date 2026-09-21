@@ -5,6 +5,8 @@ import { CreateUserDto } from './dto/create-user.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
 import { VerifyEmailDto } from './dto/verify-email.dto'
 import { ResendVerificationDto } from './dto/resend-verification.dto'
+import { GoogleLoginDto } from './dto/google-login.dto'
+import { RequestFirstAccessDto } from './dto/request-first-access.dto'
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard'
 import { RolesGuard } from './roles.guard'
 import { Roles } from './roles.decorator'
@@ -17,6 +19,23 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() body: LoginDto) {
     return this.authService.login(body.identifier, body.password)
+  }
+
+  @Get('google/url')
+  getGoogleLoginUrl(@Query('redirectUri') redirectUri?: string) {
+    return { url: this.authService.getGoogleLoginUrl(redirectUri) }
+  }
+
+  @Post('google/callback')
+  @HttpCode(HttpStatus.OK)
+  loginWithGoogle(@Body() body: GoogleLoginDto) {
+    return this.authService.loginWithGoogle(body.code, body.redirectUri)
+  }
+
+  @Post('request-first-access')
+  @HttpCode(HttpStatus.OK)
+  requestFirstAccess(@Body() body: RequestFirstAccessDto) {
+    return this.authService.requestFirstAccess(body.email)
   }
 
   @Get('me')

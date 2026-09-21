@@ -1,10 +1,13 @@
 import { Component, OnInit } from '@angular/core'
-import { ActivatedRoute, Router } from '@angular/router'
+import { ActivatedRoute, Router, RouterModule } from '@angular/router'
+import { FormsModule } from '@angular/forms'
+import { CommonModule } from '@angular/common'
 import { AuthService } from '../services/auth.service'
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './login-page.component.html',
 })
 export class LoginPageComponent implements OnInit {
@@ -13,9 +16,17 @@ export class LoginPageComponent implements OnInit {
   errorMessage = ''
   resendSuccessMessage = ''
   loginInProgress = false
+  googleLoginInProgress = false
   isEmailNotVerified = false
   unverifiedEmail = ''
   isResending = false
+
+  // Primeiro Acesso / Validação
+  showFirstAccess = false
+  firstAccessEmail = ''
+  firstAccessSuccessMessage = ''
+  firstAccessErrorMessage = ''
+  firstAccessInProgress = false
 
   constructor(
     private readonly authService: AuthService,
@@ -24,7 +35,90 @@ export class LoginPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    if (this.authService.isAuthenticated()) void this.router.navigateByUrl('/')
+    if (this.authService.isAuthenticated()) {
+      void this.router.navigateByUrl('/')
+      return
+    }
+
+    // Se retornou do Google OAuth com ?code=
+    const code = this.activatedRoute.snapshot.queryParamMap.get('code')
+    if (code) {
+      this.handleGoogleCallback(code)
+    }
+
+    const error = this.activatedRoute.snapshot.queryParamMap.get('error')
+    if (error) {
+      this.errorMessage = `A autenticação com a Google foi cancelada ou falhou: ${error}`
+    }
+  }
+
+  handleGoogleCallback(code: string): void {
+    this.googleLoginInProgress = true
+    this.loginInProgress = true
+    this.errorMessage = ''
+
+    const redirectUri = `${window.location.origin}/login`
+    this.authService.loginWithGoogle(code, redirectUri).subscribe((success) => {
+      this.googleLoginInProgress = false
+      this.loginInProgress = false
+
+      if (success) {
+        const returnUrl = this.getSafeReturnUrl()
+        void this.router.navigateByUrl(returnUrl)
+      } else {
+        const lastErr = this.authService.lastLoginError
+        this.errorMessage = lastErr?.message || 'Falha ao autenticar com a conta Google institucional.'
+      }
+    })
+  }
+
+  loginWithGoogle(): void {
+    if (this.loginInProgress || this.googleLoginInProgress) return
+    this.googleLoginInProgress = true
+    this.errorMessage = ''
+
+    const redirectUri = `${window.location.origin}/login`
+    this.authService.getGoogleAuthUrl(redirectUri).subscribe({
+      next: (res) => {
+        if (res?.url) {
+          window.location.href = res.url
+        } else {
+          this.googleLoginInProgress = false
+          this.errorMessage = 'Não foi possível obter a URL de autenticação do Google.'
+        }
+      },
+      error: (err) => {
+        this.googleLoginInProgress = false
+        this.errorMessage = err?.error?.message || 'Integração Google não configurada no servidor.'
+      },
+    })
+  }
+
+  toggleFirstAccess(): void {
+    this.showFirstAccess = !this.showFirstAccess
+    this.firstAccessErrorMessage = ''
+    this.firstAccessSuccessMessage = ''
+  }
+
+  submitFirstAccess(event: Event): void {
+    event.preventDefault()
+    if (this.firstAccessInProgress || !this.firstAccessEmail.trim()) return
+
+    this.firstAccessInProgress = true
+    this.firstAccessErrorMessage = ''
+    this.firstAccessSuccessMessage = ''
+
+    this.authService.requestFirstAccess(this.firstAccessEmail.trim()).subscribe({
+      next: (res) => {
+        this.firstAccessInProgress = false
+        this.firstAccessSuccessMessage = res.message || 'Link de ativação enviado com sucesso!'
+        this.firstAccessEmail = ''
+      },
+      error: (err) => {
+        this.firstAccessInProgress = false
+        this.firstAccessErrorMessage = err?.error?.message || 'Erro ao enviar link de validação.'
+      },
+    })
   }
 
   onUsernameInput(event: Event): void {
@@ -81,9 +175,13 @@ export class LoginPageComponent implements OnInit {
         return
       }
 
-      const requestedUrl = this.activatedRoute.snapshot.queryParamMap.get('returnUrl')
-      const returnUrl = requestedUrl?.startsWith('/') && !requestedUrl.startsWith('//') ? requestedUrl : '/'
+      const returnUrl = this.getSafeReturnUrl()
       void this.router.navigateByUrl(returnUrl)
     })
+  }
+
+  private getSafeReturnUrl(): string {
+    const requestedUrl = this.activatedRoute.snapshot.queryParamMap.get('returnUrl')
+    return requestedUrl?.startsWith('/') && !requestedUrl.startsWith('//') ? requestedUrl : '/'
   }
 }

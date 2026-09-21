@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { randomBytes } from 'node:crypto'
 import argon2 from 'argon2'
+import { google } from 'googleapis'
 import { AccessRole } from '@prisma/client'
 import { PrismaService } from '../database/prisma.service'
 import { MailService } from '../mail/mail.service'
@@ -357,6 +358,189 @@ export class AuthService {
     return {
       success: true,
       message: 'Novo link de validação enviado com sucesso para seu e-mail institucional!',
+    }
+  }
+
+  getGoogleLoginUrl(redirectUriOverride?: string): string {
+    const clientId = this.config.get<string>('googleClientId')
+    const clientSecret = this.config.get<string>('googleClientSecret')
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ||
+      this.config.get<string>('corsOrigin') ||
+      'http://localhost:4200'
+    const redirectUri = redirectUriOverride || `${frontendUrl.replace(/\/$/, '')}/login`
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não estão configurados no backend.')
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+    return oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'select_account',
+      scope: [
+        'openid',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ],
+    })
+  }
+
+  async loginWithGoogle(code: string, redirectUriOverride?: string): Promise<LoginResponse> {
+    const clientId = this.config.get<string>('googleClientId')
+    const clientSecret = this.config.get<string>('googleClientSecret')
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ||
+      this.config.get<string>('corsOrigin') ||
+      'http://localhost:4200'
+    const redirectUri = redirectUriOverride || `${frontendUrl.replace(/\/$/, '')}/login`
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não estão configurados no backend.')
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+    let email: string | undefined
+    let name: string | undefined
+
+    try {
+      const { tokens } = await oauth2Client.getToken(code.trim())
+      oauth2Client.setCredentials(tokens)
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+      const userInfoRes = await oauth2.userinfo.get()
+      email = userInfoRes.data.email?.trim().toLowerCase()
+      name = userInfoRes.data.name || undefined
+    } catch (err) {
+      throw new BadRequestException(`Falha ao validar autenticação com a Google: ${(err as Error).message}`)
+    }
+
+    if (!email) {
+      throw new BadRequestException('A conta Google não forneceu um endereço de e-mail válido.')
+    }
+
+    if (!this.isInstitutionalEmail(email)) {
+      throw new BadRequestException(
+        `O e-mail "${email}" não pertence a um domínio institucional autorizado (@faip.edu.br, @professor.faip.edu.br, @aluno.faip.edu.br). Por favor, utilize sua conta institucional.`,
+      )
+    }
+
+    let user = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    })
+
+    if (user) {
+      if (!user.emailVerified || user.verificationToken) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailVerified: true,
+            verificationToken: null,
+            verificationExpires: null,
+          },
+        })
+      }
+    } else {
+      let detectedRole: AccessRole = AccessRole.ALUNO
+      if (email.includes('@professor.') || email.endsWith('professor.faip.edu.br')) {
+        detectedRole = AccessRole.PROFESSOR
+      } else if (email.includes('@coordenacao.') || email.endsWith('coordenacao.faip.edu.br')) {
+        detectedRole = AccessRole.COORDENACAO
+      }
+
+      const baseUsername = email.split('@')[0]
+      const count = await this.prisma.user.count({
+        where: { username: { startsWith: baseUsername } },
+      })
+      const username = count === 0 ? baseUsername : `${baseUsername}_${count}`
+      const randomPassword = randomBytes(24).toString('hex')
+      const passwordHash = await argon2.hash(randomPassword)
+
+      user = await this.prisma.user.create({
+        data: {
+          username,
+          email,
+          passwordHash,
+          role: detectedRole,
+          isActive: true,
+          emailVerified: true,
+        },
+      })
+    }
+
+    const publicUser = this.toPublicUser(user)
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        username: user.username,
+        role: publicUser.role,
+      },
+      {
+        expiresIn: this.config.get<string>('jwtExpiresIn', '9h'),
+      },
+    )
+
+    return { accessToken, user: publicUser }
+  }
+
+  async requestFirstAccess(email: string): Promise<{ success: boolean; message: string }> {
+    if (!email || !email.trim()) {
+      throw new BadRequestException('Informe o seu e-mail institucional.')
+    }
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!this.isInstitutionalEmail(normalizedEmail)) {
+      throw new BadRequestException(
+        'O e-mail informado não pertence ao domínio institucional (@faip.edu.br, @professor.faip.edu.br, @aluno.faip.edu.br).',
+      )
+    }
+
+    let user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    })
+
+    if (!user) {
+      let detectedRole: AccessRole = AccessRole.ALUNO
+      if (normalizedEmail.includes('@professor.') || normalizedEmail.endsWith('professor.faip.edu.br')) {
+        detectedRole = AccessRole.PROFESSOR
+      } else if (normalizedEmail.includes('@coordenacao.') || normalizedEmail.endsWith('coordenacao.faip.edu.br')) {
+        detectedRole = AccessRole.COORDENACAO
+      }
+
+      const baseUsername = normalizedEmail.split('@')[0]
+      const count = await this.prisma.user.count({
+        where: { username: { startsWith: baseUsername } },
+      })
+      const username = count === 0 ? baseUsername : `${baseUsername}_${count}`
+      const randomPass = randomBytes(16).toString('hex')
+      const passwordHash = await argon2.hash(randomPass)
+
+      user = await this.prisma.user.create({
+        data: {
+          username,
+          email: normalizedEmail,
+          passwordHash,
+          role: detectedRole,
+          isActive: true,
+          emailVerified: false,
+        },
+      })
+    }
+
+    const verificationToken = randomBytes(32).toString('hex')
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verificationToken,
+        verificationExpires,
+      },
+    })
+
+    await this.mailService.sendVerificationEmail(user.email, user.username, verificationToken)
+
+    return {
+      success: true,
+      message: 'Link de ativação enviado com sucesso para o seu e-mail institucional! Acesse sua caixa postal para validar.',
     }
   }
 }

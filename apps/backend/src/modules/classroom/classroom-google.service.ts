@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { google, type classroom_v1 } from 'googleapis'
+import { google, type classroom_v1, type admin_directory_v1 } from 'googleapis'
 import { ConfigService } from '@nestjs/config'
 import type { JwtPayload } from '../auth/jwt-auth.guard'
 import { PrismaService } from '../database/prisma.service'
@@ -10,6 +10,7 @@ const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses',
   'https://www.googleapis.com/auth/classroom.rosters',
   'https://www.googleapis.com/auth/classroom.profile.emails',
+  'https://www.googleapis.com/auth/admin.directory.user',
 ]
 
 export type GoogleAuthType = 'oauth2' | 'service_account' | null
@@ -18,6 +19,7 @@ export type GoogleAuthType = 'oauth2' | 'service_account' | null
 export class GoogleClassroomService {
   private readonly logger = new Logger(GoogleClassroomService.name)
   private classroom: classroom_v1.Classroom | null = null
+  private directory: admin_directory_v1.Admin | null = null
   private authType: GoogleAuthType = null
   private configurationMessage: string | null = null
 
@@ -49,6 +51,7 @@ export class GoogleClassroomService {
         }
       })
       this.classroom = google.classroom({ version: 'v1', auth: oauth2Client })
+      this.directory = google.admin({ version: 'directory_v1', auth: oauth2Client })
       this.authType = 'oauth2'
       this.configurationMessage = null
       this.logger.log('Google Classroom inicializado via OAuth 2.0.')
@@ -60,11 +63,13 @@ export class GoogleClassroomService {
       if (!existsSync(serviceAccountFile)) {
         this.configurationMessage = 'O arquivo da conta de serviço Google não foi encontrado no caminho configurado.'
         this.classroom = null
+        this.directory = null
         this.authType = null
         return
       }
       const auth = new google.auth.JWT({ keyFile: serviceAccountFile, scopes: CLASSROOM_SCOPES, subject })
       this.classroom = google.classroom({ version: 'v1', auth })
+      this.directory = google.admin({ version: 'directory_v1', auth })
       this.authType = 'service_account'
       this.configurationMessage = null
       this.logger.log('Google Classroom inicializado via Conta de Serviço (arquivo JSON).')
@@ -75,6 +80,7 @@ export class GoogleClassroomService {
     if (clientEmail && privateKey) {
       const auth = new google.auth.JWT({ email: clientEmail, key: privateKey, scopes: CLASSROOM_SCOPES, subject })
       this.classroom = google.classroom({ version: 'v1', auth })
+      this.directory = google.admin({ version: 'directory_v1', auth })
       this.authType = 'service_account'
       this.configurationMessage = null
       this.logger.log('Google Classroom inicializado via Conta de Serviço (variáveis de ambiente).')
@@ -85,12 +91,14 @@ export class GoogleClassroomService {
     if (clientId && clientSecret) {
       this.configurationMessage = 'Credenciais OAuth 2.0 configuradas. Conecte sua conta do Google Workspace para concluir a integração.'
       this.classroom = null
+      this.directory = null
       this.authType = 'oauth2'
       return
     }
 
     this.configurationMessage = 'Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET (OAuth 2.0) ou GOOGLE_SERVICE_ACCOUNT_FILE no backend.'
     this.classroom = null
+    this.directory = null
     this.authType = null
   }
 
@@ -158,6 +166,7 @@ export class GoogleClassroomService {
         }
       })
       this.classroom = google.classroom({ version: 'v1', auth: oauth2Client })
+      this.directory = google.admin({ version: 'directory_v1', auth: oauth2Client })
       this.authType = 'oauth2'
       this.configurationMessage = null
       this.logger.log('Google Classroom autenticado com sucesso via código OAuth 2.0.')
@@ -396,6 +405,56 @@ export class GoogleClassroomService {
       return { id: course.id, alternateLink: course.alternateLink ?? null }
     } catch (error) {
       this.throwGoogleError('criar a sala', error)
+    }
+  }
+
+  async ensureWorkspaceUser(input: {
+    email: string
+    name?: string | null
+    role?: 'PROFESSOR' | 'ALUNO' | 'COORDENACAO'
+  }): Promise<{ status: 'already_exists' | 'created' | 'skipped' | 'error'; message?: string }> {
+    const email = input.email?.trim().toLowerCase()
+    if (!email) return { status: 'skipped', message: 'E-mail não fornecido.' }
+
+    if (!this.directory) {
+      this.logger.debug(`Directory API não inicializada para provisionar ${email}. Pulando provisionamento automático.`)
+      return { status: 'skipped', message: 'Directory API não configurada.' }
+    }
+
+    try {
+      // 1. Verifica se o usuário já existe no Google Workspace
+      const existing = await this.directory.users.get({ userKey: email }).catch(() => null)
+      if (existing?.data?.id) {
+        return { status: 'already_exists', message: 'Usuário já existe no Google Workspace.' }
+      }
+
+      // 2. Se não existe, monta o payload de inserção
+      const defaultPassword = this.config.get<string>('googleDefaultUserPassword') || 'Faip@2026!'
+      const parts = (input.name || '').trim().split(/\s+/)
+      const givenName = parts[0] || (input.role === 'PROFESSOR' ? 'Docente' : 'Aluno')
+      const familyName = parts.slice(1).join(' ') || 'FAIP'
+
+      await this.directory.users.insert({
+        requestBody: {
+          primaryEmail: email,
+          name: {
+            givenName,
+            familyName,
+          },
+          password: defaultPassword,
+          changePasswordAtNextLogin: true, // Força a troca no primeiro login do Classroom/Gmail
+        },
+      })
+
+      this.logger.log(`Conta institucional provisionada com sucesso no Google Workspace: ${email} (changePasswordAtNextLogin: true).`)
+      return { status: 'created', message: 'Conta institucional criada no Google Workspace com troca de senha obrigatória.' }
+    } catch (error) {
+      const code = this.getStatusCode(error)
+      if (code === 409) {
+        return { status: 'already_exists', message: 'Usuário já existe no Google Workspace.' }
+      }
+      this.logger.warn(`Não foi possível provisionar ${email} no Google Workspace (HTTP ${code ?? 'desconhecido'}): ${(error as Error).message}`)
+      return { status: 'error', message: (error as Error).message }
     }
   }
 

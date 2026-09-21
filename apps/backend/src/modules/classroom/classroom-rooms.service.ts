@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common'
-import { ClassroomRoomStatus, type ClassroomRoom } from '@prisma/client'
+import { Injectable, Logger } from '@nestjs/common'
+import { AccessRole, ClassroomRoomStatus, type ClassroomRoom } from '@prisma/client'
+import { randomBytes } from 'node:crypto'
+import argon2 from 'argon2'
 import { PrismaService } from '../database/prisma.service'
 import type { JwtPayload } from '../auth/jwt-auth.guard'
 import { GoogleClassroomService } from './classroom-google.service'
@@ -8,6 +10,8 @@ import { SyncClassroomMembersDto } from './dto/sync-classroom-members.dto'
 
 @Injectable()
 export class ClassroomRoomsService {
+  private readonly logger = new Logger(ClassroomRoomsService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly google: GoogleClassroomService,
@@ -136,6 +140,24 @@ export class ClassroomRoomsService {
       teachersToSync.add(coordinatorEmail.toLowerCase())
     }
 
+    // 1. Provisiona docentes e co-professores no Google Workspace e pré-cadastra no UniCore
+    for (const email of teachersToSync) {
+      await this.google.ensureWorkspaceUser({
+        email,
+        role: 'PROFESSOR',
+      })
+      await this.ensureLocalUserPreRegistered(email, AccessRole.PROFESSOR)
+    }
+
+    // 2. Provisiona alunos no Google Workspace e pré-cadastra no UniCore
+    for (const email of studentEmails) {
+      await this.google.ensureWorkspaceUser({
+        email,
+        role: 'ALUNO',
+      })
+      await this.ensureLocalUserPreRegistered(email, AccessRole.ALUNO)
+    }
+
     for (const email of teachersToSync) {
       try {
         await this.google.addTeacher(room.googleCourseId, email)
@@ -190,5 +212,38 @@ export class ClassroomRoomsService {
       where: { id: roomId },
       data: { status: ClassroomRoomStatus.FAILED, lastMessage: 'Não foi possível criar a sala no Google Classroom.' },
     })
+  }
+
+  private async ensureLocalUserPreRegistered(email: string, role: AccessRole): Promise<void> {
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) return
+    try {
+      const existing = await this.prisma.user.findFirst({
+        where: { email: { equals: normalized, mode: 'insensitive' } },
+      })
+      if (!existing) {
+        const baseUsername = normalized.split('@')[0]
+        const count = await this.prisma.user.count({
+          where: { username: { startsWith: baseUsername } },
+        })
+        const username = count === 0 ? baseUsername : `${baseUsername}_${count}`
+        const tempPassword = randomBytes(16).toString('hex')
+        const passwordHash = await argon2.hash(tempPassword)
+
+        await this.prisma.user.create({
+          data: {
+            username,
+            email: normalized,
+            passwordHash,
+            role,
+            isActive: true,
+            emailVerified: false,
+          },
+        })
+        this.logger.log(`Usuário pré-cadastrado no UniCore: ${username} (${normalized}, ${role}, emailVerified: false).`)
+      }
+    } catch (err) {
+      this.logger.debug?.(`Usuário já existente ou erro de concorrência ao pré-cadastrar ${normalized}: ${(err as Error).message}`)
+    }
   }
 }

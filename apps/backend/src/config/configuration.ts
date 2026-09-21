@@ -12,6 +12,7 @@ export default () => ({
   googleClientEmail: process.env['GOOGLE_CLIENT_EMAIL'] ?? '',
   googlePrivateKey: process.env['GOOGLE_PRIVATE_KEY'] ?? '',
   googleAdminSubject: process.env['GOOGLE_ADMIN_SUBJECT'] ?? '',
+  googleDefaultUserPassword: process.env['GOOGLE_DEFAULT_USER_PASSWORD'] ?? 'Faip@2026!',
   unimestre: {
     host: process.env['DB_HOST_UNIMESTRE'] ?? '',
     port: Number.parseInt(process.env['DB_PORT_UNIMESTRE'] ?? '3306', 10),

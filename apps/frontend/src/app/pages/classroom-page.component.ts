@@ -229,6 +229,11 @@ interface ImportResponse { total: number; sucesso: number; ignorados: number; er
               </span>
             </label>
           </div>
+
+          <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; border-radius: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.8rem; color: #bae6fd; margin-bottom: 0.5rem;">
+            <span>⚡ <strong>Provisionamento Google Workspace ativo:</strong> Docentes e alunos terão suas contas institucionais verificadas/criadas automaticamente com senha padrão e troca obrigatória no primeiro acesso ao Classroom.</span>
+          </div>
+
           <button class="button button-primary classroom-submit" type="submit" [disabled]="isCreating || !googleStatus?.configured">
             {{ isCreating ? 'Criando e sincronizando…' : (includeStudentsOnCreate && loadedStudentEmails.length > 0 ? 'Criar sala com professor e ' + loadedStudentEmails.length + ' alunos' : 'Criar sala e incluir professor') }}
           </button>

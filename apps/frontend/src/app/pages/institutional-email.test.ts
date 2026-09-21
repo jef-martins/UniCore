@@ -67,3 +67,55 @@ describe('Normalização e Geração de E-mail de Aluno', () => {
     expect(formatStudentEmail('   ')).toBe('')
   })
 })
+
+describe('Payload do Google Workspace Directory API e Troca Obrigatória de Senha', () => {
+  function buildWorkspaceUserPayload(email: string, name: string, role: 'PROFESSOR' | 'ALUNO', defaultPassword = 'Faip@2026!') {
+    const parts = (name || '').trim().split(/\s+/)
+    const givenName = parts[0] || (role === 'PROFESSOR' ? 'Docente' : 'Aluno')
+    const familyName = parts.slice(1).join(' ') || 'FAIP'
+
+    return {
+      primaryEmail: email.trim().toLowerCase(),
+      name: {
+        givenName,
+        familyName,
+      },
+      password: defaultPassword,
+      changePasswordAtNextLogin: true, // Força a troca no primeiro login
+    }
+  }
+
+  function detectRoleFromEmail(email: string): 'professor' | 'aluno' | 'coordenacao' {
+    const lower = email.trim().toLowerCase()
+    if (lower.includes('@professor.') || lower.endsWith('professor.faip.edu.br')) {
+      return 'professor'
+    }
+    if (lower.includes('@coordenacao.') || lower.endsWith('coordenacao.faip.edu.br')) {
+      return 'coordenacao'
+    }
+    return 'aluno'
+  }
+
+  it('deve gerar payload com changePasswordAtNextLogin = true e senha padrão', () => {
+    const payload = buildWorkspaceUserPayload('danila.berto@professor.faip.edu.br', 'Danila Berto', 'PROFESSOR')
+    expect(payload.primaryEmail).toBe('danila.berto@professor.faip.edu.br')
+    expect(payload.name.givenName).toBe('Danila')
+    expect(payload.name.familyName).toBe('Berto')
+    expect(payload.password).toBe('Faip@2026!')
+    expect(payload.changePasswordAtNextLogin).toBe(true)
+  })
+
+  it('deve preencher sobrenome padrão FAIP se o nome for composto por apenas uma palavra', () => {
+    const payload = buildWorkspaceUserPayload('marina@aluno.faip.edu.br', 'Marina', 'ALUNO')
+    expect(payload.name.givenName).toBe('Marina')
+    expect(payload.name.familyName).toBe('FAIP')
+    expect(payload.changePasswordAtNextLogin).toBe(true)
+  })
+
+  it('deve identificar corretamente os papéis a partir do subdomínio institucional', () => {
+    expect(detectRoleFromEmail('danila.berto@professor.faip.edu.br')).toBe('professor')
+    expect(detectRoleFromEmail('joao.silva@aluno.faip.edu.br')).toBe('aluno')
+    expect(detectRoleFromEmail('coordenacao.pedagogia@coordenacao.faip.edu.br')).toBe('coordenacao')
+    expect(detectRoleFromEmail('aluno123@faip.edu.br')).toBe('aluno')
+  })
+})

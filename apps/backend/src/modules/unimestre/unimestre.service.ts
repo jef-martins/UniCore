@@ -434,7 +434,20 @@ export class UnimestreService {
     try {
       await this.query<RowDataPacket[]>(name === 'Unimestre' ? this.getUnimestrePool() : this.getFaipPool(), 'SELECT 1')
       return { configured: true, reachable: true, message: 'Conexão disponível.' }
-    } catch {
+    } catch (err) {
+      const errMsg = (err as Error).message || ''
+      this.logger.warn(`Sonda de conexão ${name} falhou: ${errMsg}`)
+      if (errMsg.includes('Access denied for user')) {
+        const ipMatch = errMsg.match(/@'([^']+)'/)
+        const ip = ipMatch ? ipMatch[1] : ''
+        return {
+          configured: true,
+          reachable: false,
+          message: ip
+            ? `Acesso negado para o IP ${ip}. Libere o IP no firewall do banco.`
+            : `Acesso negado para o usuário ${config.user} no banco ${name}.`,
+        }
+      }
       return { configured: true, reachable: false, message: `Não foi possível acessar o banco ${name}.` }
     }
   }

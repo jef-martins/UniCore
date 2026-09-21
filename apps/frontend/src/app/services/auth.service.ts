@@ -144,6 +144,42 @@ export class AuthService {
     })
   }
 
+  getGoogleAuthUrl(redirectUri?: string): Observable<{ url: string }> {
+    const params: Record<string, string> = {}
+    if (redirectUri) params['redirectUri'] = redirectUri
+    return this.http.get<{ url: string }>('/api/auth/google/url', { params })
+  }
+
+  loginWithGoogle(code: string, redirectUri?: string): Observable<boolean> {
+    this.lastLoginError = null
+    return this.http.post<LoginResponse>('/api/auth/google/callback', {
+      code,
+      redirectUri,
+    }).pipe(
+      tap((response) => {
+        this.accessTokenValue = response.accessToken
+        this.userValue = response.user
+        this.persistSession()
+      }),
+      map(() => true),
+      catchError((err) => {
+        this.logout()
+        const errorBody = err?.error
+        this.lastLoginError = {
+          code: 'GOOGLE_LOGIN_ERROR',
+          message: errorBody?.message || 'Falha ao autenticar com a conta Google institucional.',
+        }
+        return of(false)
+      }),
+    )
+  }
+
+  requestFirstAccess(email: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>('/api/auth/request-first-access', {
+      email,
+    })
+  }
+
   hasAnyRole(roles: readonly UserRole[]): boolean {
     const role = this.currentUser?.role
     return role !== undefined && roles.includes(role)
