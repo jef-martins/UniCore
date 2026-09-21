@@ -40,6 +40,11 @@ export class LoginPageComponent implements OnInit {
       return
     }
 
+    const expired = this.activatedRoute.snapshot.queryParamMap.get('expired')
+    if (expired) {
+      this.errorMessage = 'Sua sessão expirou. Por favor, faça login novamente para continuar.'
+    }
+
     // Se retornou do Google OAuth com ?code=
     const code = this.activatedRoute.snapshot.queryParamMap.get('code')
     if (code) {

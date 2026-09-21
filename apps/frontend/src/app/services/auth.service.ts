@@ -1,6 +1,8 @@
-import { Injectable } from '@angular/core'
+import { Injectable, NgZone, inject } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
+import { Router } from '@angular/router'
 import { catchError, map, of, tap, type Observable } from 'rxjs'
+import { isTokenExpired, parseJwtPayload } from './jwt-utils'
 
 export type UserRole =
   | 'vestibular'
@@ -56,22 +58,45 @@ export class AuthService {
   private readonly storageKey = 'unicore.auth'
   private userValue: AuthUser | null = null
   private accessTokenValue: string | null = null
+  private expirationTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly router = inject(Router, { optional: true })
+  private readonly ngZone = inject(NgZone, { optional: true })
   lastLoginError: LoginError | null = null
 
   constructor(private readonly http: HttpClient) {
     this.restoreSession()
+    this.setupWindowListeners()
   }
 
   get currentUser(): AuthUser | null {
+    if (this.accessTokenValue && this.isTokenExpired(this.accessTokenValue)) {
+      this.handleTokenExpired()
+      return null
+    }
     return this.userValue
   }
 
   get accessToken(): string | null {
+    if (this.accessTokenValue && this.isTokenExpired(this.accessTokenValue)) {
+      this.handleTokenExpired()
+      return null
+    }
     return this.accessTokenValue
   }
 
   isAuthenticated(): boolean {
-    return this.accessTokenValue !== null && this.userValue !== null
+    if (!this.accessTokenValue || !this.userValue) {
+      return false
+    }
+    if (this.isTokenExpired(this.accessTokenValue)) {
+      this.handleTokenExpired()
+      return false
+    }
+    return true
+  }
+
+  isTokenExpired(token: string | null = this.accessTokenValue): boolean {
+    return isTokenExpired(token)
   }
 
   login(identifier: string, password: string): Observable<boolean> {
@@ -86,6 +111,7 @@ export class AuthService {
         this.accessTokenValue = response.accessToken
         this.userValue = response.user
         this.persistSession()
+        this.scheduleTokenExpiration(response.accessToken)
       }),
       map(() => true),
       catchError((err) => {
@@ -109,6 +135,10 @@ export class AuthService {
   }
 
   logout(): void {
+    if (this.expirationTimer) {
+      clearTimeout(this.expirationTimer)
+      this.expirationTimer = null
+    }
     this.accessTokenValue = null
     this.userValue = null
     localStorage.removeItem(this.storageKey)
@@ -160,6 +190,7 @@ export class AuthService {
         this.accessTokenValue = response.accessToken
         this.userValue = response.user
         this.persistSession()
+        this.scheduleTokenExpiration(response.accessToken)
       }),
       map(() => true),
       catchError((err) => {
@@ -224,6 +255,74 @@ export class AuthService {
     return this.http.get<AuthUser[]>('/api/auth/users', { params })
   }
 
+  handleTokenExpired(): void {
+    this.logout()
+    if (this.router) {
+      const runNav = () => {
+        const currentUrl = this.router?.url ?? ''
+        const isPublicRoute =
+          currentUrl.startsWith('/login') ||
+          currentUrl.startsWith('/verificar-email') ||
+          currentUrl.startsWith('/inscricao')
+
+        if (!isPublicRoute) {
+          void this.router?.navigate(['/login'], {
+            queryParams: {
+              expired: 'true',
+              returnUrl: currentUrl && currentUrl !== '/' ? currentUrl : undefined,
+            },
+          })
+        }
+      }
+
+      if (this.ngZone) {
+        this.ngZone.run(runNav)
+      } else {
+        runNav()
+      }
+    }
+  }
+
+  private scheduleTokenExpiration(token: string): void {
+    if (this.expirationTimer) {
+      clearTimeout(this.expirationTimer)
+      this.expirationTimer = null
+    }
+
+    const payload = parseJwtPayload(token)
+    if (!payload?.exp || typeof payload.exp !== 'number') return
+
+    const expiresInMs = (payload.exp - 5) * 1000 - Date.now()
+    if (expiresInMs <= 0) {
+      this.handleTokenExpired()
+      return
+    }
+
+    this.expirationTimer = setTimeout(() => {
+      this.handleTokenExpired()
+    }, expiresInMs)
+  }
+
+  private setupWindowListeners(): void {
+    if (typeof window === 'undefined') return
+
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.checkExpirationAndRedirect()
+      }
+    })
+
+    window.addEventListener('focus', () => {
+      this.checkExpirationAndRedirect()
+    })
+  }
+
+  private checkExpirationAndRedirect(): void {
+    if (this.accessTokenValue && this.isTokenExpired(this.accessTokenValue)) {
+      this.handleTokenExpired()
+    }
+  }
+
   private persistSession(): void {
     localStorage.setItem(this.storageKey, JSON.stringify({
       accessToken: this.accessTokenValue,
@@ -237,14 +336,20 @@ export class AuthService {
 
     try {
       const session = JSON.parse(rawSession) as { accessToken?: unknown; user?: unknown }
-      if (typeof session.accessToken === 'string' && session.user && typeof session.user === 'object') {
+      if (
+        typeof session.accessToken === 'string' &&
+        session.user &&
+        typeof session.user === 'object' &&
+        !this.isTokenExpired(session.accessToken)
+      ) {
         this.accessTokenValue = session.accessToken
         this.userValue = session.user as AuthUser
+        this.scheduleTokenExpiration(session.accessToken)
       } else {
-        localStorage.removeItem(this.storageKey)
+        this.logout()
       }
     } catch {
-      localStorage.removeItem(this.storageKey)
+      this.logout()
     }
   }
 }
