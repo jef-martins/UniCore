@@ -633,9 +633,14 @@ import {
                       <div class="lead-summary">
                         <div class="lead-head">
                           <span class="lead-name" title="{{ latestLead.name }}">👤 {{ latestLead.name }}</span>
-                          <span class="badge" [ngClass]="getLeadStatusBadgeClass(latestLead.status)">
-                            {{ getLeadStatusLabel(latestLead.status) }}
-                          </span>
+                          <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="lead-rating-badge-card" [title]="(latestLead.rating || 3) + ' estrelas de probabilidade de matrícula'">
+                              ⭐ {{ latestLead.rating || 3 }}/5
+                            </span>
+                            <span class="badge" [ngClass]="getLeadStatusBadgeClass(latestLead.status)">
+                              {{ getLeadStatusLabel(latestLead.status) }}
+                            </span>
+                          </div>
                         </div>
                         <div class="lead-meta">
                           <span>📱 {{ latestLead.whatsapp }}</span>
@@ -1619,6 +1624,16 @@ import {
       font-size: 0.9rem;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lead-rating-badge-card {
+      font-size: 0.725rem;
+      font-weight: 700;
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
       white-space: nowrap;
     }
     .lead-meta {

@@ -329,6 +329,64 @@ export interface ResidenceContextInfo {
                 </div>
               </div>
 
+              <!-- Classificação em 5 Estrelas (Probabilidade de Matrícula) -->
+              <div class="form-group full-width rating-picker-card">
+                <div class="rating-card-header">
+                  <div class="rating-title-block">
+                    <label class="rating-title">
+                      ⭐ Classificação do Lead — Probabilidade de Matrícula *
+                    </label>
+                    <span class="rating-subtitle">
+                      1 estrela = Pouco provável &bull; 5 estrelas = Muito provável de realizar a matrícula
+                    </span>
+                  </div>
+                  <div class="rating-badge" [ngClass]="getRatingBadgeClass(hoverRating || formData.rating)">
+                    {{ getRatingBadgeText(hoverRating || formData.rating) }}
+                  </div>
+                </div>
+
+                <div class="rating-interactive-row">
+                  <div class="stars-strip" role="radiogroup" aria-label="Classificação de 1 a 5 estrelas">
+                    @for (star of [1, 2, 3, 4, 5]; track star) {
+                      <button
+                        type="button"
+                        class="star-btn"
+                        [class.active]="star <= (hoverRating || formData.rating)"
+                        [class.hover-preview]="hoverRating > 0 && star <= hoverRating"
+                        (mouseenter)="hoverRating = star"
+                        (mouseleave)="hoverRating = 0"
+                        (click)="formData.rating = star"
+                        [attr.aria-checked]="formData.rating === star"
+                        role="radio"
+                        [title]="getRatingFullDescription(star)"
+                      >
+                        ★
+                      </button>
+                    }
+                  </div>
+                  <span class="rating-numeric-display">
+                    {{ hoverRating || formData.rating }} / 5
+                  </span>
+                </div>
+
+                <!-- Barra de botões/rótulos clicáveis da escala -->
+                <div class="rating-levels-bar">
+                  @for (level of ratingLevels; track level.value) {
+                    <button
+                      type="button"
+                      class="level-chip"
+                      [class.active]="formData.rating === level.value"
+                      (click)="formData.rating = level.value"
+                      (mouseenter)="hoverRating = level.value"
+                      (mouseleave)="hoverRating = 0"
+                    >
+                      <span class="chip-star">{{ level.value }}★</span>
+                      <span class="chip-text">{{ level.shortLabel }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+
               <!-- Contato Efetivo -->
               <div class="form-group full-width consent-box">
                 <label class="checkbox-container">
@@ -648,11 +706,169 @@ export interface ResidenceContextInfo {
       grid-template-columns: repeat(2, 1fr);
       gap: 0.75rem;
     }
+    .rating-picker-card {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.03) 100%);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .rating-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .rating-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .rating-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+    .rating-subtitle {
+      font-size: 0.78rem;
+      color: #d1d5db;
+    }
+    .rating-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .rating-badge.rating-pill-1 {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+    }
+    .rating-badge.rating-pill-2 {
+      background: rgba(249, 115, 22, 0.2);
+      border: 1px solid #f97316;
+      color: #fdba74;
+    }
+    .rating-badge.rating-pill-3 {
+      background: rgba(234, 179, 8, 0.2);
+      border: 1px solid #eab308;
+      color: #fde047;
+    }
+    .rating-badge.rating-pill-4 {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+    }
+    .rating-badge.rating-pill-5 {
+      background: rgba(34, 197, 94, 0.25);
+      border: 1px solid #22c55e;
+      color: #86efac;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+    }
+    .rating-interactive-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .stars-strip {
+      display: flex;
+      gap: 0.35rem;
+    }
+    .star-btn {
+      background: none;
+      border: none;
+      font-size: 2.25rem;
+      line-height: 1;
+      color: #4b5563;
+      cursor: pointer;
+      padding: 0.15rem 0.25rem;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      outline: none;
+    }
+    .star-btn:hover,
+    .star-btn:focus-visible {
+      transform: scale(1.22);
+    }
+    .star-btn.active {
+      color: #fbbf24;
+      filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.7));
+    }
+    .star-btn.hover-preview {
+      color: #f59e0b;
+      filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.85));
+    }
+    .rating-numeric-display {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f3f4f6;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .rating-levels-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.4rem;
+    }
+    .level-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 0.4rem 0.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: #9ca3af;
+      font-size: 0.72rem;
+      text-align: center;
+    }
+    .level-chip:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(251, 191, 36, 0.4);
+      color: #f3f4f6;
+    }
+    .level-chip.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #f59e0b;
+      color: #fbbf24;
+      font-weight: 700;
+    }
+    .level-chip .chip-star {
+      font-weight: 800;
+      font-size: 0.8rem;
+    }
+    .level-chip.active .chip-star {
+      color: #fbbf24;
+    }
+    .level-chip .chip-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
     @media (max-width: 600px) {
       .form-grid { grid-template-columns: 1fr; }
       .location-grid { grid-template-columns: 1fr; }
       .full-width { grid-column: span 1; }
       .status-selector { grid-template-columns: repeat(2, 1fr); }
+      .rating-levels-bar { grid-template-columns: repeat(2, 1fr); }
     }
   `],
 })
@@ -664,6 +880,15 @@ export class LeadModalComponent implements OnChanges {
   @Output() close = new EventEmitter<void>()
   @Output() saved = new EventEmitter<LeadItem>()
 
+  readonly ratingLevels = [
+    { value: 1, shortLabel: 'Pouco provável', description: 'Pouco provável de realizar a matrícula' },
+    { value: 2, shortLabel: 'Baixa prob.', description: 'Baixa probabilidade de realizar a matrícula' },
+    { value: 3, shortLabel: 'Média prob.', description: 'Média probabilidade de realizar a matrícula' },
+    { value: 4, shortLabel: 'Provável / Alta', description: 'Alta probabilidade de realizar a matrícula' },
+    { value: 5, shortLabel: 'Muito provável', description: 'Muito provável de realizar a matrícula' },
+  ]
+  hoverRating = 0
+
   formData: {
     name: string
     whatsapp: string
@@ -673,6 +898,7 @@ export class LeadModalComponent implements OnChanges {
     authorizedInfo: boolean
     effectiveContact: boolean
     status: LeadStatus
+    rating: number
     observations: string
   } = {
     name: '',
@@ -683,6 +909,7 @@ export class LeadModalComponent implements OnChanges {
     authorizedInfo: false,
     effectiveContact: true,
     status: 'LEAD',
+    rating: 3,
     observations: '',
   }
 
@@ -718,6 +945,7 @@ export class LeadModalComponent implements OnChanges {
           authorizedInfo: this.leadToEdit.authorizedInfo,
           effectiveContact: this.leadToEdit.effectiveContact ?? (this.leadToEdit.status !== 'FALHOU'),
           status: this.leadToEdit.status,
+          rating: this.leadToEdit.rating ?? 3,
           observations: this.leadToEdit.observations || '',
         }
       } else {
@@ -852,6 +1080,45 @@ export class LeadModalComponent implements OnChanges {
     return `https://wa.me/${phone}`
   }
 
+  getRatingBadgeText(rating: number): string {
+    switch (rating) {
+      case 1:
+        return '1★ • Pouco provável'
+      case 2:
+        return '2★ • Baixa probabilidade'
+      case 3:
+        return '3★ • Média probabilidade'
+      case 4:
+        return '4★ • Alta probabilidade'
+      case 5:
+        return '5★ • Muito provável de matricular'
+      default:
+        return `${rating}★`
+    }
+  }
+
+  getRatingFullDescription(rating: number): string {
+    const item = this.ratingLevels.find((l) => l.value === rating)
+    return item ? item.description : `${rating} estrelas`
+  }
+
+  getRatingBadgeClass(rating: number): string {
+    switch (rating) {
+      case 1:
+        return 'rating-pill-1'
+      case 2:
+        return 'rating-pill-2'
+      case 3:
+        return 'rating-pill-3'
+      case 4:
+        return 'rating-pill-4'
+      case 5:
+        return 'rating-pill-5'
+      default:
+        return 'rating-pill-3'
+    }
+  }
+
   onBackdropClick(e: MouseEvent): void {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) {
       this.closeModal()
@@ -878,6 +1145,7 @@ export class LeadModalComponent implements OnChanges {
           authorizedInfo: this.formData.authorizedInfo,
           effectiveContact: this.formData.effectiveContact,
           status: this.formData.status,
+          rating: this.formData.rating,
           observations: this.formData.observations.trim() || undefined,
         })
         .subscribe({
@@ -939,6 +1207,7 @@ export class LeadModalComponent implements OnChanges {
         authorizedInfo: this.formData.authorizedInfo,
         effectiveContact: this.formData.effectiveContact,
         status: this.formData.status,
+        rating: this.formData.rating,
         observations: this.formData.observations.trim() || undefined,
       })
       .subscribe({
@@ -965,7 +1234,9 @@ export class LeadModalComponent implements OnChanges {
       authorizedInfo: false,
       effectiveContact: true,
       status: 'LEAD',
+      rating: 3,
       observations: '',
     }
+    this.hoverRating = 0
   }
 }

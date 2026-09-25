@@ -42,7 +42,7 @@ export class TerritoriesService {
                   include: {
                     residences: {
                       include: {
-                        leads: { select: { id: true, status: true } },
+                        leads: { select: { id: true, status: true, rating: true } },
                       },
                     },
                   },
@@ -60,6 +60,8 @@ export class TerritoriesService {
       let totalResidences = 0
       let visitedResidences = 0
       let totalLeads = 0
+      let ratingsSum = 0
+      let highPotentialLeads = 0
       const statusCounts: Record<string, number> = {
         FALHOU: 0,
         LEAD: 0,
@@ -98,6 +100,11 @@ export class TerritoriesService {
                 streetVisited += 1
                 r.leads.forEach((l) => {
                   totalLeads += 1
+                  const rVal = (l.rating && l.rating >= 1 && l.rating <= 5) ? l.rating : 3
+                  ratingsSum += rVal
+                  if (rVal >= 4) {
+                    highPotentialLeads += 1
+                  }
                   if (statusCounts[l.status] !== undefined) {
                     statusCounts[l.status] += 1
                   }
@@ -150,6 +157,9 @@ export class TerritoriesService {
           totalResidences,
           visitedResidences,
           totalLeads,
+          averageRating:
+            totalLeads > 0 ? Number((ratingsSum / totalLeads).toFixed(1)) : null,
+          highPotentialLeads,
           progressPercentage,
           isCompleted,
           statusCounts,
@@ -584,6 +594,9 @@ export class TerritoriesService {
     if (query.status) {
       where.status = query.status
     }
+    if (query.rating) {
+      where.rating = query.rating
+    }
     if (query.origin) {
       where.origin = query.origin
     }
@@ -677,6 +690,7 @@ export class TerritoriesService {
             ? dto.effectiveContact
             : dto.status !== LeadStatus.FALHOU,
         status: dto.status ?? LeadStatus.LEAD,
+        rating: dto.rating !== undefined ? dto.rating : 3,
         observations: dto.observations?.trim() || null,
         createdById: userId || null,
       },
@@ -726,6 +740,7 @@ export class TerritoriesService {
           effectiveContact: dto.effectiveContact,
         }),
         ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.rating !== undefined && { rating: dto.rating }),
         ...(dto.observations !== undefined && {
           observations: dto.observations?.trim() || null,
         }),
@@ -801,6 +816,26 @@ export class TerritoriesService {
       MATRICULA: 0,
     }
 
+    // Agrupamento por classificação em estrelas (1 a 5)
+    const ratingCounts: Record<number, number> = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    }
+
+    const ratingMatriculas: Record<number, number> = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    }
+
+    let ratingsSum = 0
+    let highPotentialCount = 0
+
     // Agrupamento por origem
     const originCounts: Record<string, number> = {}
 
@@ -824,6 +859,17 @@ export class TerritoriesService {
         effectiveContactsCount += 1
       }
 
+      // Classificação do Lead (1 a 5 estrelas)
+      const r = (l.rating && l.rating >= 1 && l.rating <= 5) ? l.rating : 3
+      ratingCounts[r] = (ratingCounts[r] || 0) + 1
+      ratingsSum += r
+      if (r >= 4) {
+        highPotentialCount += 1
+      }
+      if (l.status === LeadStatus.MATRICULA) {
+        ratingMatriculas[r] = (ratingMatriculas[r] || 0) + 1
+      }
+
       // Origem
       const orig = l.origin || 'VISITA_DOMICILIAR'
       originCounts[orig] = (originCounts[orig] || 0) + 1
@@ -843,6 +889,14 @@ export class TerritoriesService {
     })
 
     const totalFilteredLeads = leads.length
+    const averageRating =
+      totalFilteredLeads > 0
+        ? Number((ratingsSum / totalFilteredLeads).toFixed(1))
+        : 0
+    const highPotentialPercentage =
+      totalFilteredLeads > 0
+        ? Math.round((highPotentialCount / totalFilteredLeads) * 100)
+        : 0
     const qualifiedLeadsCount =
       statusCounts.LEAD + statusCounts.INSCRICAO + statusCounts.MATRICULA
     const inscricoesCount = statusCounts.INSCRICAO + statusCounts.MATRICULA
@@ -1070,6 +1124,8 @@ export class TerritoriesService {
         totalStreets: t.stats.totalStreets,
         completedStreets: t.stats.completedStreets,
         totalLeads: t.stats.totalLeads,
+        averageRating: t.stats.averageRating,
+        highPotentialLeads: t.stats.highPotentialLeads,
         statusCounts: t.stats.statusCounts,
       }))
       .sort((a, b) => b.progressPercentage - a.progressPercentage)
@@ -1131,6 +1187,9 @@ export class TerritoriesService {
             : 0,
         conversionRateToInscricao,
         conversionRateToMatricula,
+        averageRating,
+        highPotentialCount,
+        highPotentialPercentage,
       },
       mainIndicators: {
         residencias: totalResidences,
@@ -1178,6 +1237,26 @@ export class TerritoriesService {
         },
       },
       funnel,
+      ratingBreakdown: {
+        averageRating,
+        highPotentialCount,
+        highPotentialPercentage,
+        counts: ratingCounts,
+        percentages: {
+          1: totalFilteredLeads > 0 ? Math.round((ratingCounts[1] / totalFilteredLeads) * 100) : 0,
+          2: totalFilteredLeads > 0 ? Math.round((ratingCounts[2] / totalFilteredLeads) * 100) : 0,
+          3: totalFilteredLeads > 0 ? Math.round((ratingCounts[3] / totalFilteredLeads) * 100) : 0,
+          4: totalFilteredLeads > 0 ? Math.round((ratingCounts[4] / totalFilteredLeads) * 100) : 0,
+          5: totalFilteredLeads > 0 ? Math.round((ratingCounts[5] / totalFilteredLeads) * 100) : 0,
+        },
+        matriculaConversion: {
+          1: ratingCounts[1] > 0 ? Math.round((ratingMatriculas[1] / ratingCounts[1]) * 100) : 0,
+          2: ratingCounts[2] > 0 ? Math.round((ratingMatriculas[2] / ratingCounts[2]) * 100) : 0,
+          3: ratingCounts[3] > 0 ? Math.round((ratingMatriculas[3] / ratingCounts[3]) * 100) : 0,
+          4: ratingCounts[4] > 0 ? Math.round((ratingMatriculas[4] / ratingCounts[4]) * 100) : 0,
+          5: ratingCounts[5] > 0 ? Math.round((ratingMatriculas[5] / ratingCounts[5]) * 100) : 0,
+        },
+      },
       territoryRanking,
       topCourses,
       leadsByOrigin,
@@ -1190,6 +1269,7 @@ export class TerritoriesService {
         date: l.date,
         origin: l.origin,
         status: l.status,
+        rating: l.rating ?? 3,
         authorizedInfo: l.authorizedInfo,
         residenceNumber: l.residenceNumber.number,
         streetName: l.residenceNumber.street.name,

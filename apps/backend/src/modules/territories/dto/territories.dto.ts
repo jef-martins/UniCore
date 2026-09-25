@@ -9,10 +9,12 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator'
+import { Transform } from 'class-transformer'
 
 // --- TERRITÓRIOS ---
 export class CreateTerritoryDto {
@@ -288,6 +290,12 @@ export class CreateLeadDto {
   status?: LeadStatus
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number
+
+  @IsOptional()
   @IsString()
   @MaxLength(1000)
   observations?: string
@@ -334,6 +342,12 @@ export class UpdateLeadDto {
   status?: LeadStatus
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number
+
+  @IsOptional()
   @IsString()
   @MaxLength(1000)
   observations?: string
@@ -359,6 +373,15 @@ export class LeadQueryDto {
   @IsOptional()
   @IsEnum(LeadStatus)
   status?: LeadStatus
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? Number(value) : undefined,
+  )
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number
 
   @IsOptional()
   @IsString()

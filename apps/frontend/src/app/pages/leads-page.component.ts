@@ -86,6 +86,11 @@ import {
           <span class="stat-value">{{ authorizedCount }}</span>
           <span class="stat-hint">{{ authorizedRate }}% dos contatos</span>
         </div>
+        <div class="stat-card stat-potential">
+          <span class="stat-label">Alta Probabilidade (4-5★)</span>
+          <span class="stat-value">{{ highPotentialCount }}</span>
+          <span class="stat-hint">{{ highPotentialRate }}% com alto potencial</span>
+        </div>
       </div>
 
       <!-- Barra de Filtros Avançados -->
@@ -156,6 +161,24 @@ import {
             </select>
           </div>
 
+          <!-- Classificação em Estrelas -->
+          <div class="filter-field">
+            <label for="filter-rating">Classificação</label>
+            <select
+              id="filter-rating"
+              class="form-control"
+              [(ngModel)]="filters.rating"
+              (change)="applyFilters()"
+            >
+              <option value="">Todas as Estrelas</option>
+              <option value="5">⭐⭐⭐⭐⭐ 5★ (Muito provável)</option>
+              <option value="4">⭐⭐⭐⭐ 4★ (Alta prob.)</option>
+              <option value="3">⭐⭐⭐ 3★ (Média prob.)</option>
+              <option value="2">⭐⭐ 2★ (Baixa prob.)</option>
+              <option value="1">⭐ 1★ (Pouco provável)</option>
+            </select>
+          </div>
+
           <!-- Botão Limpar -->
           <div class="filter-field btn-clear-box">
             <button class="button button-secondary btn-clear" (click)="clearFilters()">
@@ -212,6 +235,7 @@ import {
                 <th>Contato / WhatsApp</th>
                 <th>Curso / Área de Interesse</th>
                 <th>Localização Residencial</th>
+                <th>Classificação</th>
                 <th>Origem</th>
                 <th>Data</th>
                 <th>Status</th>
@@ -265,6 +289,16 @@ import {
                         {{ lead.residenceNumber?.street?.neighborhood?.name }} — 
                         {{ lead.residenceNumber?.street?.neighborhood?.subterritory?.territory?.name }}
                       </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="lead-rating-badge" [title]="getRatingTooltip(lead.rating)">
+                      <div class="stars-gold">
+                        @for (s of [1, 2, 3, 4, 5]; track s) {
+                          <span class="star-mini" [class.filled]="s <= (lead.rating || 3)">★</span>
+                        }
+                      </div>
+                      <span class="rating-mini-text">{{ getRatingShortLabel(lead.rating) }}</span>
                     </div>
                   </td>
                   <td>
@@ -380,6 +414,10 @@ import {
       border-color: rgba(245, 158, 11, 0.4);
       background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(24, 24, 27, 0.8));
     }
+    .stat-potential {
+      border-color: rgba(251, 191, 36, 0.45);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(24, 24, 27, 0.8));
+    }
     .stat-label {
       font-size: 0.825rem;
       color: var(--text-color-secondary, #a1a1aa);
@@ -475,6 +513,34 @@ import {
       border-radius: 6px;
       font-size: 0.825rem;
       color: #f4f4f5;
+    }
+    .lead-rating-badge {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(251, 191, 36, 0.08);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+    .stars-gold {
+      display: flex;
+      gap: 1px;
+      font-size: 0.85rem;
+      line-height: 1;
+    }
+    .star-mini {
+      color: #4b5563;
+    }
+    .star-mini.filled {
+      color: #fbbf24;
+      text-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+    }
+    .rating-mini-text {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #fde047;
+      white-space: nowrap;
     }
     .location-stack {
       display: flex;
@@ -575,6 +641,7 @@ export class LeadsPageComponent implements OnInit, OnDestroy {
     search: '',
     territoryId: '',
     status: '' as '' | LeadStatus,
+    rating: '' as '' | number,
     origin: '',
   }
 
@@ -631,6 +698,7 @@ export class LeadsPageComponent implements OnInit, OnDestroy {
         search: this.filters.search || undefined,
         territoryId: this.filters.territoryId || undefined,
         status: this.filters.status || undefined,
+        rating: this.filters.rating ? Number(this.filters.rating) : undefined,
         origin: this.filters.origin || undefined,
       })
       .subscribe({
@@ -653,7 +721,7 @@ export class LeadsPageComponent implements OnInit, OnDestroy {
   }
 
   clearFilters(): void {
-    this.filters = { search: '', territoryId: '', status: '', origin: '' }
+    this.filters = { search: '', territoryId: '', status: '', rating: '', origin: '' }
     this.loadLeads()
   }
 
@@ -686,6 +754,49 @@ export class LeadsPageComponent implements OnInit, OnDestroy {
     return this.leads.length > 0
       ? Math.round((this.authorizedCount / this.leads.length) * 100)
       : 0
+  }
+
+  get highPotentialCount(): number {
+    return this.leads.filter((l) => (l.rating || 3) >= 4).length
+  }
+
+  get highPotentialRate(): number {
+    if (!this.leads.length) return 0
+    return Math.round((this.highPotentialCount / this.leads.length) * 100)
+  }
+
+  getRatingShortLabel(rating?: number | null): string {
+    switch (rating) {
+      case 1:
+        return '1★ Pouco provável'
+      case 2:
+        return '2★ Baixa prob.'
+      case 3:
+        return '3★ Média prob.'
+      case 4:
+        return '4★ Alta prob.'
+      case 5:
+        return '5★ Muito provável'
+      default:
+        return '3★ Média prob.'
+    }
+  }
+
+  getRatingTooltip(rating?: number | null): string {
+    switch (rating) {
+      case 1:
+        return '1 estrela: Pouco provável de realizar a matrícula'
+      case 2:
+        return '2 estrelas: Baixa probabilidade de realizar a matrícula'
+      case 3:
+        return '3 estrelas: Média probabilidade de realizar a matrícula'
+      case 4:
+        return '4 estrelas: Alta probabilidade de realizar a matrícula'
+      case 5:
+        return '5 estrelas: Muito provável de realizar a matrícula'
+      default:
+        return '3 estrelas: Média probabilidade de realizar a matrícula'
+    }
   }
 
   // Ações
@@ -879,8 +990,12 @@ export class LeadsPageComponent implements OnInit, OnDestroy {
               ${this.getLeadStatusLabel(lead.status)}
             </span>
           </div>
-          <div style="font-size: 0.8rem; color: #93c5fd; margin-bottom: 4px;">
+          <div style="font-size: 0.8rem; color: #93c5fd; margin-bottom: 2px;">
             🎓 ${lead.courseOrArea}
+          </div>
+          <div style="font-size: 0.78rem; color: #fbbf24; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+            <span>⭐ ${lead.rating || 3}/5</span>
+            <span style="font-size: 0.72rem; color: #d1d5db;">(${this.getRatingShortLabel(lead.rating)})</span>
           </div>
           <p class="map-popup-address">📍 ${fullAddress}</p>
           <div class="map-popup-actions">

@@ -15,6 +15,7 @@ export interface LeadItem {
   authorizedInfo: boolean
   effectiveContact?: boolean
   status: LeadStatus
+  rating?: number | null
   observations?: string | null
   createdById?: string | null
   createdBy?: { id: string; username: string; email: string } | null
@@ -122,6 +123,8 @@ export interface TerritoryStats {
   totalResidences: number
   visitedResidences: number
   totalLeads: number
+  averageRating?: number | null
+  highPotentialLeads?: number
   progressPercentage: number
   isCompleted: boolean
   statusCounts: Record<LeadStatus, number>
@@ -161,6 +164,9 @@ export interface TerritoryDashboardData {
     authorizationPercentage: number
     conversionRateToInscricao: number
     conversionRateToMatricula: number
+    averageRating?: number
+    highPotentialCount?: number
+    highPotentialPercentage?: number
   }
   mainIndicators: {
     residencias: number
@@ -213,6 +219,14 @@ export interface TerritoryDashboardData {
     counts: Record<LeadStatus, number>
     percentages: Record<LeadStatus, number>
   }
+  ratingBreakdown?: {
+    averageRating: number
+    highPotentialCount: number
+    highPotentialPercentage: number
+    counts: Record<number, number>
+    percentages: Record<number, number>
+    matriculaConversion?: Record<number, number>
+  }
   funnel: Array<{
     stage: string
     count: number
@@ -230,6 +244,8 @@ export interface TerritoryDashboardData {
     totalStreets: number
     completedStreets: number
     totalLeads: number
+    averageRating?: number | null
+    highPotentialLeads?: number
     statusCounts: Record<LeadStatus, number>
   }>
   topCourses: Array<{
@@ -256,6 +272,7 @@ export interface TerritoryDashboardData {
     date: string
     origin: string
     status: LeadStatus
+    rating?: number | null
     authorizedInfo: boolean
     residenceNumber: string
     streetName: string
@@ -456,6 +473,7 @@ export class TerritoryService {
     neighborhoodId?: string
     streetId?: string
     status?: LeadStatus
+    rating?: number
     origin?: string
     search?: string
     startDate?: string
@@ -482,6 +500,7 @@ export class TerritoryService {
     authorizedInfo?: boolean
     effectiveContact?: boolean
     status?: LeadStatus
+    rating?: number
     observations?: string
   }): Observable<LeadItem> {
     return this.http.post<LeadItem>(`${this.baseUrl}/leads`, data)
@@ -498,6 +517,7 @@ export class TerritoryService {
       authorizedInfo?: boolean
       effectiveContact?: boolean
       status?: LeadStatus
+      rating?: number
       observations?: string
     },
   ): Observable<LeadItem> {
@@ -515,6 +535,7 @@ export class TerritoryService {
     neighborhoodId?: string
     streetId?: string
     status?: LeadStatus
+    rating?: number
     origin?: string
     search?: string
     startDate?: string

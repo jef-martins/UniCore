@@ -87,6 +87,23 @@ import {
             </select>
           </div>
 
+          <div class="filter-group">
+            <label for="filter-rating">Classificação (Estrelas)</label>
+            <select
+              id="filter-rating"
+              class="form-control"
+              [(ngModel)]="filters.rating"
+              (change)="loadDashboard()"
+            >
+              <option value="">Todas as Estrelas</option>
+              <option value="5">⭐⭐⭐⭐⭐ 5★ (Muito provável)</option>
+              <option value="4">⭐⭐⭐⭐ 4★ (Alta prob.)</option>
+              <option value="3">⭐⭐⭐ 3★ (Média prob.)</option>
+              <option value="2">⭐⭐ 2★ (Baixa prob.)</option>
+              <option value="1">⭐ 1★ (Pouco provável)</option>
+            </select>
+          </div>
+
           <div class="filter-actions">
             <button class="button button-secondary btn-clear" (click)="clearFilters()">
               Limpar Filtros
@@ -157,6 +174,17 @@ import {
               </div>
               <div class="exec-value">{{ data.mainIndicators.matriculas }}</div>
               <span class="exec-sub">Matrículas efetivadas</span>
+            </div>
+
+            <div class="exec-card highlight-rating">
+              <div class="exec-card-header">
+                <span class="exec-label">Alta Probabilidade</span>
+                <span class="exec-icon">⭐</span>
+              </div>
+              <div class="exec-value">{{ data.ratingBreakdown?.highPotentialCount || 0 }}</div>
+              <span class="exec-sub">
+                {{ data.ratingBreakdown?.highPotentialPercentage || 0 }}% dos leads (Média: {{ data.ratingBreakdown?.averageRating || '0.0' }}★)
+              </span>
             </div>
           </div>
         </section>
@@ -437,6 +465,19 @@ import {
               <span class="kpi-hint">Alunos efetivamente matriculados</span>
             </div>
           </div>
+
+          <!-- Média de Potencial (Estrelas) -->
+          <div class="kpi-card highlight-gold">
+            <div class="kpi-icon">⭐</div>
+            <div class="kpi-body">
+              <span class="kpi-label">Média de Potencial</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value">{{ data.overview.averageRating || '0.0' }}★</span>
+                <span class="kpi-fraction">{{ data.overview.highPotentialCount || 0 }} alta prob.</span>
+              </div>
+              <span class="kpi-hint">{{ data.overview.highPotentialPercentage || 0 }}% com 4★ ou 5★</span>
+            </div>
+          </div>
         </div>
 
         <!-- FUNIL DE CONVERSÃO & STATUS BREAKDOWN -->
@@ -529,6 +570,116 @@ import {
           </div>
         </div>
 
+        <!-- ========================================================= -->
+        <!-- SEÇÃO: QUALIFICAÇÃO & CLASSIFICAÇÃO EM 5 ESTRELAS         -->
+        <!-- ========================================================= -->
+        <section class="dashboard-section" aria-labelledby="sec-classificacao">
+          <div class="section-title-row">
+            <div>
+              <span class="section-badge">Qualificação de Leads</span>
+              <h2 id="sec-classificacao" class="section-title">Classificação & Potencial de Matrícula</h2>
+            </div>
+            <span class="section-desc">Distribuição de probabilidade de conversão (1★ pouco provável até 5★ muito provável de realizar a matrícula)</span>
+          </div>
+
+          <div class="rating-analytics-grid">
+            <!-- Card: Média e Visão Geral de Qualidade -->
+            <div class="card card-rating-summary">
+              <div class="card-header">
+                <h3>Índice de Potencial do Território</h3>
+                <span class="card-sub">Avaliação ponderada da probabilidade de matrícula</span>
+              </div>
+              <div class="rating-hero-block">
+                <div class="rating-hero-number">
+                  <span class="hero-score">{{ data.ratingBreakdown?.averageRating || '0.0' }}</span>
+                  <span class="hero-max">/ 5.0</span>
+                </div>
+                <div class="hero-stars">
+                  @for (s of [1, 2, 3, 4, 5]; track s) {
+                    <span class="hero-star" [class.filled]="s <= Math.round(data.ratingBreakdown?.averageRating || 0)">★</span>
+                  }
+                </div>
+                <span class="hero-desc">{{ getRatingSummaryDesc(data.ratingBreakdown?.averageRating || 0) }}</span>
+                <div class="hero-stats-sub">
+                  <div class="sub-stat-pill pill-emerald">
+                    <span class="lbl">Alta Probabilidade (4-5★)</span>
+                    <span class="val">{{ data.ratingBreakdown?.highPotentialCount || 0 }} ({{ data.ratingBreakdown?.highPotentialPercentage || 0 }}%)</span>
+                  </div>
+                  <div class="sub-stat-pill pill-coral">
+                    <span class="lbl">Pouco Provável (1★)</span>
+                    <span class="val">{{ data.ratingBreakdown?.counts?.[1] || 0 }} ({{ data.ratingBreakdown?.percentages?.[1] || 0 }}%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card: Distribuição e Conversão por Nível de Estrelas -->
+            <div class="card card-rating-breakdown">
+              <div class="card-header">
+                <h3>Distribuição por Faixa de Estrelas</h3>
+                <span class="card-sub">Volumetria e conversão em matrícula por classificação</span>
+              </div>
+
+              <!-- Barra Composta de Estrelas -->
+              <div class="composite-rating-bar">
+                <div class="seg-star seg-star-5" [style.width.%]="data.ratingBreakdown?.percentages?.[5] || 0" title="5★ Muito provável: {{ data.ratingBreakdown?.counts?.[5] || 0 }} ({{ data.ratingBreakdown?.percentages?.[5] || 0 }}%)"></div>
+                <div class="seg-star seg-star-4" [style.width.%]="data.ratingBreakdown?.percentages?.[4] || 0" title="4★ Alta prob.: {{ data.ratingBreakdown?.counts?.[4] || 0 }} ({{ data.ratingBreakdown?.percentages?.[4] || 0 }}%)"></div>
+                <div class="seg-star seg-star-3" [style.width.%]="data.ratingBreakdown?.percentages?.[3] || 0" title="3★ Média prob.: {{ data.ratingBreakdown?.counts?.[3] || 0 }} ({{ data.ratingBreakdown?.percentages?.[3] || 0 }}%)"></div>
+                <div class="seg-star seg-star-2" [style.width.%]="data.ratingBreakdown?.percentages?.[2] || 0" title="2★ Baixa prob.: {{ data.ratingBreakdown?.counts?.[2] || 0 }} ({{ data.ratingBreakdown?.percentages?.[2] || 0 }}%)"></div>
+                <div class="seg-star seg-star-1" [style.width.%]="data.ratingBreakdown?.percentages?.[1] || 0" title="1★ Pouco provável: {{ data.ratingBreakdown?.counts?.[1] || 0 }} ({{ data.ratingBreakdown?.percentages?.[1] || 0 }}%)"></div>
+              </div>
+
+              <!-- Grid dos 5 Níveis de Estrelas -->
+              <div class="star-levels-grid">
+                <div class="star-level-card star-5-card">
+                  <div class="level-head">
+                    <span class="level-stars">⭐⭐⭐⭐⭐</span>
+                    <span class="level-title">5★ Muito provável</span>
+                  </div>
+                  <div class="level-count">{{ data.ratingBreakdown?.counts?.[5] || 0 }} <small>({{ data.ratingBreakdown?.percentages?.[5] || 0 }}%)</small></div>
+                  <span class="level-conv">Matrículas: <strong>{{ data.ratingBreakdown?.matriculaConversion?.[5] || 0 }}%</strong></span>
+                </div>
+
+                <div class="star-level-card star-4-card">
+                  <div class="level-head">
+                    <span class="level-stars">⭐⭐⭐⭐</span>
+                    <span class="level-title">4★ Alta prob.</span>
+                  </div>
+                  <div class="level-count">{{ data.ratingBreakdown?.counts?.[4] || 0 }} <small>({{ data.ratingBreakdown?.percentages?.[4] || 0 }}%)</small></div>
+                  <span class="level-conv">Matrículas: <strong>{{ data.ratingBreakdown?.matriculaConversion?.[4] || 0 }}%</strong></span>
+                </div>
+
+                <div class="star-level-card star-3-card">
+                  <div class="level-head">
+                    <span class="level-stars">⭐⭐⭐</span>
+                    <span class="level-title">3★ Média prob.</span>
+                  </div>
+                  <div class="level-count">{{ data.ratingBreakdown?.counts?.[3] || 0 }} <small>({{ data.ratingBreakdown?.percentages?.[3] || 0 }}%)</small></div>
+                  <span class="level-conv">Matrículas: <strong>{{ data.ratingBreakdown?.matriculaConversion?.[3] || 0 }}%</strong></span>
+                </div>
+
+                <div class="star-level-card star-2-card">
+                  <div class="level-head">
+                    <span class="level-stars">⭐⭐</span>
+                    <span class="level-title">2★ Baixa prob.</span>
+                  </div>
+                  <div class="level-count">{{ data.ratingBreakdown?.counts?.[2] || 0 }} <small>({{ data.ratingBreakdown?.percentages?.[2] || 0 }}%)</small></div>
+                  <span class="level-conv">Matrículas: <strong>{{ data.ratingBreakdown?.matriculaConversion?.[2] || 0 }}%</strong></span>
+                </div>
+
+                <div class="star-level-card star-1-card">
+                  <div class="level-head">
+                    <span class="level-stars">⭐</span>
+                    <span class="level-title">1★ Pouco provável</span>
+                  </div>
+                  <div class="level-count">{{ data.ratingBreakdown?.counts?.[1] || 0 }} <small>({{ data.ratingBreakdown?.percentages?.[1] || 0 }}%)</small></div>
+                  <span class="level-conv">Matrículas: <strong>{{ data.ratingBreakdown?.matriculaConversion?.[1] || 0 }}%</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- RANKING DE TERRITÓRIOS & TOP CURSOS -->
         <div class="analytics-row">
           <!-- Ranking Territorial -->
@@ -567,6 +718,9 @@ import {
                       <span>🏠 {{ t.visitedResidences }}/{{ t.totalResidences }} residências</span>
                       <span>🛣️ {{ t.completedStreets }}/{{ t.totalStreets }} ruas</span>
                       <span>👥 {{ t.totalLeads }} leads</span>
+                      @if (t.averageRating) {
+                        <span>⭐ {{ t.averageRating }}★ média ({{ t.highPotentialLeads || 0 }} alta prob.)</span>
+                      }
                       <span>🎓 {{ t.statusCounts.MATRICULA }} matrículas</span>
                     </div>
                   </div>
@@ -628,6 +782,7 @@ import {
                   <th>Contato</th>
                   <th>Curso de Interesse</th>
                   <th>Território / Logradouro</th>
+                  <th>Classificação</th>
                   <th>Origem</th>
                   <th>Status</th>
                   <th>Registrado por</th>
@@ -641,6 +796,16 @@ import {
                     <td>🎓 {{ l.courseOrArea }}</td>
                     <td>
                       {{ l.territoryName }} ❯ {{ l.streetName }}, nº {{ l.residenceNumber }}
+                    </td>
+                    <td>
+                      <div class="lead-rating-badge-dash" [title]="getRatingTooltip(l.rating)">
+                        <span class="stars-gold-dash">
+                          @for (s of [1, 2, 3, 4, 5]; track s) {
+                            <span class="star-dash" [class.filled]="s <= (l.rating || 3)">★</span>
+                          }
+                        </span>
+                        <span class="rating-dash-text">{{ getRatingShortLabel(l.rating) }}</span>
+                      </div>
                     </td>
                     <td>{{ formatOrigin(l.origin) }}</td>
                     <td>
@@ -1020,6 +1185,211 @@ import {
     .badge-lead { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
     .badge-inscricao { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
     .badge-matricula { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    .highlight-rating {
+      border-color: rgba(251, 191, 36, 0.45);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(24, 24, 27, 0.8));
+    }
+    .highlight-gold {
+      border-color: rgba(251, 191, 36, 0.45);
+    }
+
+    /* Seção de Classificação em Estrelas */
+    .rating-analytics-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .card-rating-summary {
+      display: flex;
+      flex-direction: column;
+    }
+    .rating-hero-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem 0.5rem;
+      text-align: center;
+      flex: 1;
+    }
+    .rating-hero-number {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .hero-score {
+      font-size: 3.25rem;
+      font-weight: 900;
+      color: #fbbf24;
+      line-height: 1;
+      text-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+    }
+    .hero-max {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #71717a;
+    }
+    .hero-stars {
+      display: flex;
+      gap: 5px;
+      font-size: 1.6rem;
+      margin: 0.6rem 0;
+    }
+    .hero-star {
+      color: #3f3f46;
+      transition: all 0.2s;
+    }
+    .hero-star.filled {
+      color: #fbbf24;
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.65);
+    }
+    .hero-desc {
+      font-size: 0.825rem;
+      color: #d4d4d8;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+    }
+    .hero-stats-sub {
+      display: flex;
+      gap: 0.65rem;
+      width: 100%;
+    }
+    .sub-stat-pill {
+      flex: 1;
+      padding: 0.6rem 0.5rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      text-align: center;
+    }
+    .sub-stat-pill.pill-emerald {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: rgba(34, 197, 94, 0.08);
+    }
+    .sub-stat-pill.pill-coral {
+      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .sub-stat-pill .lbl {
+      font-size: 0.7rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .sub-stat-pill .val {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .sub-stat-pill.pill-emerald .val { color: #86efac; }
+    .sub-stat-pill.pill-coral .val { color: #fca5a5; }
+
+    /* Barra Composta de Estrelas */
+    .composite-rating-bar {
+      display: flex;
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.06);
+      margin-bottom: 1.25rem;
+    }
+    .seg-star {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .seg-star-5 { background: #22c55e; }
+    .seg-star-4 { background: #3b82f6; }
+    .seg-star-3 { background: #eab308; }
+    .seg-star-2 { background: #f97316; }
+    .seg-star-1 { background: #ef4444; }
+
+    /* Grid de Níveis de Estrelas */
+    .star-levels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+    .star-level-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .star-5-card { border-color: rgba(34, 197, 94, 0.35); background: rgba(34, 197, 94, 0.05); }
+    .star-4-card { border-color: rgba(59, 130, 246, 0.35); background: rgba(59, 130, 246, 0.05); }
+    .star-3-card { border-color: rgba(234, 179, 8, 0.35); background: rgba(234, 179, 8, 0.05); }
+    .star-2-card { border-color: rgba(249, 115, 22, 0.35); background: rgba(249, 115, 22, 0.05); }
+    .star-1-card { border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.05); }
+    .level-head {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .level-stars {
+      font-size: 0.85rem;
+      line-height: 1;
+    }
+    .level-title {
+      font-size: 0.775rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .level-count {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .level-count small {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #a1a1aa;
+    }
+    .level-conv {
+      font-size: 0.72rem;
+      color: #a1a1aa;
+    }
+    .level-conv strong {
+      color: #fbbf24;
+    }
+
+    /* Badge de Lead Rating na tabela de recentes */
+    .lead-rating-badge-dash {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.75rem;
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.25);
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .stars-gold-dash {
+      display: flex;
+      gap: 1px;
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+    .star-dash {
+      color: #4b5563;
+    }
+    .star-dash.filled {
+      color: #fbbf24;
+      text-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+    }
+    .rating-dash-text {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #fde047;
+    }
 
     /* Buttons */
     .button {
@@ -1477,6 +1847,7 @@ import {
     }
     @media (max-width: 950px) {
       .analytics-row { grid-template-columns: 1fr; }
+      .rating-analytics-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 700px) {
       .executive-indicators-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1499,6 +1870,7 @@ export class TerritoryDashboardPageComponent implements OnInit {
   filters = {
     territoryId: '',
     status: '' as '' | LeadStatus,
+    rating: '' as '' | number,
     origin: '',
   }
 
@@ -1539,6 +1911,7 @@ export class TerritoryDashboardPageComponent implements OnInit {
       .getDashboardStats({
         territoryId: this.filters.territoryId || undefined,
         status: this.filters.status || undefined,
+        rating: this.filters.rating ? Number(this.filters.rating) : undefined,
         origin: this.filters.origin || undefined,
       })
       .subscribe({
@@ -1553,8 +1926,52 @@ export class TerritoryDashboardPageComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filters = { territoryId: '', status: '', origin: '' }
+    this.filters = { territoryId: '', status: '', rating: '', origin: '' }
     this.loadDashboard()
+  }
+
+  protected readonly Math = Math
+
+  getRatingShortLabel(rating?: number | null): string {
+    switch (rating) {
+      case 1:
+        return '1★ Pouco provável'
+      case 2:
+        return '2★ Baixa prob.'
+      case 3:
+        return '3★ Média prob.'
+      case 4:
+        return '4★ Alta prob.'
+      case 5:
+        return '5★ Muito provável'
+      default:
+        return '3★ Média prob.'
+    }
+  }
+
+  getRatingTooltip(rating?: number | null): string {
+    switch (rating) {
+      case 1:
+        return '1 estrela: Pouco provável de realizar a matrícula'
+      case 2:
+        return '2 estrelas: Baixa probabilidade de realizar a matrícula'
+      case 3:
+        return '3 estrelas: Média probabilidade de realizar a matrícula'
+      case 4:
+        return '4 estrelas: Alta probabilidade de realizar a matrícula'
+      case 5:
+        return '5 estrelas: Muito provável de realizar a matrícula'
+      default:
+        return '3 estrelas: Média probabilidade de realizar a matrícula'
+    }
+  }
+
+  getRatingSummaryDesc(averageRating: number): string {
+    if (averageRating >= 4.5) return 'Excelente potencial de conversão no território'
+    if (averageRating >= 3.5) return 'Bom potencial de conversão / leads receptivos'
+    if (averageRating >= 2.5) return 'Potencial moderado de conversão'
+    if (averageRating > 0) return 'Baixo potencial / Necessita maior engajamento'
+    return 'Sem avaliações registradas'
   }
 
   getLeadStatusLabel(status: string): string {

@@ -461,6 +461,7 @@ model Lead {
   authorizedInfo    Boolean         @default(false) @map("authorized_info")
   effectiveContact  Boolean         @default(true) @map("effective_contact")
   status            LeadStatus      @default(LEAD)
+  rating            Int?            @default(3)
   observations      String?
   createdById       String?         @map("created_by_id") @db.Uuid
   createdBy         User?           @relation("RegisteredLeads", fields: [createdById], references: [id], onDelete: SetNull)
@@ -469,6 +470,7 @@ model Lead {
 
   @@index([residenceNumberId])
   @@index([status])
+  @@index([rating])
   @@index([date])
   @@index([origin])
   @@index([createdById])
