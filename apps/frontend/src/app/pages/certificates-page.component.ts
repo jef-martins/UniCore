@@ -13,6 +13,7 @@ import {
 } from '../services/certificates.service'
 import {
   evaluateCertificateEligibility,
+  executeCertificatePrint,
   formatDisplayDate,
   formatStudentCpf,
   getStudentInitials,
@@ -1093,74 +1094,11 @@ import {
     }
 
     /* ========================================================
-       REGRAS DE IMPRESSÃO (@MEDIA PRINT)
+       REGRAS DE IMPRESSÃO (Delegadas com portal em index.css)
        ======================================================== */
     @media print {
-      body * {
-        visibility: hidden;
-      }
-
-      .no-print,
-      .layout-shell header,
-      .sidebar,
-      .top-bar,
-      .certificates-heading,
-      .filters-panel,
-      .inscriptions-card,
-      .modal-header,
-      .modal-footer,
-      .modal-backdrop::before {
+      .no-print {
         display: none !important;
-      }
-
-      .modal-backdrop {
-        position: static !important;
-        background: transparent !important;
-        padding: 0 !important;
-        display: block !important;
-        inset: auto !important;
-      }
-
-      .modal-dialog,
-      .modal-cert-dialog {
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      .cert-modal-body {
-        background: transparent !important;
-        padding: 0 !important;
-      }
-
-      #printable-certificate,
-      #printable-certificate * {
-        visibility: visible;
-      }
-
-      #printable-certificate {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100vw;
-        height: 100vh;
-        max-width: none !important;
-        margin: 0 !important;
-        padding: 1.5cm !important;
-        box-shadow: none !important;
-        border: none !important;
-        page-break-inside: avoid;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      @page {
-        size: A4 landscape;
-        margin: 0;
       }
     }
   `],
@@ -1305,7 +1243,7 @@ export class CertificatesPageComponent implements OnInit {
   }
 
   printCertificate(): void {
-    window.print()
+    executeCertificatePrint('printable-certificate')
   }
 
   openLogsModal(): void {

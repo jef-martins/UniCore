@@ -17,6 +17,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import type { Response } from 'express'
 import { JwtAuthGuard, type AuthenticatedRequest } from '../auth/jwt-auth.guard'
+import { Public } from '../auth/public.decorator'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
 import { CertificatesService } from './certificates.service'
@@ -53,7 +54,7 @@ export class CertificatesController {
   }
 
   @Get('custom-events/:id/assets/:fileName')
-  @Roles('aluno', 'professor', 'coordenacao', 'admin', 'master', 'secretaria', 'tesouraria', 'registro_academico', 'vestibular')
+  @Public()
   getEventAsset(@Param('fileName') fileName: string, @Res() res: Response) {
     const path = this.certificatesService.getEventAssetPath(fileName)
     return res.sendFile(path)

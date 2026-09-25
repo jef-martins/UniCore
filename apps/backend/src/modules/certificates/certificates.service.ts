@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { createPool, type Pool, type RowDataPacket } from 'mysql2/promise'
 import { existsSync } from 'node:fs'
 import * as fs from 'node:fs/promises'
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { PrismaService } from '../database/prisma.service'
 import type {
   CertificateCourseDto,
@@ -65,6 +65,7 @@ export class CertificatesService {
   private readonly logger = new Logger(CertificatesService.name)
   private readonly unimestreConfig: ExternalDatabaseConfig
   private unimestrePool: Pool | null = null
+  private readonly eventsUploadDir = join(process.cwd(), 'uploads/events')
 
   constructor(
     config: ConfigService,
@@ -435,8 +436,11 @@ export class CertificatesService {
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         location: dto.location?.trim() || null,
-        logoUrl: dto.logoUrl?.trim() || null,
-        certificateTemplateUrl: dto.certificateTemplateUrl?.trim() || null,
+        logoUrl: dto.logoUrl && !dto.logoUrl.startsWith('data:image/') ? dto.logoUrl.trim() : null,
+        certificateTemplateUrl:
+          dto.certificateTemplateUrl && !dto.certificateTemplateUrl.startsWith('data:image/')
+            ? dto.certificateTemplateUrl.trim()
+            : null,
         templateStyle: dto.templateStyle || undefined,
         createdById: currentUserId || null,
       },
@@ -444,6 +448,25 @@ export class CertificatesService {
         participants: { select: { isPaid: true, hasAttendance: true } },
       },
     })
+
+    let finalLogoUrl = event.logoUrl
+    let finalTemplateUrl = event.certificateTemplateUrl
+
+    if (dto.logoUrl && dto.logoUrl.startsWith('data:image/')) {
+      finalLogoUrl = await this.saveBase64Asset(event.id, 'logo', dto.logoUrl)
+      await this.prisma.certificateEvent.update({
+        where: { id: event.id },
+        data: { logoUrl: finalLogoUrl },
+      })
+    }
+
+    if (dto.certificateTemplateUrl && dto.certificateTemplateUrl.startsWith('data:image/')) {
+      finalTemplateUrl = await this.saveBase64Asset(event.id, 'template', dto.certificateTemplateUrl)
+      await this.prisma.certificateEvent.update({
+        where: { id: event.id },
+        data: { certificateTemplateUrl: finalTemplateUrl },
+      })
+    }
 
     return {
       id: event.id,
@@ -456,8 +479,8 @@ export class CertificatesService {
       endDate: event.endDate ? event.endDate.toISOString() : null,
       location: event.location,
       isActive: event.isActive,
-      logoUrl: event.logoUrl,
-      certificateTemplateUrl: event.certificateTemplateUrl,
+      logoUrl: finalLogoUrl,
+      certificateTemplateUrl: finalTemplateUrl,
       templateStyle: event.templateStyle,
       totalParticipants: 0,
       paidParticipants: 0,
@@ -615,6 +638,27 @@ export class CertificatesService {
       throw new NotFoundException('Evento não encontrado.')
     }
 
+    let logoUrl = dto.logoUrl !== undefined ? dto.logoUrl?.trim() || null : undefined
+    if (logoUrl && logoUrl.startsWith('data:image/')) {
+      if (existing.logoUrl) {
+        this.deleteAssetFile(existing.logoUrl)
+      }
+      logoUrl = await this.saveBase64Asset(eventId, 'logo', logoUrl)
+    } else if (dto.logoUrl === null && existing.logoUrl) {
+      this.deleteAssetFile(existing.logoUrl)
+    }
+
+    let certificateTemplateUrl =
+      dto.certificateTemplateUrl !== undefined ? dto.certificateTemplateUrl?.trim() || null : undefined
+    if (certificateTemplateUrl && certificateTemplateUrl.startsWith('data:image/')) {
+      if (existing.certificateTemplateUrl) {
+        this.deleteAssetFile(existing.certificateTemplateUrl)
+      }
+      certificateTemplateUrl = await this.saveBase64Asset(eventId, 'template', certificateTemplateUrl)
+    } else if (dto.certificateTemplateUrl === null && existing.certificateTemplateUrl) {
+      this.deleteAssetFile(existing.certificateTemplateUrl)
+    }
+
     return this.prisma.certificateEvent.update({
       where: { id: eventId },
       data: {
@@ -627,8 +671,8 @@ export class CertificatesService {
         endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
         location: dto.location !== undefined ? dto.location?.trim() || null : undefined,
         isActive: dto.isActive !== undefined ? dto.isActive : undefined,
-        logoUrl: dto.logoUrl !== undefined ? dto.logoUrl?.trim() || null : undefined,
-        certificateTemplateUrl: dto.certificateTemplateUrl !== undefined ? dto.certificateTemplateUrl?.trim() || null : undefined,
+        logoUrl,
+        certificateTemplateUrl,
         templateStyle: dto.templateStyle !== undefined ? dto.templateStyle : undefined,
       },
     })
@@ -638,6 +682,13 @@ export class CertificatesService {
     const existing = await this.prisma.certificateEvent.findUnique({ where: { id: eventId } })
     if (!existing) {
       throw new NotFoundException('Evento não encontrado.')
+    }
+
+    if (existing.logoUrl) {
+      this.deleteAssetFile(existing.logoUrl)
+    }
+    if (existing.certificateTemplateUrl) {
+      this.deleteAssetFile(existing.certificateTemplateUrl)
     }
 
     await this.prisma.certificateEvent.delete({ where: { id: eventId } })
@@ -869,13 +920,22 @@ export class CertificatesService {
     return this.getParticipantCertificateDocument(participantId, user.sub)
   }
 
-  private readonly eventsUploadDir = join(process.cwd(), 'uploads/events')
-
   async saveEventAsset(eventId: string, type: 'logo' | 'template', file: Express.Multer.File) {
+    const existing = await this.prisma.certificateEvent.findUnique({ where: { id: eventId } })
+    if (!existing) {
+      throw new NotFoundException('Evento acadêmico não encontrado.')
+    }
+
     if (!existsSync(this.eventsUploadDir)) {
       await fs.mkdir(this.eventsUploadDir, { recursive: true })
     }
-    const ext = extname(file.originalname)
+
+    const oldUrl = type === 'logo' ? existing.logoUrl : existing.certificateTemplateUrl
+    if (oldUrl) {
+      this.deleteAssetFile(oldUrl)
+    }
+
+    const ext = extname(file.originalname) || '.png'
     const uniqueName = `${eventId}-${type}-${Date.now()}${ext}`
     const destination = join(this.eventsUploadDir, uniqueName)
     await fs.writeFile(destination, file.buffer)
@@ -896,8 +956,50 @@ export class CertificatesService {
     return { assetUrl, fileName: uniqueName }
   }
 
+  private async saveBase64Asset(eventId: string, type: 'logo' | 'template', dataUrl: string): Promise<string> {
+    if (!dataUrl.startsWith('data:image/')) {
+      return dataUrl
+    }
+    if (!existsSync(this.eventsUploadDir)) {
+      await fs.mkdir(this.eventsUploadDir, { recursive: true })
+    }
+    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+    if (!matches || matches.length !== 3) {
+      return dataUrl
+    }
+    const mimeType = matches[1]
+    const buffer = Buffer.from(matches[2], 'base64')
+    const ext = mimeType.includes('png')
+      ? '.png'
+      : mimeType.includes('jpeg') || mimeType.includes('jpg')
+      ? '.jpg'
+      : mimeType.includes('svg')
+      ? '.svg'
+      : mimeType.includes('webp')
+      ? '.webp'
+      : '.png'
+    const uniqueName = `${eventId}-${type}-${Date.now()}${ext}`
+    const destination = join(this.eventsUploadDir, uniqueName)
+    await fs.writeFile(destination, buffer)
+    return `/api/certificates/custom-events/${eventId}/assets/${uniqueName}`
+  }
+
+  private deleteAssetFile(assetUrl: string): void {
+    const prefix = '/api/certificates/custom-events/'
+    if (assetUrl.startsWith(prefix) && assetUrl.includes('/assets/')) {
+      const rawFileName = assetUrl.split('/assets/')[1]
+      if (rawFileName) {
+        const filePath = join(this.eventsUploadDir, basename(rawFileName))
+        if (existsSync(filePath)) {
+          fs.unlink(filePath).catch((err) => this.logger.warn(`Erro ao excluir arquivo de asset: ${err.message}`))
+        }
+      }
+    }
+  }
+
   getEventAssetPath(fileName: string) {
-    const path = join(this.eventsUploadDir, fileName)
+    const safeFileName = basename(fileName)
+    const path = join(this.eventsUploadDir, safeFileName)
     if (!existsSync(path)) {
       throw new NotFoundException('Arquivo de mídia do evento não encontrado.')
     }

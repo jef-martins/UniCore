@@ -69,8 +69,8 @@ export interface CreateCustomEventDto {
   startDate: string
   endDate?: string
   location?: string
-  logoUrl?: string
-  certificateTemplateUrl?: string
+  logoUrl?: string | null
+  certificateTemplateUrl?: string | null
   templateStyle?: any
 }
 
@@ -84,8 +84,8 @@ export interface UpdateCustomEventDto {
   endDate?: string
   location?: string
   isActive?: boolean
-  logoUrl?: string
-  certificateTemplateUrl?: string
+  logoUrl?: string | null
+  certificateTemplateUrl?: string | null
   templateStyle?: any
 }
 

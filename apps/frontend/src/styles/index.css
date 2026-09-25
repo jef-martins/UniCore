@@ -1385,3 +1385,237 @@ main:focus-visible {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ========================================================
+   REGRAS GLOBAIS DE IMPRESSÃO DE CERTIFICADOS (@MEDIA PRINT)
+   ======================================================== */
+@media print {
+  @page {
+    size: 297mm 210mm;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Quando o portal estiver ativo, oculta COMPLETAMENTE qualquer outro elemento direto do body */
+  body.is-printing-cert > *:not(#print-portal-mount) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Portal de Impressão Montado Direto no Body (Sem pais que atrapalhem o fluxo) */
+  #print-portal-mount {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid-page !important;
+    break-before: avoid-page !important;
+    break-inside: avoid-page !important;
+    z-index: 99999999 !important;
+  }
+
+  #print-portal-mount #print-certificate-target {
+    display: block !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 1.2cm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    background-color: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #print-portal-mount #print-certificate-target.with-uploaded-bg {
+    padding: 0 !important;
+    background-color: transparent !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+  }
+
+  #print-portal-mount #print-certificate-target.with-uploaded-bg .cert-outer-border {
+    background: transparent !important;
+    border: none !important;
+    padding: 1.1cm 2.2cm !important;
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #print-portal-mount #print-certificate-target.with-uploaded-bg .cert-inner-border {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  #print-portal-mount .custom-cert-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    position: relative !important;
+  }
+
+  /* Tipografia e diagramação fiel dentro do portal de impressão */
+  #print-portal-mount .cert-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  #print-portal-mount .cert-title-area {
+    margin: 0.35rem 0 !important;
+  }
+
+  #print-portal-mount .cert-title {
+    margin: 0 !important;
+    font-size: 2.4rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.22em !important;
+    line-height: 1.1 !important;
+  }
+
+  #print-portal-mount .cert-body-text {
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+    max-width: 820px !important;
+    margin: 0 auto !important;
+  }
+
+  #print-portal-mount .cert-body-text p {
+    margin: 0.25rem 0 !important;
+  }
+
+  #print-portal-mount .highlight-name {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+  }
+
+  #print-portal-mount .highlight-event {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    margin: 0.3rem 0 !important;
+  }
+
+  #print-portal-mount .cert-footer {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.8rem !important;
+    margin-top: 0.6rem !important;
+  }
+
+  #print-portal-mount .cert-signatures {
+    display: flex !important;
+    justify-content: space-around !important;
+    align-items: flex-end !important;
+    padding: 0 2rem !important;
+  }
+
+  #print-portal-mount .signature-block {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 220px !important;
+  }
+
+  #print-portal-mount .signature-line {
+    width: 100% !important;
+    height: 1.5px !important;
+    margin-bottom: 0.3rem !important;
+  }
+
+  #print-portal-mount .signature-role {
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+  }
+
+  #print-portal-mount .signature-dept {
+    font-size: 0.68rem !important;
+  }
+
+  #print-portal-mount .cert-verification-bar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-top: 1px dashed #cbd5e1 !important;
+    padding-top: 0.4rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* ========================================================
+     Regras de contingência caso o certificado seja impresso
+     diretamente sem o portal (#printable-certificate)
+     ======================================================== */
+  body:not(.is-printing-cert) .site-header,
+  body:not(.is-printing-cert) .site-footer,
+  body:not(.is-printing-cert) .skip-link,
+  body:not(.is-printing-cert) .layout-shell > header,
+  body:not(.is-printing-cert) .layout-shell > footer,
+  body:not(.is-printing-cert) .sidebar,
+  body:not(.is-printing-cert) .top-bar,
+  body:not(.is-printing-cert) .modal-header,
+  body:not(.is-printing-cert) .modal-footer,
+  body:not(.is-printing-cert) .cert-designer-panel,
+  body:not(.is-printing-cert) .no-print {
+    display: none !important;
+  }
+
+  body:not(.is-printing-cert) #printable-certificate {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    z-index: 9999999 !important;
+  }
+}
+
+

@@ -54,7 +54,85 @@ export interface CertificateDocument {
   issuedByName?: string
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
+}
+
+export interface CertificateTemplateStyle {
+  // Fundo
+  useUploadedBackground?: boolean
+  backgroundColor?: string
+
+  // Moldura
+  frameStyle?: 'classic-double' | 'modern-single' | 'ornate-gold' | 'minimal' | 'none'
+  frameBorderColor?: string
+  frameInnerBorderColor?: string
+  frameBorderWidth?: number
+  showInnerBorder?: boolean
+
+  // Tipografia e Cores
+  fontFamily?: 'serif' | 'playfair' | 'cinzel' | 'sans' | 'times' | 'montserrat'
+  titleColor?: string
+  institutionColor?: string
+  subheadingColor?: string
+  textColor?: string
+  eventHighlightColor?: string
+  studentNameColor?: string
+  studentNameFontSize?: number
+  studentNameTop?: number
+
+  // Textos Institucionais Customizáveis
+  institutionName?: string
+  institutionSub?: string
+  certificateTitle?: string
+  customText?: string
+  city?: string
+
+  // Assinaturas
+  showSignatures?: boolean
+  signer1Name?: string
+  signer1Role?: string
+  signer1Dept?: string
+  signer2Name?: string
+  signer2Role?: string
+  signer2Dept?: string
+  // Exibições
+  showLogo?: boolean
+  showInstitutionHeader?: boolean
+}
+
+export function getDefaultTemplateStyle(): CertificateTemplateStyle {
+  return {
+    useUploadedBackground: false,
+    backgroundColor: '#ffffff',
+    frameStyle: 'classic-double',
+    frameBorderColor: '#0f172a',
+    frameInnerBorderColor: '#d97706',
+    frameBorderWidth: 4,
+    showInnerBorder: true,
+    fontFamily: 'serif',
+    titleColor: '#0f172a',
+    institutionColor: '#0f172a',
+    subheadingColor: '#d97706',
+    textColor: '#334155',
+    eventHighlightColor: '#1e3a8a',
+    studentNameColor: '#0f172a',
+    studentNameFontSize: 34,
+    studentNameTop: 48,
+    institutionName: 'FAIP - FACULDADE DE ENSINO SUPERIOR DO INTERIOR PAULISTA',
+    institutionSub: 'Secretaria Geral de Cursos de Extensão e Capacitação',
+    certificateTitle: 'CERTIFICADO',
+    customText: '',
+    city: 'Marília - SP',
+    showSignatures: true,
+    signer1Name: '',
+    signer1Role: 'Coordenação de Extensão',
+    signer1Dept: 'UniCore / FAIP',
+    signer2Name: '',
+    signer2Role: 'Secretaria Acadêmica Geral',
+    signer2Dept: 'Diretoria de Registros',
+    showLogo: true,
+    showInstitutionHeader: true,
+  }
 }
 
 export interface CertificateEmissionLog {
@@ -89,7 +167,7 @@ export interface CreateCustomEvent {
   location?: string
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
 }
 
 export interface UpdateCustomEvent {
@@ -104,7 +182,7 @@ export interface UpdateCustomEvent {
   isActive?: boolean
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
 }
 
 export interface CreateCustomParticipant {
@@ -137,7 +215,7 @@ export interface CustomEventSummary {
   isActive: boolean
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
   totalParticipants: number
   paidParticipants: number
   eligibleParticipants: number
@@ -157,7 +235,7 @@ export interface EventCatalogItem {
   isActive: boolean
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
   isRegistered?: boolean
   participantId?: string | null
   isPaid?: boolean
@@ -200,7 +278,7 @@ export interface CustomEventDetails {
   isActive: boolean
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
-  templateStyle?: any
+  templateStyle?: CertificateTemplateStyle | null
   createdAt: string
   participants: CustomParticipantItem[]
 }

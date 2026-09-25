@@ -5,15 +5,18 @@ import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { NextFunction, Request, Response } from 'express'
+import { json, urlencoded, type NextFunction, type Request, type Response } from 'express'
 import { AppModule } from './app.module'
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { bodyParser: false })
   const config = app.get(ConfigService)
   const port = config.get<number>('port', 3000)
   const frontendRoot = join(process.cwd(), 'dist/apps/frontend/browser')
   const frontendIndex = join(frontendRoot, 'index.html')
+
+  app.use(json({ limit: '50mb' }))
+  app.use(urlencoded({ limit: '50mb', extended: true }))
 
   app.setGlobalPrefix('api')
   app.enableCors({

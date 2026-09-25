@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common'
-import { Component, OnInit } from '@angular/core'
+import { Component, OnDestroy, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { RouterLink } from '@angular/router'
 import { finalize } from 'rxjs'
 import {
   type CertificateDocument,
+  type CertificateTemplateStyle,
   type CreateCustomEvent,
   type CreateCustomParticipant,
   type CustomEventDetails,
@@ -12,11 +13,14 @@ import {
   type CustomParticipantItem,
   type UpdateCustomEvent,
   CertificatesService,
+  getDefaultTemplateStyle,
 } from '../services/certificates.service'
 import {
+  executeCertificatePrint,
   formatDisplayDate,
   formatStudentCpf,
   getStudentInitials,
+  mountCertificateForPrint,
 } from './certificates-utils'
 
 @Component({
@@ -313,52 +317,16 @@ import {
                       </div>
                       <div class="preview-actions">
                         <span class="preview-filename">Modelo gráfico de fundo ativo</span>
-                        <button type="button" class="button button-danger button-sm" (click)="removeTemplate()">✕ Remover Modelo</button>
-                      </div>
-                    </div>
-
-                    <!-- Ajustes de Posicionamento e Tipografia do Nome do Aluno -->
-                    <div class="template-style-config-box">
-                      <h5>📐 Posicionamento do Nome do Aluno no Certificado</h5>
-                      <div class="style-config-grid">
-                        <div class="form-group">
-                          <label for="pos-name-y">Altura do Nome (Vertical): {{ eventForm.templateStyle.studentNameTop }}%</label>
-                          <input
-                            id="pos-name-y"
-                            type="range"
-                            min="25"
-                            max="75"
-                            step="1"
-                            class="range-slider"
-                            [(ngModel)]="eventForm.templateStyle.studentNameTop"
-                            name="studentNameTop"
-                          />
-                        </div>
-                        <div class="form-group">
-                          <label for="font-size-name">Tamanho da Fonte: {{ eventForm.templateStyle.studentNameFontSize }}px</label>
-                          <input
-                            id="font-size-name"
-                            type="range"
-                            min="22"
-                            max="54"
-                            step="2"
-                            class="range-slider"
-                            [(ngModel)]="eventForm.templateStyle.studentNameFontSize"
-                            name="studentNameFontSize"
-                          />
-                        </div>
-                        <div class="form-group">
-                          <label for="color-name">Cor da Fonte do Nome</label>
-                          <div class="color-picker-row">
-                            <input
-                              id="color-name"
-                              type="color"
-                              class="color-input"
-                              [(ngModel)]="eventForm.templateStyle.studentNameColor"
-                              name="studentNameColor"
-                            />
-                            <span class="color-code">{{ eventForm.templateStyle.studentNameColor }}</span>
-                          </div>
+                        <div class="action-buttons-group">
+                          <button
+                            type="button"
+                            class="button button-accent button-sm"
+                            (click)="copyUploadedToOfficial('form')"
+                            title="Ajusta as cores, fontes, títulos e fundo transparente para combinar com a arte subida"
+                          >
+                            ✨ Copiar layout do modelo que eu subi
+                          </button>
+                          <button type="button" class="button button-danger button-sm" (click)="removeTemplate()">✕ Remover Modelo</button>
                         </div>
                       </div>
                     </div>
@@ -372,6 +340,249 @@ import {
                       <span class="dropzone-sub">Formato A4 Paisagem (ex: 1920x1080px ou superior em alta resolução)</span>
                     </div>
                   }
+
+                  <!-- SEÇÃO DE PERSONALIZAÇÃO VISUAL DO MODELO (MOLDURA, CORES, FONTES E TEXTOS) -->
+                  <div class="template-customizer-accordion">
+                    <button
+                      type="button"
+                      class="accordion-toggle-btn"
+                      (click)="showFormAdvancedStyle = !showFormAdvancedStyle"
+                    >
+                      <span>🎨 Personalizar Moldura, Cores, Fontes e Textos do Modelo</span>
+                      <span>{{ showFormAdvancedStyle ? '▲ Recolher' : '▼ Expandir' }}</span>
+                    </button>
+
+                    @if (showFormAdvancedStyle) {
+                      <div class="accordion-content-panel">
+                        <!-- Presets rápidos -->
+                        <div class="customizer-subgroup">
+                          <label class="customizer-label">Estilos e Paletas Rápidas</label>
+                          <div class="preset-chips">
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'classic')">🏛️ Clássico FAIP</button>
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'gold')">🏆 Dourado Real</button>
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'blue')">💎 Azul Executivo</button>
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'emerald')">🌿 Esmeralda</button>
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'black-gold')">🖤 Preto & Ouro</button>
+                            <button type="button" class="preset-chip" (click)="applyColorPreset('form', 'minimal')">📄 Sem Moldura</button>
+                          </div>
+                        </div>
+
+                        <!-- Moldura e Bordas -->
+                        <div class="customizer-subgroup mt-2">
+                          <label class="customizer-label">Moldura & Bordas</label>
+                          <div class="form-row">
+                            <div class="form-group flex-1">
+                              <label>Estilo da Moldura</label>
+                              <select class="form-control" [(ngModel)]="eventForm.templateStyle.frameStyle" name="formFrameStyle">
+                                <option value="classic-double">Dupla Clássica Institucional</option>
+                                <option value="modern-single">Linha Simples Moderna</option>
+                                <option value="ornate-gold">Borda Imperial Dourada</option>
+                                <option value="minimal">Mínima Fina</option>
+                                <option value="none">Sem Moldura (Transparente / Para Arte Subida)</option>
+                              </select>
+                            </div>
+                            @if (eventForm.templateStyle.frameStyle !== 'none') {
+                              <div class="form-group w-80">
+                                <label>Espessura</label>
+                                <select class="form-control" [(ngModel)]="eventForm.templateStyle.frameBorderWidth" name="formBorderWidth">
+                                  <option [ngValue]="1">1 px</option>
+                                  <option [ngValue]="2">2 px</option>
+                                  <option [ngValue]="3">3 px</option>
+                                  <option [ngValue]="4">4 px</option>
+                                  <option [ngValue]="6">6 px</option>
+                                  <option [ngValue]="8">8 px</option>
+                                </select>
+                              </div>
+                            }
+                          </div>
+                          @if (eventForm.templateStyle.frameStyle !== 'none') {
+                            <div class="form-row mt-1">
+                              <div class="form-group flex-1">
+                                <label>Cor da Moldura Externa</label>
+                                <div class="color-picker-row">
+                                  <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.frameBorderColor" name="formBorderColor" />
+                                  <span class="color-code">{{ eventForm.templateStyle.frameBorderColor }}</span>
+                                </div>
+                              </div>
+                              <div class="form-group flex-1">
+                                <label>Cor da Borda Interna</label>
+                                <div class="color-picker-row">
+                                  <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.frameInnerBorderColor" name="formInnerBorderColor" />
+                                  <span class="color-code">{{ eventForm.templateStyle.frameInnerBorderColor }}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="checkbox-group mt-1">
+                              <label class="checkbox-label">
+                                <input type="checkbox" [(ngModel)]="eventForm.templateStyle.showInnerBorder" name="formShowInnerBorder" />
+                                <span>Exibir borda interna dourada decorativa</span>
+                              </label>
+                            </div>
+                          }
+                        </div>
+
+                        <!-- Tipografia e Cores -->
+                        <div class="customizer-subgroup mt-2">
+                          <label class="customizer-label">Tipografia & Fontes</label>
+                          <div class="form-group">
+                            <label>Família Tipográfica</label>
+                            <select class="form-control" [(ngModel)]="eventForm.templateStyle.fontFamily" name="formFontFamily">
+                              <option value="playfair">Playfair Display (Elegante & Serifada)</option>
+                              <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
+                              <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
+                              <option value="times">Times New Roman (Formal Tradicional)</option>
+                              <option value="serif">Georgia / Acadêmica Clássica</option>
+                            </select>
+                          </div>
+                          <div class="color-grid mt-2">
+                            <div class="color-control-item">
+                              <label>Cor do Título ("CERTIFICADO")</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.titleColor" name="formTitleColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.titleColor }}</span>
+                              </div>
+                            </div>
+                            <div class="color-control-item">
+                              <label>Cor do Aluno</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.studentNameColor" name="formStudentNameColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.studentNameColor }}</span>
+                              </div>
+                            </div>
+                            <div class="color-control-item">
+                              <label>Cor do Evento</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.eventHighlightColor" name="formEventHighlightColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.eventHighlightColor }}</span>
+                              </div>
+                            </div>
+                            <div class="color-control-item">
+                              <label>Cor do Texto Geral</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.textColor" name="formTextColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.textColor }}</span>
+                              </div>
+                            </div>
+                            <div class="color-control-item">
+                              <label>Cor da Instituição</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.institutionColor" name="formInstitutionColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.institutionColor }}</span>
+                              </div>
+                            </div>
+                            <div class="color-control-item">
+                              <label>Cor de Fundo do Papel</label>
+                              <div class="color-picker-row">
+                                <input type="color" class="color-input" [(ngModel)]="eventForm.templateStyle.backgroundColor" name="formBackgroundColor" />
+                                <span class="color-code">{{ eventForm.templateStyle.backgroundColor }}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Textos Institucionais Editáveis -->
+                        <div class="customizer-subgroup mt-2">
+                          <label class="customizer-label">Textos do Cabeçalho & Instituição</label>
+                          <div class="checkbox-group mb-1">
+                            <label class="checkbox-label">
+                              <input type="checkbox" [(ngModel)]="eventForm.templateStyle.showInstitutionHeader" name="formShowHeader" />
+                              <span>Exibir Cabeçalho Superior Institucional</span>
+                            </label>
+                            <label class="checkbox-label">
+                              <input type="checkbox" [(ngModel)]="eventForm.templateStyle.showLogo" name="formShowLogo" />
+                              <span>Exibir Logotipo no Certificado</span>
+                            </label>
+                          </div>
+                          @if (eventForm.templateStyle.showInstitutionHeader) {
+                            <div class="form-group">
+                              <label>Nome da Instituição (Cabeçalho)</label>
+                              <input
+                                type="text"
+                                class="form-control"
+                                [(ngModel)]="eventForm.templateStyle.institutionName"
+                                name="formInstitutionName"
+                                placeholder="Ex: FAIP - FACULDADE DE ENSINO SUPERIOR DO INTERIOR PAULISTA"
+                              />
+                            </div>
+                            <div class="form-group mt-1">
+                              <label>Subtítulo / Secretaria</label>
+                              <input
+                                type="text"
+                                class="form-control"
+                                [(ngModel)]="eventForm.templateStyle.institutionSub"
+                                name="formInstitutionSub"
+                                placeholder="Ex: Secretaria Geral de Cursos de Extensão e Capacitação"
+                              />
+                            </div>
+                          }
+                          <div class="form-group mt-1">
+                            <label>Título do Certificado</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="eventForm.templateStyle.certificateTitle"
+                              name="formCertTitle"
+                              placeholder="Ex: CERTIFICADO"
+                            />
+                          </div>
+                          <div class="form-group mt-1">
+                            <label>Cidade / Local da Emissão</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="eventForm.templateStyle.city"
+                              name="formCity"
+                              placeholder="Ex: Marília - SP"
+                            />
+                          </div>
+                        </div>
+
+                        <!-- Assinaturas -->
+                        <div class="customizer-subgroup mt-2">
+                          <div class="checkbox-group mb-1">
+                            <label class="checkbox-label">
+                              <input type="checkbox" [(ngModel)]="eventForm.templateStyle.showSignatures" name="formShowSignatures" />
+                              <span>Exibir Assinaturas no Rodapé</span>
+                            </label>
+                          </div>
+                          @if (eventForm.templateStyle.showSignatures) {
+                            <div class="signatures-edit-grid">
+                              <div class="signer-edit-box">
+                                <h6>✍️ Assinatura 1 (Esquerda)</h6>
+                                <div class="form-group">
+                                  <label>Cargo / Função</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer1Role" name="formSigner1Role" />
+                                </div>
+                                <div class="form-group mt-1">
+                                  <label>Nome do Responsável (Opcional)</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer1Name" name="formSigner1Name" />
+                                </div>
+                                <div class="form-group mt-1">
+                                  <label>Departamento / Instituição</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer1Dept" name="formSigner1Dept" />
+                                </div>
+                              </div>
+                              <div class="signer-edit-box mt-1">
+                                <h6>✍️ Assinatura 2 (Direita)</h6>
+                                <div class="form-group">
+                                  <label>Cargo / Função</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer2Role" name="formSigner2Role" />
+                                </div>
+                                <div class="form-group mt-1">
+                                  <label>Nome do Responsável (Opcional)</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer2Name" name="formSigner2Name" />
+                                </div>
+                                <div class="form-group mt-1">
+                                  <label>Departamento / Diretoria</label>
+                                  <input type="text" class="form-control" [(ngModel)]="eventForm.templateStyle.signer2Dept" name="formSigner2Dept" />
+                                </div>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
                 </div>
               </div>
 
@@ -649,7 +860,7 @@ import {
            ========================================== -->
       @if (isCertModalOpen && currentDoc) {
         <div class="modal-backdrop" (click)="closeCertModal()">
-          <div class="modal-dialog modal-cert-dialog" (click)="$event.stopPropagation()">
+          <div class="modal-dialog modal-cert-dialog" [class.with-designer]="isCustomizingTemplate" (click)="$event.stopPropagation()">
             <div class="modal-header no-print">
               <div class="cert-modal-header-titles">
                 <h2>Certificado de Extensão Universitária</h2>
@@ -665,13 +876,22 @@ import {
                 </div>
               </div>
               <div class="modal-header-actions">
+                <button
+                  class="button button-sm"
+                  [ngClass]="isCustomizingTemplate ? 'button-primary' : 'button-secondary'"
+                  type="button"
+                  (click)="isCustomizingTemplate = !isCustomizingTemplate"
+                  title="Personalizar moldura, cores, fontes, textos e assinaturas do modelo"
+                >
+                  🎨 {{ isCustomizingTemplate ? 'Ocultar Designer' : 'Personalizar Modelo' }}
+                </button>
                 @if (currentDoc.certificateTemplateUrl) {
                   <button
                     class="button button-secondary button-sm"
                     type="button"
                     (click)="useOfficialLayoutOnly = !useOfficialLayoutOnly"
                   >
-                    {{ useOfficialLayoutOnly ? '🖼️ Ver Modelo de Fundo' : '🏛️ Ver Modelo Oficial FAIP' }}
+                    {{ useOfficialLayoutOnly ? '🖼️ Ver Imagem Pura' : '🏛️ Ver Modelo Formatado' }}
                   </button>
                 }
                 <button class="button button-primary print-action-btn" type="button" (click)="printCertificate()">
@@ -681,108 +901,474 @@ import {
               </div>
             </div>
 
-            <div class="modal-body cert-modal-body">
-              <!-- FOLHA DE IMPRESSÃO A4 PAISAGEM -->
-              <div class="certificate-sheet" id="printable-certificate">
-                <!-- CASO 1: MODELO PERSONALIZADO COM IMAGEM DE FUNDO -->
-                @if (currentDoc.certificateTemplateUrl && !useOfficialLayoutOnly) {
-                  <div
-                    class="custom-cert-wrapper"
-                    [style.background-image]="'url(' + currentDoc.certificateTemplateUrl + ')'"
-                  >
-                    <!-- Nome do Aluno posicionado com precisão sobre o modelo -->
-                    <div
-                      class="custom-cert-name"
-                      [style.top]="(currentDoc.templateStyle?.studentNameTop || 48) + '%'"
-                      [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'"
-                      [style.font-size]="(currentDoc.templateStyle?.studentNameFontSize || 34) + 'px'"
+            @if (templateSuccessMessage) {
+              <div class="designer-alert-banner success-banner no-print">
+                {{ templateSuccessMessage }}
+              </div>
+            }
+
+            <div class="modal-body cert-modal-body" [class.has-designer-open]="isCustomizingTemplate">
+              <!-- PAINEL LATERAL DE DESIGNER & CUSTOMIZAÇÃO AO VIVO -->
+              @if (isCustomizingTemplate && currentDoc.templateStyle) {
+                <aside class="cert-designer-panel no-print">
+                  <div class="designer-panel-header">
+                    <div>
+                      <h3>🎨 Designer do Certificado</h3>
+                      <p>Ajuste moldura, cor, fonte, textos e assinaturas em tempo real.</p>
+                    </div>
+                    <button class="button button-sm button-secondary" type="button" (click)="resetTemplateSettings('doc')">
+                      🔄 Padrão
+                    </button>
+                  </div>
+
+                  <!-- Se o evento possuir arte gráfica de fundo subida -->
+                  @if (currentDoc.certificateTemplateUrl) {
+                    <div class="designer-highlight-card">
+                      <div class="card-icon">✨</div>
+                      <div class="card-content">
+                        <strong>Arte gráfica do evento detectada</strong>
+                        <p>Copie o layout do modelo que você subiu para o certificado oficial (aplica o fundo da arte, remove molduras conflitantes e ajusta cores e fontes):</p>
+                        <button
+                          type="button"
+                          class="button button-sm button-accent mt-1"
+                          (click)="copyUploadedToOfficial('doc')"
+                        >
+                          ✨ Copiar layout do modelo que eu subi
+                        </button>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- PRESETS RÁPIDOS -->
+                  <div class="designer-section">
+                    <label class="section-label">Estilos e Paletas Rápidas</label>
+                    <div class="preset-chips">
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'classic')">🏛️ Clássico FAIP</button>
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'gold')">🏆 Dourado Real</button>
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'blue')">💎 Azul Executivo</button>
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'emerald')">🌿 Esmeralda</button>
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'black-gold')">🖤 Preto & Ouro</button>
+                      <button type="button" class="preset-chip" (click)="applyColorPreset('doc', 'minimal')">📄 Sem Moldura</button>
+                    </div>
+                  </div>
+
+                  <!-- MOLDURA E BORDAS -->
+                  <div class="designer-section">
+                    <label class="section-label">Moldura & Bordas</label>
+                    <div class="form-row">
+                      <div class="form-group flex-1">
+                        <label>Estilo da Moldura</label>
+                        <select class="form-control" [(ngModel)]="currentDoc.templateStyle.frameStyle">
+                          <option value="classic-double">Dupla Clássica Institucional</option>
+                          <option value="modern-single">Linha Simples Moderna</option>
+                          <option value="ornate-gold">Borda Imperial Dourada</option>
+                          <option value="minimal">Mínima Fina</option>
+                          <option value="none">Sem Moldura (Transparente / Para Arte Subida)</option>
+                        </select>
+                      </div>
+                      @if (currentDoc.templateStyle.frameStyle !== 'none') {
+                        <div class="form-group w-80">
+                          <label>Espessura</label>
+                          <select class="form-control" [(ngModel)]="currentDoc.templateStyle.frameBorderWidth">
+                            <option [ngValue]="1">1 px</option>
+                            <option [ngValue]="2">2 px</option>
+                            <option [ngValue]="3">3 px</option>
+                            <option [ngValue]="4">4 px</option>
+                            <option [ngValue]="6">6 px</option>
+                            <option [ngValue]="8">8 px</option>
+                          </select>
+                        </div>
+                      }
+                    </div>
+
+                    @if (currentDoc.templateStyle.frameStyle !== 'none') {
+                      <div class="form-row mt-1">
+                        <div class="form-group flex-1">
+                          <label>Cor da Moldura Externa</label>
+                          <div class="color-picker-row">
+                            <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.frameBorderColor" />
+                            <span class="color-code">{{ currentDoc.templateStyle.frameBorderColor }}</span>
+                          </div>
+                        </div>
+                        <div class="form-group flex-1">
+                          <label>Cor da Borda Interna</label>
+                          <div class="color-picker-row">
+                            <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.frameInnerBorderColor" />
+                            <span class="color-code">{{ currentDoc.templateStyle.frameInnerBorderColor }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="checkbox-group mt-1">
+                        <label class="checkbox-label">
+                          <input type="checkbox" [(ngModel)]="currentDoc.templateStyle.showInnerBorder" />
+                          <span>Exibir borda interna decorativa</span>
+                        </label>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- TIPOGRAFIA E CORES -->
+                  <div class="designer-section">
+                    <label class="section-label">Tipografia & Fontes</label>
+                    <div class="form-group">
+                      <label>Família Tipográfica</label>
+                      <select class="form-control" [(ngModel)]="currentDoc.templateStyle.fontFamily">
+                        <option value="playfair">Playfair Display (Elegante & Serifada)</option>
+                        <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
+                        <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
+                        <option value="times">Times New Roman (Formal Tradicional)</option>
+                        <option value="serif">Georgia / Acadêmica Clássica</option>
+                      </select>
+                    </div>
+
+                    <label class="section-label mt-2">Cores dos Textos e Fundo</label>
+                    <div class="color-grid">
+                      <div class="color-control-item">
+                        <label>Cor do Título ("CERTIFICADO")</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.titleColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.titleColor }}</span>
+                        </div>
+                      </div>
+                      <div class="color-control-item">
+                        <label>Cor do Aluno</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.studentNameColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.studentNameColor }}</span>
+                        </div>
+                      </div>
+                      <div class="color-control-item">
+                        <label>Cor do Evento</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.eventHighlightColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.eventHighlightColor }}</span>
+                        </div>
+                      </div>
+                      <div class="color-control-item">
+                        <label>Cor do Texto Geral</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.textColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.textColor }}</span>
+                        </div>
+                      </div>
+                      <div class="color-control-item">
+                        <label>Cor da Instituição</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.institutionColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.institutionColor }}</span>
+                        </div>
+                      </div>
+                      <div class="color-control-item">
+                        <label>Cor de Fundo do Papel</label>
+                        <div class="color-picker-row">
+                          <input type="color" class="color-input" [(ngModel)]="currentDoc.templateStyle.backgroundColor" />
+                          <span class="color-code">{{ currentDoc.templateStyle.backgroundColor }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- TEXTOS INSTITUCIONAIS EDITÁVEIS -->
+                  <div class="designer-section">
+                    <label class="section-label">Textos do Cabeçalho & Instituição</label>
+                    <div class="checkbox-group mb-1">
+                      <label class="checkbox-label">
+                        <input type="checkbox" [(ngModel)]="currentDoc.templateStyle.showInstitutionHeader" />
+                        <span>Exibir Cabeçalho Superior Institucional</span>
+                      </label>
+                      <label class="checkbox-label">
+                        <input type="checkbox" [(ngModel)]="currentDoc.templateStyle.showLogo" />
+                        <span>Exibir Logotipo / Emblema no Certificado</span>
+                      </label>
+                    </div>
+                    @if (currentDoc.templateStyle.showInstitutionHeader) {
+                      <div class="form-group">
+                        <label>Nome da Instituição (Cabeçalho)</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          [(ngModel)]="currentDoc.templateStyle.institutionName"
+                          placeholder="Ex: FAIP - Faculdade de Ensino Superior..."
+                        />
+                      </div>
+                      <div class="form-group mt-1">
+                        <label>Subtítulo / Secretaria</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          [(ngModel)]="currentDoc.templateStyle.institutionSub"
+                          placeholder="Ex: Secretaria Geral de Cursos de Extensão..."
+                        />
+                      </div>
+                    }
+                    <div class="form-group mt-1">
+                      <label>Título do Certificado</label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        [(ngModel)]="currentDoc.templateStyle.certificateTitle"
+                        placeholder="Ex: CERTIFICADO"
+                      />
+                    </div>
+                    <div class="form-group mt-1">
+                      <label>Cidade / Local da Emissão</label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        [(ngModel)]="currentDoc.templateStyle.city"
+                        placeholder="Ex: Marília - SP"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- ASSINATURAS DO CERTIFICADO -->
+                  <div class="designer-section">
+                    <div class="checkbox-group mb-1">
+                      <label class="checkbox-label">
+                        <input type="checkbox" [(ngModel)]="currentDoc.templateStyle.showSignatures" />
+                        <span>Exibir Assinaturas no Rodapé</span>
+                      </label>
+                    </div>
+                    @if (currentDoc.templateStyle.showSignatures) {
+                      <div class="signatures-edit-grid">
+                        <div class="signer-edit-box">
+                          <h6>✍️ Assinatura 1 (Esquerda)</h6>
+                          <div class="form-group">
+                            <label>Cargo / Função</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer1Role"
+                              placeholder="Ex: Coordenação de Extensão"
+                            />
+                          </div>
+                          <div class="form-group mt-1">
+                            <label>Nome do Responsável (Opcional)</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer1Name"
+                              placeholder="Ex: Prof. Dr. Silva"
+                            />
+                          </div>
+                          <div class="form-group mt-1">
+                            <label>Departamento / Instituição</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer1Dept"
+                              placeholder="Ex: UniCore / FAIP"
+                            />
+                          </div>
+                        </div>
+
+                        <div class="signer-edit-box mt-1">
+                          <h6>✍️ Assinatura 2 (Direita)</h6>
+                          <div class="form-group">
+                            <label>Cargo / Função</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer2Role"
+                              placeholder="Ex: Secretaria Acadêmica Geral"
+                            />
+                          </div>
+                          <div class="form-group mt-1">
+                            <label>Nome do Responsável (Opcional)</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer2Name"
+                              placeholder="Ex: Profa. Maria Oliveira"
+                            />
+                          </div>
+                          <div class="form-group mt-1">
+                            <label>Departamento / Diretoria</label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              [(ngModel)]="currentDoc.templateStyle.signer2Dept"
+                              placeholder="Ex: Diretoria de Registros"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- BOTÃO DE SALVAMENTO NO BANCO DE DADOS -->
+                  <div class="designer-footer-sticky">
+                    <button
+                      type="button"
+                      class="button button-primary w-full"
+                      [disabled]="isSavingTemplateSettings"
+                      (click)="saveCertificateTemplateSettings()"
                     >
-                      {{ currentDoc.studentName }}
-                    </div>
-
-                    <!-- Rodapé com Autenticidade Digital -->
-                    <div class="custom-cert-auth">
-                      <span>Autenticidade: <strong>{{ currentDoc.verificationCode }}</strong></span>
-                      <span>Marília - SP, {{ formatCurrentDate(currentDoc.issuedAt) }}</span>
-                    </div>
+                      {{ isSavingTemplateSettings ? 'Salvando…' : '💾 Salvar como Padrão do Evento' }}
+                    </button>
                   </div>
-                } @else {
-                  <!-- CASO 2: MODELO INSTITUCIONAL OFICIAL FAIP -->
-                  <div class="cert-outer-border">
-                    <div class="cert-inner-border">
-                      <div class="cert-header">
-                        @if (currentDoc.logoUrl) {
-                          <img [src]="currentDoc.logoUrl" alt="Logo do Evento" class="cert-custom-logo" />
-                        } @else {
-                          <div class="cert-emblem">🎓</div>
+                </aside>
+              }
+
+              <!-- FOLHA DE IMPRESSÃO A4 PAISAGEM -->
+              <div class="cert-preview-container">
+                <div
+                  class="certificate-sheet"
+                  id="printable-certificate"
+                  [class.with-uploaded-bg]="currentDoc.templateStyle?.useUploadedBackground && currentDoc.certificateTemplateUrl"
+                  [style.background-color]="currentDoc.templateStyle?.backgroundColor || '#ffffff'"
+                  [style.background-image]="currentDoc.templateStyle?.useUploadedBackground && currentDoc.certificateTemplateUrl ? 'url(' + currentDoc.certificateTemplateUrl + ')' : null"
+                  [style.background-size]="'100% 100%'"
+                  [style.background-repeat]="'no-repeat'"
+                  [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                >
+                  <!-- CASO 1: MODELO COM IMAGEM PURA (SE NÃO ESTIVER NO MODO OFICIAL OU MESCLADO) -->
+                  @if (currentDoc.certificateTemplateUrl && !useOfficialLayoutOnly && !currentDoc.templateStyle?.useUploadedBackground) {
+                    <div
+                      class="custom-cert-wrapper"
+                      [style.background-image]="'url(' + currentDoc.certificateTemplateUrl + ')'"
+                    >
+                      <div
+                        class="custom-cert-name"
+                        [style.top]="(currentDoc.templateStyle?.studentNameTop || 48) + '%'"
+                        [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'"
+                        [style.font-size]="(currentDoc.templateStyle?.studentNameFontSize || 34) + 'px'"
+                        [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                      >
+                        {{ currentDoc.studentName }}
+                      </div>
+                      <div class="custom-cert-auth">
+                        <span>Autenticidade: <strong>{{ currentDoc.verificationCode }}</strong></span>
+                        <span>{{ currentDoc.templateStyle?.city || 'Marília - SP' }}, {{ formatCurrentDate(currentDoc.issuedAt) }}</span>
+                      </div>
+                    </div>
+                  } @else {
+                    <!-- CASO 2: MODELO OFICIAL FORMATADO COM PERSONALIZAÇÃO COMPLETA -->
+                    <div
+                      class="cert-outer-border"
+                      [class.border-none]="currentDoc.templateStyle?.frameStyle === 'none'"
+                      [style.border-color]="currentDoc.templateStyle?.frameBorderColor || '#0f172a'"
+                      [style.border-width.px]="currentDoc.templateStyle?.frameStyle === 'none' ? 0 : (currentDoc.templateStyle?.frameBorderWidth || 4)"
+                      [style.border-style]="currentDoc.templateStyle?.frameStyle === 'none' ? 'none' : currentDoc.templateStyle?.frameStyle === 'modern-single' || currentDoc.templateStyle?.frameStyle === 'minimal' ? 'solid' : currentDoc.templateStyle?.frameStyle === 'ornate-gold' ? 'ridge' : 'double'"
+                      [style.background]="(currentDoc.templateStyle?.useUploadedBackground && currentDoc.certificateTemplateUrl) || currentDoc.templateStyle?.frameStyle === 'none' ? 'transparent' : (currentDoc.templateStyle?.backgroundColor || '#ffffff')"
+                    >
+                      <div
+                        class="cert-inner-border"
+                        [class.border-none]="!currentDoc.templateStyle?.showInnerBorder || currentDoc.templateStyle?.frameStyle === 'none'"
+                        [style.border-color]="currentDoc.templateStyle?.frameInnerBorderColor || '#d97706'"
+                        [style.background]="(currentDoc.templateStyle?.useUploadedBackground && currentDoc.certificateTemplateUrl) || currentDoc.templateStyle?.frameStyle === 'none' ? 'transparent' : 'radial-gradient(circle at center, rgba(255,255,255,0.92) 50%, rgba(255,251,235,0.7) 100%)'"
+                      >
+                        @if (currentDoc.templateStyle?.showInstitutionHeader !== false) {
+                          <div class="cert-header">
+                            @if (currentDoc.templateStyle?.showLogo !== false) {
+                              @if (currentDoc.logoUrl) {
+                                <img [src]="currentDoc.logoUrl" alt="Logo do Evento" class="cert-custom-logo" />
+                              } @else {
+                                <div class="cert-emblem">🎓</div>
+                              }
+                            }
+                            <h1
+                              class="cert-institution-name"
+                              [style.color]="currentDoc.templateStyle?.institutionColor || '#0f172a'"
+                              [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                            >
+                              {{ currentDoc.templateStyle?.institutionName || currentDoc.institutionName }}
+                            </h1>
+                            <p
+                              class="cert-subheading"
+                              [style.color]="currentDoc.templateStyle?.subheadingColor || '#d97706'"
+                            >
+                              {{ currentDoc.templateStyle?.institutionSub || 'Secretaria Geral de Cursos de Extensão e Capacitação' }}
+                            </p>
+                            <div class="cert-divider">
+                              <span class="cert-divider-line"></span>
+                              <span class="cert-divider-diamond" [style.color]="currentDoc.templateStyle?.frameInnerBorderColor || '#d97706'">◆</span>
+                              <span class="cert-divider-line"></span>
+                            </div>
+                          </div>
                         }
-                        <h1 class="cert-institution-name">{{ currentDoc.institutionName }}</h1>
-                        <p class="cert-subheading">Secretaria Geral de Cursos de Extensão e Capacitação</p>
-                        <div class="cert-divider">
-                          <span class="cert-divider-line"></span>
-                          <span class="cert-divider-diamond">◆</span>
-                          <span class="cert-divider-line"></span>
+
+                        <div class="cert-title-area">
+                          <h2
+                            class="cert-title"
+                            [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'"
+                            [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                          >
+                            {{ currentDoc.templateStyle?.certificateTitle || 'CERTIFICADO' }}
+                          </h2>
                         </div>
-                      </div>
 
-                      <div class="cert-title-area">
-                        <h2 class="cert-title">CERTIFICADO</h2>
-                      </div>
-
-                      <div class="cert-body-text">
-                        <p>
-                          Certificamos para os devidos fins que o(a) acadêmico(a)
-                          <strong class="highlight-name">{{ currentDoc.studentName }}</strong>,
-                          portador(a) do Registro Acadêmico (RA) <strong>{{ currentDoc.studentRa }}</strong>
-                          @if (currentDoc.studentCpf) {
-                            e do CPF <strong>{{ formatCpf(currentDoc.studentCpf) }}</strong>
-                          },
-                          concluiu com aproveitamento e frequência regular as atividades do evento
-                        </p>
-                        <p class="highlight-event">
-                          "{{ currentDoc.eventTitle }}"
-                        </p>
-                        @if (currentDoc.courseName) {
-                          <p class="cert-course-mention">
-                            vinculado ao curso de <strong>{{ currentDoc.courseName }}</strong>,
+                        <div
+                          class="cert-body-text"
+                          [style.color]="currentDoc.templateStyle?.textColor || '#334155'"
+                          [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                        >
+                          <p>
+                            Certificamos para os devidos fins que o(a) acadêmico(a)
+                            <strong class="highlight-name" [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'">{{ currentDoc.studentName }}</strong>,
+                            portador(a) do Registro Acadêmico (RA) <strong>{{ currentDoc.studentRa }}</strong>
+                            @if (currentDoc.studentCpf) {
+                              e do CPF <strong>{{ formatCpf(currentDoc.studentCpf) }}</strong>
+                            },
+                            concluiu com aproveitamento e frequência regular as atividades do evento
                           </p>
-                        }
-                        <p class="cert-workload-text">
-                          com carga horária total comprovada de <strong>{{ currentDoc.workloadHours }} horas</strong>
-                          @if (currentDoc.startDate && currentDoc.endDate) {
-                            , realizado no período de <strong>{{ formatDate(currentDoc.startDate) }}</strong> a
-                            <strong>{{ formatDate(currentDoc.endDate) }}</strong>
-                          }.
-                        </p>
-                      </div>
-
-                      <div class="cert-footer">
-                        <div class="cert-signatures">
-                          <div class="signature-block">
-                            <div class="signature-line"></div>
-                            <span class="signature-role">Coordenação de Extensão</span>
-                            <span class="signature-dept">UniCore / FAIP</span>
-                          </div>
-                          <div class="signature-block">
-                            <div class="signature-line"></div>
-                            <span class="signature-role">Secretaria Acadêmica Geral</span>
-                            <span class="signature-dept">Diretoria de Registros</span>
-                          </div>
+                          <p class="highlight-event" [style.color]="currentDoc.templateStyle?.eventHighlightColor || '#1e3a8a'">
+                            "{{ currentDoc.eventTitle }}"
+                          </p>
+                          @if (currentDoc.courseName) {
+                            <p class="cert-course-mention">
+                              vinculado ao curso de <strong>{{ currentDoc.courseName }}</strong>,
+                            </p>
+                          }
+                          <p class="cert-workload-text">
+                            com carga horária total comprovada de <strong>{{ currentDoc.workloadHours }} horas</strong>
+                            @if (currentDoc.startDate && currentDoc.endDate) {
+                              , realizado no período de <strong>{{ formatDate(currentDoc.startDate) }}</strong> a
+                              <strong>{{ formatDate(currentDoc.endDate) }}</strong>
+                            }.
+                          </p>
                         </div>
 
-                        <div class="cert-verification-bar">
-                          <div class="cert-date-location">
-                            Marília - SP, {{ formatCurrentDate(currentDoc.issuedAt) }}
-                          </div>
-                          <div class="cert-auth-code">
-                            <span>Código de Autenticidade Digital:</span>
-                            <strong>{{ currentDoc.verificationCode }}</strong>
+                        <div class="cert-footer">
+                          @if (currentDoc.templateStyle?.showSignatures !== false) {
+                            <div class="cert-signatures">
+                              <div class="signature-block">
+                                <div class="signature-line" [style.background]="currentDoc.templateStyle?.textColor || '#64748b'"></div>
+                                @if (currentDoc.templateStyle?.signer1Name) {
+                                  <span class="signature-name" [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'">{{ currentDoc.templateStyle?.signer1Name }}</span>
+                                }
+                                <span class="signature-role" [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'">
+                                  {{ currentDoc.templateStyle?.signer1Role || 'Coordenação de Extensão' }}
+                                </span>
+                                <span class="signature-dept">{{ currentDoc.templateStyle?.signer1Dept || 'UniCore / FAIP' }}</span>
+                              </div>
+                              <div class="signature-block">
+                                <div class="signature-line" [style.background]="currentDoc.templateStyle?.textColor || '#64748b'"></div>
+                                @if (currentDoc.templateStyle?.signer2Name) {
+                                  <span class="signature-name" [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'">{{ currentDoc.templateStyle?.signer2Name }}</span>
+                                }
+                                <span class="signature-role" [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'">
+                                  {{ currentDoc.templateStyle?.signer2Role || 'Secretaria Acadêmica Geral' }}
+                                </span>
+                                <span class="signature-dept">{{ currentDoc.templateStyle?.signer2Dept || 'Diretoria de Registros' }}</span>
+                              </div>
+                            </div>
+                          }
+
+                          <div class="cert-verification-bar">
+                            <div class="cert-date-location">
+                              {{ currentDoc.templateStyle?.city || 'Marília - SP' }}, {{ formatCurrentDate(currentDoc.issuedAt) }}
+                            </div>
+                            <div class="cert-auth-code">
+                              <span>Código de Autenticidade Digital:</span>
+                              <strong>{{ currentDoc.verificationCode }}</strong>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                }
+                  }
+                </div>
               </div>
             </div>
 
@@ -1710,19 +2296,280 @@ import {
     }
 
     /* ========================================================
-       DIAGRAMAÇÃO DO CERTIFICADO OFICIAL A4 PAISAGEM
+       DIAGRAMAÇÃO DO CERTIFICADO OFICIAL E DESIGNER AO VIVO
        ======================================================== */
+    .action-buttons-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Acordeão de Personalização no Formulário do Evento */
+    .template-customizer-accordion {
+      margin-top: 1rem;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #18181b;
+    }
+
+    .accordion-toggle-btn {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #27272a;
+      border: none;
+      color: #f4f4f5;
+      font-size: 0.88rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .accordion-toggle-btn:hover {
+      background: #3f3f46;
+      color: #38bdf8;
+    }
+
+    .accordion-content-panel {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      background: #18181b;
+    }
+
+    .customizer-subgroup {
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 0.85rem;
+    }
+
+    .customizer-subgroup:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .customizer-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #fbbf24;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .preset-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .preset-chip {
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #27272a;
+      color: #e4e4e7;
+      border: 1px solid #3f3f46;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-chip:hover {
+      background: #3f3f46;
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+
+    /* Modal do Certificado e Painel Designer */
     .modal-cert-dialog {
       max-width: 1100px;
       width: 95vw;
       background: #18181b;
+      transition: max-width 0.3s ease;
+    }
+
+    .modal-cert-dialog.with-designer {
+      max-width: 1520px;
+    }
+
+    .designer-alert-banner {
+      background: #064e3b;
+      color: #a7f3d0;
+      border: 1px solid #059669;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .cert-modal-body {
       display: flex;
       justify-content: center;
-      padding: 2rem 1rem;
+      padding: 1.5rem 1rem;
       background: #09090b;
+      max-height: calc(88vh - 75px);
+      overflow-y: auto;
+    }
+
+    .cert-modal-body.has-designer-open {
+      display: flex;
+      justify-content: flex-start;
+      align-items: stretch;
+      gap: 1.5rem;
+      overflow: hidden;
+    }
+
+    /* Painel do Designer Lateral */
+    .cert-designer-panel {
+      width: 410px;
+      min-width: 370px;
+      max-width: 430px;
+      max-height: calc(88vh - 95px);
+      overflow-y: auto;
+      background: #141416;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      color: #f4f4f5;
+      font-size: 0.85rem;
+    }
+
+    .designer-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .designer-panel-header h3 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0 0 0.25rem 0;
+    }
+
+    .designer-panel-header p {
+      font-size: 0.78rem;
+      color: #a1a1aa;
+      margin: 0;
+    }
+
+    .designer-highlight-card {
+      background: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(15, 23, 42, 0.8));
+      border: 1px solid rgba(217, 119, 6, 0.4);
+      border-radius: 8px;
+      padding: 0.85rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .designer-highlight-card .card-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .designer-highlight-card .card-content {
+      font-size: 0.8rem;
+      color: #fde68a;
+    }
+
+    .designer-highlight-card .card-content strong {
+      display: block;
+      color: #ffffff;
+      margin-bottom: 0.2rem;
+    }
+
+    .designer-highlight-card .card-content p {
+      margin: 0.2rem 0 0.5rem 0;
+      color: #cbd5e1;
+      font-size: 0.76rem;
+    }
+
+    .designer-section {
+      border-top: 1px solid #27272a;
+      padding-top: 1rem;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #fbbf24;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .color-control-item label {
+      font-size: 0.75rem;
+      color: #a1a1aa;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .signatures-edit-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .signer-edit-box {
+      background: #1f1f23;
+      border: 1px solid #2e2e33;
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+
+    .signer-edit-box h6 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #e4e4e7;
+      margin: 0 0 0.5rem 0;
+    }
+
+    .designer-footer-sticky {
+      position: sticky;
+      bottom: -1.25rem;
+      margin: 0.5rem -1.25rem -1.25rem -1.25rem;
+      padding: 0.85rem 1.25rem;
+      background: #141416;
+      border-top: 1px solid #27272a;
+      z-index: 10;
+    }
+
+    /* Container de Preview */
+    .cert-preview-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 0.5rem;
+      max-height: calc(88vh - 95px);
+    }
+
+    .border-none {
+      border: none !important;
+      box-shadow: none !important;
     }
 
     .certificate-sheet {
@@ -1735,6 +2582,23 @@ import {
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
       box-sizing: border-box;
       position: relative;
+    }
+
+    .certificate-sheet.with-uploaded-bg {
+      padding: 0 !important;
+      background-color: transparent !important;
+    }
+
+    .certificate-sheet.with-uploaded-bg .cert-outer-border {
+      background: transparent !important;
+      border: none !important;
+      padding: 2.2rem 3.5rem;
+    }
+
+    .certificate-sheet.with-uploaded-bg .cert-inner-border {
+      background: transparent !important;
+      padding: 0 !important;
+      border: none !important;
     }
 
     .cert-outer-border {
@@ -1919,76 +2783,15 @@ import {
 
     .cert-modal-hint { font-size: 0.8rem; color: #fbbf24; }
 
-    /* Impressão */
+    /* Impressão delegada globalmente com portal isolado para A4 Paisagem */
     @media print {
-      body * { visibility: hidden; }
-
-      .no-print,
-      .layout-shell header,
-      .sidebar,
-      .top-bar,
-      .event-reg-heading,
-      .search-panel,
-      .events-grid,
-      .modal-header,
-      .modal-footer,
-      .modal-backdrop::before {
+      .no-print {
         display: none !important;
-      }
-
-      .modal-backdrop {
-        position: static !important;
-        background: transparent !important;
-        padding: 0 !important;
-        display: block !important;
-        inset: auto !important;
-      }
-
-      .modal-dialog,
-      .modal-cert-dialog {
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      .cert-modal-body {
-        background: transparent !important;
-        padding: 0 !important;
-      }
-
-      #printable-certificate,
-      #printable-certificate * {
-        visibility: visible;
-      }
-
-      #printable-certificate {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100vw;
-        height: 100vh;
-        max-width: none !important;
-        margin: 0 !important;
-        padding: 1.5cm !important;
-        box-shadow: none !important;
-        border: none !important;
-        page-break-inside: avoid;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      @page {
-        size: A4 landscape;
-        margin: 0;
       }
     }
   `],
 })
-export class EventRegistrationPageComponent implements OnInit {
+export class EventRegistrationPageComponent implements OnInit, OnDestroy {
   events: CustomEventSummary[] = []
   searchQuery = ''
   isLoadingEvents = false
@@ -2012,11 +2815,7 @@ export class EventRegistrationPageComponent implements OnInit {
     location: string
     logoUrl?: string | null
     certificateTemplateUrl?: string | null
-    templateStyle: {
-      studentNameTop: number
-      studentNameFontSize: number
-      studentNameColor: string
-    }
+    templateStyle: CertificateTemplateStyle
   } = this.getEmptyEventForm()
 
   // Drawer de Participantes
@@ -2038,14 +2837,44 @@ export class EventRegistrationPageComponent implements OnInit {
   currentDoc: CertificateDocument | null = null
   useOfficialLayoutOnly = false
 
+  // Customização de Modelo / Designer
+  isCustomizingTemplate = false
+  isSavingTemplateSettings = false
+  templateSuccessMessage = ''
+  showFormAdvancedStyle = false
+
   // Arquivos selecionados para upload
   selectedLogoFile: File | null = null
   selectedTemplateFile: File | null = null
+
+  private printCleanupFn: (() => void) | null = null
+
+  private handleBeforePrint = () => {
+    if (!this.isCertModalOpen) return
+    if (!this.printCleanupFn) {
+      this.printCleanupFn = mountCertificateForPrint('printable-certificate')
+    }
+  }
+
+  private handleAfterPrint = () => {
+    if (this.printCleanupFn) {
+      this.printCleanupFn()
+      this.printCleanupFn = null
+    }
+  }
 
   constructor(private readonly certificatesService: CertificatesService) {}
 
   ngOnInit(): void {
     this.loadEvents()
+    window.addEventListener('beforeprint', this.handleBeforePrint)
+    window.addEventListener('afterprint', this.handleAfterPrint)
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('beforeprint', this.handleBeforePrint)
+    window.removeEventListener('afterprint', this.handleAfterPrint)
+    this.handleAfterPrint()
   }
 
   getEmptyEventForm() {
@@ -2061,11 +2890,7 @@ export class EventRegistrationPageComponent implements OnInit {
       location: '',
       logoUrl: null as string | null,
       certificateTemplateUrl: null as string | null,
-      templateStyle: {
-        studentNameTop: 48,
-        studentNameFontSize: 34,
-        studentNameColor: '#0f172a',
-      },
+      templateStyle: getDefaultTemplateStyle(),
     }
   }
 
@@ -2158,10 +2983,9 @@ export class EventRegistrationPageComponent implements OnInit {
       location: event.location || '',
       logoUrl: event.logoUrl || null,
       certificateTemplateUrl: event.certificateTemplateUrl || null,
-      templateStyle: event.templateStyle || {
-        studentNameTop: 48,
-        studentNameFontSize: 34,
-        studentNameColor: '#0f172a',
+      templateStyle: {
+        ...getDefaultTemplateStyle(),
+        ...(event.templateStyle || {}),
       },
     }
     this.isEventModalOpen = true
@@ -2180,9 +3004,20 @@ export class EventRegistrationPageComponent implements OnInit {
       this.errorMessage = 'Informe o título do evento.'
       return
     }
+    if (!this.eventForm.startDate) {
+      this.errorMessage = 'Informe a data de início do evento.'
+      return
+    }
 
     this.isSubmittingEvent = true
     this.errorMessage = ''
+
+    const startDate = this.eventForm.startDate.includes('T')
+      ? new Date(this.eventForm.startDate).toISOString()
+      : new Date(this.eventForm.startDate + 'T10:00:00Z').toISOString()
+    const endDate = this.eventForm.endDate
+      ? (this.eventForm.endDate.includes('T') ? new Date(this.eventForm.endDate).toISOString() : new Date(this.eventForm.endDate + 'T18:00:00Z').toISOString())
+      : undefined
 
     const payload: CreateCustomEvent = {
       title: this.eventForm.title.trim(),
@@ -2190,8 +3025,8 @@ export class EventRegistrationPageComponent implements OnInit {
       workloadHours: Number(this.eventForm.workloadHours) || 20,
       speaker: this.eventForm.speaker.trim() || undefined,
       courseName: this.eventForm.courseName.trim() || undefined,
-      startDate: new Date(this.eventForm.startDate + 'T10:00:00Z').toISOString(),
-      endDate: this.eventForm.endDate ? new Date(this.eventForm.endDate + 'T18:00:00Z').toISOString() : undefined,
+      startDate,
+      endDate,
       location: this.eventForm.location.trim() || undefined,
       logoUrl: this.eventForm.logoUrl || null,
       certificateTemplateUrl: this.eventForm.certificateTemplateUrl || null,
@@ -2372,7 +3207,16 @@ export class EventRegistrationPageComponent implements OnInit {
     this.errorMessage = ''
     this.certificatesService.getParticipantDocument(participant.id).subscribe({
       next: (doc) => {
-        this.currentDoc = doc
+        this.currentDoc = {
+          ...doc,
+          templateStyle: {
+            ...getDefaultTemplateStyle(),
+            ...(doc.templateStyle || {}),
+          },
+        }
+        if (this.currentDoc?.templateStyle?.useUploadedBackground) {
+          this.useOfficialLayoutOnly = true
+        }
         this.isCertModalOpen = true
         participant.emittedCount = (participant.emittedCount || 0) + 1
         participant.lastEmittedAt = doc.issuedAt
@@ -2384,12 +3228,194 @@ export class EventRegistrationPageComponent implements OnInit {
   }
 
   closeCertModal(): void {
+    this.handleAfterPrint()
     this.isCertModalOpen = false
     this.currentDoc = null
+    this.isCustomizingTemplate = false
+  }
+
+  getFontFamily(font?: string): string {
+    switch (font) {
+      case 'cinzel':
+        return "'Cinzel', Georgia, serif"
+      case 'playfair':
+        return "'Playfair Display', Georgia, serif"
+      case 'montserrat':
+      case 'sans':
+        return "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      case 'times':
+        return "'Times New Roman', Times, serif"
+      case 'serif':
+      default:
+        return "Georgia, 'Times New Roman', serif"
+    }
+  }
+
+  applyColorPreset(target: 'form' | 'doc', preset: string): void {
+    const style = target === 'form' ? this.eventForm.templateStyle : this.currentDoc?.templateStyle
+    if (!style) return
+
+    switch (preset) {
+      case 'gold':
+        style.backgroundColor = '#fdfbf7'
+        style.frameStyle = 'ornate-gold'
+        style.frameBorderColor = '#854d0e'
+        style.frameInnerBorderColor = '#eab308'
+        style.frameBorderWidth = 4
+        style.showInnerBorder = true
+        style.fontFamily = 'cinzel'
+        style.titleColor = '#854d0e'
+        style.institutionColor = '#1e293b'
+        style.subheadingColor = '#a16207'
+        style.textColor = '#334155'
+        style.eventHighlightColor = '#854d0e'
+        style.studentNameColor = '#1e293b'
+        break
+      case 'blue':
+        style.backgroundColor = '#f8fafc'
+        style.frameStyle = 'modern-single'
+        style.frameBorderColor = '#1e3a8a'
+        style.frameInnerBorderColor = '#3b82f6'
+        style.frameBorderWidth = 3
+        style.showInnerBorder = true
+        style.fontFamily = 'playfair'
+        style.titleColor = '#1e3a8a'
+        style.institutionColor = '#0f172a'
+        style.subheadingColor = '#2563eb'
+        style.textColor = '#1e293b'
+        style.eventHighlightColor = '#1d4ed8'
+        style.studentNameColor = '#0f172a'
+        break
+      case 'emerald':
+        style.backgroundColor = '#f0fdf4'
+        style.frameStyle = 'classic-double'
+        style.frameBorderColor = '#064e3b'
+        style.frameInnerBorderColor = '#d97706'
+        style.frameBorderWidth = 4
+        style.showInnerBorder = true
+        style.fontFamily = 'cinzel'
+        style.titleColor = '#065f46'
+        style.institutionColor = '#064e3b'
+        style.subheadingColor = '#b45309'
+        style.textColor = '#1f2937'
+        style.eventHighlightColor = '#047857'
+        style.studentNameColor = '#064e3b'
+        break
+      case 'black-gold':
+        style.backgroundColor = '#18181b'
+        style.frameStyle = 'ornate-gold'
+        style.frameBorderColor = '#eab308'
+        style.frameInnerBorderColor = '#ca8a04'
+        style.frameBorderWidth = 3
+        style.showInnerBorder = true
+        style.fontFamily = 'playfair'
+        style.titleColor = '#facc15'
+        style.institutionColor = '#fef08a'
+        style.subheadingColor = '#fde047'
+        style.textColor = '#e4e4e7'
+        style.eventHighlightColor = '#facc15'
+        style.studentNameColor = '#ffffff'
+        break
+      case 'minimal':
+        style.backgroundColor = '#ffffff'
+        style.frameStyle = 'none'
+        style.frameBorderColor = '#cbd5e1'
+        style.frameInnerBorderColor = 'transparent'
+        style.frameBorderWidth = 1
+        style.showInnerBorder = false
+        style.fontFamily = 'montserrat'
+        style.titleColor = '#0f172a'
+        style.institutionColor = '#334155'
+        style.subheadingColor = '#64748b'
+        style.textColor = '#334155'
+        style.eventHighlightColor = '#2563eb'
+        style.studentNameColor = '#0f172a'
+        break
+      case 'classic':
+      default:
+        style.backgroundColor = '#ffffff'
+        style.frameStyle = 'classic-double'
+        style.frameBorderColor = '#0f172a'
+        style.frameInnerBorderColor = '#d97706'
+        style.frameBorderWidth = 4
+        style.showInnerBorder = true
+        style.fontFamily = 'serif'
+        style.titleColor = '#0f172a'
+        style.institutionColor = '#0f172a'
+        style.subheadingColor = '#d97706'
+        style.textColor = '#334155'
+        style.eventHighlightColor = '#1e3a8a'
+        style.studentNameColor = '#0f172a'
+        break
+    }
+  }
+
+  copyUploadedToOfficial(target: 'form' | 'doc'): void {
+    const style = target === 'form' ? this.eventForm.templateStyle : this.currentDoc?.templateStyle
+    if (!style) return
+
+    style.useUploadedBackground = true
+    style.frameStyle = 'none'
+    style.showInnerBorder = false
+    style.backgroundColor = 'transparent'
+    style.fontFamily = 'playfair'
+    style.titleColor = '#0c2340'
+    style.institutionColor = '#0c2340'
+    style.subheadingColor = '#0c2340'
+    style.textColor = '#1e293b'
+    style.eventHighlightColor = '#0c2340'
+    style.studentNameColor = '#0c2340'
+    style.certificateTitle = 'Certificado'
+    style.signer1Role = 'Diretor(a) Responsável'
+    style.signer2Role = ''
+    style.showLogo = false
+    style.showInstitutionHeader = false
+
+    if (target === 'doc') {
+      this.useOfficialLayoutOnly = true
+      this.templateSuccessMessage = '✨ Layout do modelo que você subiu copiado e mesclado ao certificado com sucesso!'
+      setTimeout(() => (this.templateSuccessMessage = ''), 3500)
+      this.saveCertificateTemplateSettings()
+    } else {
+      this.successMessage = '✨ Layout configurado para o modelo subido!'
+      setTimeout(() => (this.successMessage = ''), 3000)
+    }
+  }
+
+  saveCertificateTemplateSettings(): void {
+    if (!this.currentDoc?.eventId || !this.currentDoc?.templateStyle) return
+    const eventId = this.currentDoc.eventId
+    const templateStyle = this.currentDoc.templateStyle
+    this.isSavingTemplateSettings = true
+    this.certificatesService
+      .updateCustomEvent(eventId, {
+        templateStyle,
+      })
+      .pipe(finalize(() => (this.isSavingTemplateSettings = false)))
+      .subscribe({
+        next: () => {
+          this.templateSuccessMessage = '✅ Configurações salvas como padrão do evento!'
+          setTimeout(() => (this.templateSuccessMessage = ''), 4000)
+          this.loadEvents()
+        },
+        error: (err) => {
+          this.errorMessage = err.error?.message || 'Erro ao salvar configuração do certificado no evento.'
+        },
+      })
+  }
+
+  resetTemplateSettings(target: 'form' | 'doc'): void {
+    if (target === 'form') {
+      this.eventForm.templateStyle = getDefaultTemplateStyle()
+    } else if (this.currentDoc) {
+      this.currentDoc.templateStyle = getDefaultTemplateStyle()
+      this.templateSuccessMessage = 'Padrão restaurado!'
+      setTimeout(() => (this.templateSuccessMessage = ''), 2500)
+    }
   }
 
   printCertificate(): void {
-    window.print()
+    executeCertificatePrint('printable-certificate')
   }
 
   countPaidParticipants(): number {
