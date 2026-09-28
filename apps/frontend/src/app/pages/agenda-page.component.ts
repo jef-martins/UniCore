@@ -909,6 +909,15 @@ export class AgendaPageComponent implements OnInit {
     })
   }
 
+  isTicket(task: AgendaTask): boolean {
+    return task.id.startsWith('ticket-')
+  }
+
+  goToTicket(task: AgendaTask): void {
+    const ticketId = task.id.replace('ticket-', '')
+    this.router.navigate(['/chamados'], { queryParams: { id: ticketId } })
+  }
+
   private toDateKey(date: Date): string {
     return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
   }

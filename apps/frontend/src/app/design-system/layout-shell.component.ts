@@ -134,20 +134,55 @@ export interface LayoutFooterLink {
       overflow-y: auto;
     }
     .top-bar {
-      height: 60px;
+      height: 52px;
       border-bottom: 1px solid var(--border-color, #3f3f46);
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      padding: 0 2rem;
+      justify-content: space-between;
+      padding: 0 1.5rem;
       background: var(--color-surface, #18181b);
+      flex-shrink: 0;
+    }
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-left: auto;
+    }
+    .top-bar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #E4E4E7;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #3F3F46);
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .top-bar-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .top-bar-btn.btn-highlight {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #93C5FD;
+    }
+    .top-bar-btn.btn-highlight:hover {
+      background: #3B82F6;
+      color: #fff;
     }
     .role-badge {
-      font-size: 0.85rem;
-      padding: 0.25rem 0.75rem;
-      background: rgba(255, 255, 255, 0.1);
+      font-size: 0.8rem;
+      padding: 0.2rem 0.65rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 99px;
-      margin-right: 1rem;
+      color: #D4D4D8;
     }
     .action-link {
       background: transparent;
@@ -283,6 +318,7 @@ export class LayoutShellComponent implements OnInit {
       children: [
         { href: '/vestibular/corrigir', label: 'Corrigir Avaliação' },
         { href: '/vestibular/agenda', label: 'Agenda' },
+        { href: '/vestibular/chamados', label: 'Chamados' },
         {
           href: '/vestibular/cadastros',
           label: 'Cadastros',
@@ -300,6 +336,7 @@ export class LayoutShellComponent implements OnInit {
       label: 'Tesouraria',
       children: [
         { href: '/tesouraria/agenda', label: 'Agenda' },
+        { href: '/tesouraria/chamados', label: 'Chamados' },
         { href: '/tesouraria/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -308,6 +345,7 @@ export class LayoutShellComponent implements OnInit {
       label: 'Secretaria',
       children: [
         { href: '/secretaria/agenda', label: 'Agenda' },
+        { href: '/secretaria/chamados', label: 'Chamados' },
         { href: '/secretaria/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -319,6 +357,7 @@ export class LayoutShellComponent implements OnInit {
         { href: '/coordenacao/classroom', label: 'Google Classroom' },
         { href: '/coordenacao/eventos', label: 'Eventos' },
         { href: '/coordenacao/agenda', label: 'Agenda' },
+        { href: '/coordenacao/chamados', label: 'Chamados' },
         { href: '/coordenacao/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -327,6 +366,7 @@ export class LayoutShellComponent implements OnInit {
       label: 'Registro Acadêmico',
       children: [
         { href: '/registro-academico/agenda', label: 'Agenda' },
+        { href: '/registro-academico/chamados', label: 'Chamados' },
         { href: '/registro-academico/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -338,6 +378,7 @@ export class LayoutShellComponent implements OnInit {
         { href: '/professor/agenda', label: 'Agenda' },
         { href: '/professor/reservas', label: 'Reserva de Itens' },
         { href: '/professor/salas', label: 'Salas e Laboratórios' },
+        { href: '/professor/chamados', label: 'Chamados' },
         { href: '/professor/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -348,6 +389,7 @@ export class LayoutShellComponent implements OnInit {
         { href: '/aluno/salas', label: 'Salas e Laboratórios' },
         { href: '/aluno/eventos', label: 'Eventos' },
         { href: '/aluno/agenda', label: 'Agenda' },
+        { href: '/aluno/chamados', label: 'Chamados' },
         { href: '/aluno/alterar-senha', label: 'Alterar Senha' },
       ]
     },
@@ -364,9 +406,11 @@ export class LayoutShellComponent implements OnInit {
           children: [
             { href: '/administracao/dashboards/agenda', label: 'Relatório de Agenda' },
             { href: '/administracao/dashboards/reservas', label: 'Relatório de Reservas' },
-            { href: '/administracao/dashboards/territorios', label: 'Territórios e Leads' }
+            { href: '/administracao/dashboards/territorios', label: 'Territórios e Leads' },
+            { href: '/administracao/dashboards/chamados', label: 'Relatório de Chamados' },
           ]
         },
+        { href: '/administracao/chamados', label: 'Central de Chamados' },
         { href: '/administracao/eventos', label: 'Eventos Acadêmicos' },
         { href: '/administracao/agenda', label: 'Agenda' },
         { href: '/administracao/salas', label: 'Salas e Laboratórios' },
@@ -400,9 +444,11 @@ export class LayoutShellComponent implements OnInit {
           children: [
             { href: '/desenvolvedor/dashboards/agenda', label: 'Relatório de Agenda' },
             { href: '/desenvolvedor/dashboards/reservas', label: 'Relatório de Reservas' },
-            { href: '/desenvolvedor/dashboards/territorios', label: 'Territórios e Leads' }
+            { href: '/desenvolvedor/dashboards/territorios', label: 'Territórios e Leads' },
+            { href: '/desenvolvedor/dashboards/chamados', label: 'Relatório de Chamados' },
           ]
         },
+        { href: '/desenvolvedor/chamados', label: 'Gestão de Chamados' },
         { href: '/desenvolvedor/eventos', label: 'Eventos Acadêmicos' },
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
         { href: '/desenvolvedor/salas', label: 'Salas e Laboratórios' },

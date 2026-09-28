@@ -58,6 +58,9 @@ model User {
   createdEvents      CertificateEvent[]
   participatedEvents CertificateParticipant[]
   registeredLeads    Lead[]                    @relation("RegisteredLeads")
+  openedTickets      Ticket[]                  @relation("OpenedTickets")
+  assignedTickets    Ticket[]                  @relation("AssignedTickets")
+  ticketMessages     TicketMessage[]
 
   @@map("users")
 }
@@ -476,5 +479,81 @@ model Lead {
   @@index([createdById])
   @@map("leads")
 }
+
+enum TicketStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  FINALIZADO
+  CANCELADO
+}
+
+enum TicketPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+model Ticket {
+  id              String             @id @default(uuid()) @db.Uuid
+  code            Int                @default(autoincrement())
+  title           String
+  description     String             @db.Text
+  status          TicketStatus       @default(ABERTO)
+  priority        TicketPriority     @default(MEDIA)
+  sector          AccessRole
+  userId          String             @map("user_id") @db.Uuid
+  user            User               @relation("OpenedTickets", fields: [userId], references: [id], onDelete: Cascade)
+  assignedToId    String?            @map("assigned_to_id") @db.Uuid
+  assignedTo      User?              @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  resolutionNotes String?            @map("resolution_notes") @db.Text
+  closedAt        DateTime?          @map("closed_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  attachments     TicketAttachment[]
+  messages        TicketMessage[]
+
+  @@index([status])
+  @@index([sector])
+  @@index([userId])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketAttachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileName  String   @map("file_name")
+  filePath  String   @map("file_path")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
+
+model TicketMessage {
+  id                 String        @id @default(uuid()) @db.Uuid
+  ticketId           String        @map("ticket_id") @db.Uuid
+  ticket             Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId             String        @map("user_id") @db.Uuid
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message            String        @db.Text
+  statusChange       TicketStatus? @map("status_change")
+  attachmentName     String?       @map("attachment_name")
+  attachmentPath     String?       @map("attachment_path")
+  attachmentSize     Int?          @map("attachment_size")
+  attachmentMimeType String?       @map("attachment_mime_type")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("ticket_messages")
+}
+
 
 

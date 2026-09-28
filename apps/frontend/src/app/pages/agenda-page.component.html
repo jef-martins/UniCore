@@ -94,7 +94,10 @@
                       <strong class="task-card-title">{{ task.title }}</strong>
                     </label>
                     <div class="task-badges-wrap" (click)="$event.stopPropagation()">
-                      @if (!task.userId) {
+                      @if (isTicket(task)) {
+                        <span class="sector-shared-tag" style="background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.4); color: #93C5FD; cursor: pointer;" (click)="goToTicket(task)">🎫 Chamado Master ↗</span>
+                      }
+                      @if (!task.userId && !isTicket(task)) {
                         <span class="sector-shared-tag" title="Tarefa coletiva para toda a equipe">👥 Todo o setor</span>
                       }
                       @if (task.isPriority) {
@@ -201,8 +204,12 @@
                   @if (task.isPriority) { <span style="color: #ffb86c; font-size: 0.8rem; margin-left: 0.5rem; border: 1px solid #ffb86c; padding: 0.1rem 0.3rem; border-radius: 4px;">Urgente</span> }
                 </label>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <button class="button button-text" style="padding: 0; min-height: auto;" type="button" (click)="startEditTask(task)">Editar</button>
-                  <span class="role-badge">{{ task.type }}</span>
+                  @if (isTicket(task)) {
+                    <button class="button button-text" style="color: #60A5FA; font-weight: 600;" type="button" (click)="goToTicket(task)">Ver Chamado ↗</button>
+                  } @else {
+                    <button class="button button-text" style="padding: 0; min-height: auto;" type="button" (click)="startEditTask(task)">Editar</button>
+                  }
+                  <span class="role-badge">{{ isTicket(task) ? 'Chamado' : task.type }}</span>
                 </div>
               }
             </header>

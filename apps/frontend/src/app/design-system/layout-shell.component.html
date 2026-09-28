@@ -74,6 +74,19 @@
   </aside>
 
   <div class="main-wrapper">
+    <div class="top-bar">
+      <div></div>
+      <div class="top-bar-actions">
+        <a routerLink="/chamados" class="top-bar-btn" title="Central de Chamados">
+          <span>🎫 Chamados</span>
+        </a>
+        <a routerLink="/chamados" [queryParams]="{ novo: 'true' }" class="top-bar-btn btn-highlight" title="Cadastrar Chamado">
+          <span>＋ Novo Chamado</span>
+        </a>
+        <span class="role-badge" aria-label="Perfil atual">{{ currentRoleLabel }}</span>
+      </div>
+    </div>
+
     <!-- Active Context Banner -->
     @if (activeContextBanner; as ctx) {
       <div class="active-context-banner" role="status" aria-live="polite">

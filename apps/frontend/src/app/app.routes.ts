@@ -57,6 +57,13 @@ export const appRoutes: Routes = [
         title: 'UniCore | Relatório de Territórios & Leads',
       },
       {
+        path: 'administracao/dashboards/chamados',
+        loadComponent: () => import('./pages/ticket-dashboard-page.component').then(m => m.TicketDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Relatório de Chamados',
+      },
+      {
         path: 'desenvolvedor/dashboards',
         component: ModulePageComponent,
         canActivate: [roleGuard],
@@ -89,6 +96,13 @@ export const appRoutes: Routes = [
         data: { roles: ['master'] },
         title: 'UniCore | Relatório de Territórios & Leads',
       },
+      {
+        path: 'desenvolvedor/dashboards/chamados',
+        loadComponent: () => import('./pages/ticket-dashboard-page.component').then(m => m.TicketDashboardPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Relatório de Chamados',
+      },
       { path: 'agenda', component: AgendaPageComponent, title: 'UniCore | Agenda' },
       
       { path: 'vestibular/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
@@ -100,6 +114,68 @@ export const appRoutes: Routes = [
       { path: 'desenvolvedor/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       { path: 'professor/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
       { path: 'aluno/agenda', component: AgendaPageComponent, canActivate: [roleGuard], title: 'UniCore | Agenda' },
+
+      {
+        path: 'chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'administracao/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'master'] },
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'desenvolvedor/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['master'] },
+        title: 'UniCore | Gestão de Chamados',
+      },
+      {
+        path: 'vestibular/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'tesouraria/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'secretaria/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'coordenacao/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'registro-academico/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'professor/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
+      {
+        path: 'aluno/chamados',
+        loadComponent: () => import('./pages/tickets-page.component').then(m => m.TicketsPageComponent),
+        canActivate: [roleGuard],
+        title: 'UniCore | Central de Chamados',
+      },
       {
         path: 'vestibular',
         component: ModulePageComponent,

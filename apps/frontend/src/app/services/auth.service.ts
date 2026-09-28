@@ -36,20 +36,20 @@ interface LoginResponse {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly string[]> = {
-  vestibular: ['/vestibular', '/aluno', '/agenda'],
-  tesouraria: ['/tesouraria', '/aluno', '/agenda'],
-  secretaria: ['/secretaria', '/aluno', '/agenda'],
-  coordenacao: ['/coordenacao', '/aluno', '/professor', '/agenda'],
-  registro_academico: ['/registro-academico', '/aluno', '/agenda'],
-  aluno: ['/aluno', '/agenda'],
-  professor: ['/professor', '/aluno', '/agenda'],
+  vestibular: ['/vestibular', '/aluno', '/agenda', '/chamados'],
+  tesouraria: ['/tesouraria', '/aluno', '/agenda', '/chamados'],
+  secretaria: ['/secretaria', '/aluno', '/agenda', '/chamados'],
+  coordenacao: ['/coordenacao', '/aluno', '/professor', '/agenda', '/chamados'],
+  registro_academico: ['/registro-academico', '/aluno', '/agenda', '/chamados'],
+  aluno: ['/aluno', '/agenda', '/chamados'],
+  professor: ['/professor', '/aluno', '/agenda', '/chamados'],
   admin: [
     '/dashboards', '/vestibular', '/tesouraria', '/secretaria',
-    '/coordenacao', '/registro-academico', '/professor', '/aluno', '/administracao', '/agenda',
+    '/coordenacao', '/registro-academico', '/professor', '/aluno', '/administracao', '/agenda', '/chamados',
   ],
   master: [
     '/dashboards', '/vestibular', '/tesouraria', '/secretaria',
-    '/coordenacao', '/registro-academico', '/professor', '/aluno', '/administracao', '/desenvolvedor', '/agenda',
+    '/coordenacao', '/registro-academico', '/professor', '/aluno', '/administracao', '/desenvolvedor', '/agenda', '/chamados',
   ],
 }
 

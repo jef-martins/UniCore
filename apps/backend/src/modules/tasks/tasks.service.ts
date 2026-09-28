@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { AccessRole, TaskType } from '@prisma/client'
+import { AccessRole, TaskType, TicketPriority, TicketStatus } from '@prisma/client'
 import { existsSync } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -122,7 +122,54 @@ export class TasksService {
       }
     })
 
-    return [...tasks, ...eventTasks].sort((a, b) => {
+    let ticketTasks: any[] = []
+    const isMasterSector = ((sector && sector.toUpperCase() === 'MASTER') || !sector) && userRole === AccessRole.MASTER
+    if (isMasterSector) {
+      const tickets = await this.prisma.ticket.findMany({
+        include: {
+          user: { select: { id: true, username: true, role: true } },
+          assignedTo: { select: { id: true, username: true, role: true } },
+          attachments: { select: { id: true, fileName: true, fileSize: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+      })
+
+      ticketTasks = tickets.map((t) => {
+        const isFinished = t.status === TicketStatus.CONCLUIDO || t.status === TicketStatus.FINALIZADO
+        const attachmentsSummary = t.attachments.length > 0
+          ? `${t.attachments[0].fileName}${t.attachments.length > 1 ? ` (+${t.attachments.length - 1} anexos)` : ''}`
+          : null
+
+        return {
+          id: `ticket-${t.id}`,
+          title: `🎫 [Chamado #${t.code}] ${t.title}`,
+          description: `[Setor: ${t.sector}] [Status: ${t.status}] ${t.description}`,
+          date: t.createdAt,
+          type: TaskType.ADMINISTRACAO,
+          sector: AccessRole.MASTER,
+          completed: isFinished,
+          isPriority: t.priority === TicketPriority.ALTA || t.priority === TicketPriority.URGENTE,
+          createdAt: t.createdAt,
+          completedAt: t.closedAt,
+          updatedAt: t.updatedAt,
+          userId: t.assignedToId,
+          createdById: t.userId,
+          attachmentName: attachmentsSummary,
+          attachmentPath: null,
+          attachmentSize: t.attachments.length > 0 ? t.attachments[0].fileSize : null,
+          attachmentMimeType: null,
+          completionNotes: t.resolutionNotes,
+          completionAttachmentName: null,
+          completionAttachmentPath: null,
+          completionAttachmentSize: null,
+          completionAttachmentMimeType: null,
+          user: t.assignedTo,
+          createdBy: t.user,
+        }
+      })
+    }
+
+    return [...tasks, ...eventTasks, ...ticketTasks].sort((a, b) => {
       const dateA = new Date(a.date).getTime()
       const dateB = new Date(b.date).getTime()
       if (dateA !== dateB) return dateA - dateB
@@ -183,6 +230,67 @@ export class TasksService {
     if (taskId.startsWith('ev-')) {
       throw new BadRequestException('Eventos acadêmicos devem ser gerenciados no painel de Eventos e Certificados.')
     }
+
+    if (taskId.startsWith('ticket-')) {
+      const ticketId = taskId.replace('ticket-', '')
+      const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } })
+      if (!ticket) throw new NotFoundException('Chamado não encontrado.')
+
+      if (user.role !== 'master' && user.role !== 'admin') {
+        throw new ForbiddenException('Apenas desenvolvedores master podem concluir chamados.')
+      }
+
+      let fileInfo: { fileName: string; filePath: string; size: number; mimeType: string } | null = null
+      if (file) {
+        fileInfo = await this.saveFile(file)
+      }
+
+      const updatedTicket = await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.CONCLUIDO,
+          closedAt: new Date(),
+          resolutionNotes: notes?.trim() || 'Chamado concluído pelo desenvolvedor via Agenda.',
+          ...(!ticket.assignedToId ? { assignedToId: user.sub } : {}),
+        },
+        include: {
+          user: { select: { id: true, username: true, role: true } },
+          assignedTo: { select: { id: true, username: true, role: true } },
+        },
+      })
+
+      await this.prisma.ticketMessage.create({
+        data: {
+          ticketId,
+          userId: user.sub,
+          message: notes?.trim() || 'Chamado concluído pelo desenvolvedor via Agenda.',
+          statusChange: TicketStatus.CONCLUIDO,
+          attachmentName: fileInfo?.fileName,
+          attachmentPath: fileInfo?.filePath,
+          attachmentSize: fileInfo?.size,
+          attachmentMimeType: fileInfo?.mimeType,
+        },
+      })
+
+      return {
+        id: `ticket-${updatedTicket.id}`,
+        title: `🎫 [Chamado #${updatedTicket.code}] ${updatedTicket.title}`,
+        description: updatedTicket.description,
+        date: updatedTicket.createdAt,
+        type: TaskType.ADMINISTRACAO,
+        sector: AccessRole.MASTER,
+        completed: true,
+        completedAt: updatedTicket.closedAt,
+        createdAt: updatedTicket.createdAt,
+        updatedAt: updatedTicket.updatedAt,
+        userId: updatedTicket.assignedToId,
+        createdById: updatedTicket.userId,
+        completionNotes: updatedTicket.resolutionNotes,
+        user: updatedTicket.assignedTo,
+        createdBy: updatedTicket.user,
+      } as any
+    }
+
     const task = await this.prisma.task.findUnique({ where: { id: taskId } })
     if (!task) throw new NotFoundException('Tarefa não encontrada.')
 
@@ -226,7 +334,50 @@ export class TasksService {
   }
 
   async update(user: { sub: string; role: string }, id: string, body: any) {
-    const task = await this.prisma.task.findUnique({ where: { id } })
+    if (id.startsWith('ticket-')) {
+      const ticketId = id.replace('ticket-', '')
+      const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } })
+      if (!ticket) throw new NotFoundException('Chamado não encontrado.')
+
+      if (user.role !== 'master' && user.role !== 'admin') {
+        throw new ForbiddenException('Apenas desenvolvedores master podem atualizar chamados.')
+      }
+
+      const updateData: any = {}
+      if (body.completed !== undefined) {
+        updateData.status = body.completed ? TicketStatus.CONCLUIDO : TicketStatus.EM_ANDAMENTO
+        updateData.closedAt = body.completed ? new Date() : null
+      }
+      if (body.isPriority !== undefined) {
+        updateData.priority = body.isPriority ? TicketPriority.ALTA : TicketPriority.MEDIA
+      }
+
+      const updated = await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
+        include: {
+          user: { select: { id: true, username: true, role: true } },
+          assignedTo: { select: { id: true, username: true, role: true } },
+        },
+      })
+
+      return {
+        id: `ticket-${updated.id}`,
+        title: `🎫 [Chamado #${updated.code}] ${updated.title}`,
+        description: updated.description,
+        date: updated.createdAt,
+        type: TaskType.ADMINISTRACAO,
+        sector: AccessRole.MASTER,
+        completed: updated.status === TicketStatus.CONCLUIDO || updated.status === TicketStatus.FINALIZADO,
+        completedAt: updated.closedAt,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+        user: updated.assignedTo,
+        createdBy: updated.user,
+      } as any
+    }
+
+    const task = await this.prisma.task.findUnique({ where: { id: id } })
     if (!task) throw new NotFoundException('Tarefa não encontrada.')
 
     const userRole = user.role.toUpperCase() as AccessRole

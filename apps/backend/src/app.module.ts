@@ -12,6 +12,7 @@ import { ReservationsModule } from './modules/reservations/reservations.module'
 import { UnimestreModule } from './modules/unimestre/unimestre.module'
 import { CertificatesModule } from './modules/certificates/certificates.module'
 import { TerritoriesModule } from './modules/territories/territories.module'
+import { TicketsModule } from './modules/tickets/tickets.module'
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { TerritoriesModule } from './modules/territories/territories.module'
     ReservationsModule,
     CertificatesModule,
     TerritoriesModule,
+    TicketsModule,
   ],
 })
 export class AppModule {}
