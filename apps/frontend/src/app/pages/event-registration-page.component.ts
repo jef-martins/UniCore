@@ -19,7 +19,9 @@ import {
   executeCertificatePrint,
   formatDisplayDate,
   formatStudentCpf,
+  getCertificateFontFamily,
   getStudentInitials,
+  isCursiveFont,
   mountCertificateForPrint,
 } from './certificates-utils'
 
@@ -425,13 +427,40 @@ import {
                         <div class="customizer-subgroup mt-2">
                           <label class="customizer-label">Tipografia & Fontes</label>
                           <div class="form-group">
-                            <label>Família Tipográfica</label>
+                            <label>Família Tipográfica Principal</label>
                             <select class="form-control" [(ngModel)]="eventForm.templateStyle.fontFamily" name="formFontFamily">
-                              <option value="playfair">Playfair Display (Elegante & Serifada)</option>
-                              <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
-                              <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
-                              <option value="times">Times New Roman (Formal Tradicional)</option>
-                              <option value="serif">Georgia / Acadêmica Clássica</option>
+                              <optgroup label="Fontes Cursivas & Caligráficas ✨">
+                                <option value="great-vibes">Great Vibes (Caligrafia Diplomática)</option>
+                                <option value="alex-brush">Alex Brush (Cursiva Fluida Elegante)</option>
+                                <option value="pinyon">Pinyon Script (Cursiva Real Aristocrática)</option>
+                                <option value="dancing">Dancing Script (Manuscrita Cursiva Moderna)</option>
+                              </optgroup>
+                              <optgroup label="Fontes Clássicas & Formais">
+                                <option value="playfair">Playfair Display (Elegante & Serifada)</option>
+                                <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
+                                <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
+                                <option value="times">Times New Roman (Formal Tradicional)</option>
+                                <option value="serif">Georgia / Acadêmica Clássica</option>
+                              </optgroup>
+                            </select>
+                          </div>
+                          <div class="form-group mt-2">
+                            <label>Fonte do Nome do Aluno (Destaque Caligráfico)</label>
+                            <select class="form-control" [(ngModel)]="eventForm.templateStyle.studentNameFontFamily" name="formStudentNameFontFamily">
+                              <option value="same">Mesma do Certificado (Padrão)</option>
+                              <optgroup label="Fontes Cursivas & Caligráficas ✨">
+                                <option value="great-vibes">✨ Great Vibes (Caligrafia Diplomática)</option>
+                                <option value="alex-brush">✨ Alex Brush (Cursiva Fluida Elegante)</option>
+                                <option value="pinyon">✨ Pinyon Script (Cursiva Real Aristocrática)</option>
+                                <option value="dancing">✨ Dancing Script (Manuscrita Moderna)</option>
+                              </optgroup>
+                              <optgroup label="Outras Fontes">
+                                <option value="playfair">Playfair Display (Serifada)</option>
+                                <option value="cinzel">Cinzel (Romana Imperial)</option>
+                                <option value="montserrat">Montserrat (Sem Serifa)</option>
+                                <option value="times">Times New Roman</option>
+                                <option value="serif">Georgia</option>
+                              </optgroup>
                             </select>
                           </div>
                           <div class="color-grid mt-2">
@@ -1011,13 +1040,41 @@ import {
                   <div class="designer-section">
                     <label class="section-label">Tipografia & Fontes</label>
                     <div class="form-group">
-                      <label>Família Tipográfica</label>
+                      <label>Família Tipográfica Principal</label>
                       <select class="form-control" [(ngModel)]="currentDoc.templateStyle.fontFamily">
-                        <option value="playfair">Playfair Display (Elegante & Serifada)</option>
-                        <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
-                        <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
-                        <option value="times">Times New Roman (Formal Tradicional)</option>
-                        <option value="serif">Georgia / Acadêmica Clássica</option>
+                        <optgroup label="Fontes Cursivas & Caligráficas ✨">
+                          <option value="great-vibes">Great Vibes (Caligrafia Diplomática)</option>
+                          <option value="alex-brush">Alex Brush (Cursiva Fluida Elegante)</option>
+                          <option value="pinyon">Pinyon Script (Cursiva Real Aristocrática)</option>
+                          <option value="dancing">Dancing Script (Manuscrita Cursiva Moderna)</option>
+                        </optgroup>
+                        <optgroup label="Fontes Clássicas & Formais">
+                          <option value="playfair">Playfair Display (Elegante & Serifada)</option>
+                          <option value="cinzel">Cinzel (Romana Imperial Clássica)</option>
+                          <option value="montserrat">Montserrat (Moderna & Sem Serifa)</option>
+                          <option value="times">Times New Roman (Formal Tradicional)</option>
+                          <option value="serif">Georgia / Acadêmica Clássica</option>
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div class="form-group mt-2">
+                      <label>Fonte do Nome do Aluno (Destaque Caligráfico)</label>
+                      <select class="form-control" [(ngModel)]="currentDoc.templateStyle.studentNameFontFamily">
+                        <option value="same">Mesma do Certificado (Padrão)</option>
+                        <optgroup label="Fontes Cursivas & Caligráficas ✨">
+                          <option value="great-vibes">✨ Great Vibes (Caligrafia Diplomática)</option>
+                          <option value="alex-brush">✨ Alex Brush (Cursiva Fluida Elegante)</option>
+                          <option value="pinyon">✨ Pinyon Script (Cursiva Real Aristocrática)</option>
+                          <option value="dancing">✨ Dancing Script (Manuscrita Moderna)</option>
+                        </optgroup>
+                        <optgroup label="Outras Fontes">
+                          <option value="playfair">Playfair Display (Serifada)</option>
+                          <option value="cinzel">Cinzel (Romana Imperial)</option>
+                          <option value="montserrat">Montserrat (Sem Serifa)</option>
+                          <option value="times">Times New Roman</option>
+                          <option value="serif">Georgia</option>
+                        </optgroup>
                       </select>
                     </div>
 
@@ -1230,10 +1287,11 @@ import {
                     >
                       <div
                         class="custom-cert-name"
+                        [class.is-cursive]="isCursiveFont(getEffectiveStudentFont(currentDoc.templateStyle))"
                         [style.top]="(currentDoc.templateStyle?.studentNameTop || 48) + '%'"
                         [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'"
                         [style.font-size]="(currentDoc.templateStyle?.studentNameFontSize || 34) + 'px'"
-                        [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
+                        [style.font-family]="getStudentNameFontFamily(currentDoc.templateStyle)"
                       >
                         {{ currentDoc.studentName }}
                       </div>
@@ -1291,6 +1349,7 @@ import {
                         <div class="cert-title-area">
                           <h2
                             class="cert-title"
+                            [class.is-cursive]="isCursiveFont(currentDoc.templateStyle?.fontFamily)"
                             [style.color]="currentDoc.templateStyle?.titleColor || '#0f172a'"
                             [style.font-family]="getFontFamily(currentDoc.templateStyle?.fontFamily)"
                           >
@@ -1305,7 +1364,12 @@ import {
                         >
                           <p>
                             Certificamos para os devidos fins que o(a) acadêmico(a)
-                            <strong class="highlight-name" [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'">{{ currentDoc.studentName }}</strong>,
+                            <strong
+                              class="highlight-name"
+                              [class.is-cursive]="isCursiveFont(getEffectiveStudentFont(currentDoc.templateStyle))"
+                              [style.color]="currentDoc.templateStyle?.studentNameColor || '#0f172a'"
+                              [style.font-family]="getStudentNameFontFamily(currentDoc.templateStyle)"
+                            >{{ currentDoc.studentName }}</strong>,
                             portador(a) do Registro Acadêmico (RA) <strong>{{ currentDoc.studentRa }}</strong>
                             @if (currentDoc.studentCpf) {
                               e do CPF <strong>{{ formatCpf(currentDoc.studentCpf) }}</strong>
@@ -2689,6 +2753,13 @@ import {
       text-shadow: 1px 1px 0px rgba(217, 119, 6, 0.2);
     }
 
+    .cert-title.is-cursive {
+      font-size: 3.4rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: capitalize;
+    }
+
     .cert-body-text {
       font-size: 1.05rem;
       line-height: 1.7;
@@ -2706,6 +2777,22 @@ import {
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+    }
+
+    .highlight-name.is-cursive {
+      font-size: 2.1rem;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: normal;
+      line-height: 1.1;
+      display: inline-block;
+      padding: 0 0.35rem;
+    }
+
+    .custom-cert-name.is-cursive {
+      letter-spacing: normal;
+      text-transform: none;
+      font-weight: 500;
     }
 
     .highlight-event {
@@ -3235,20 +3322,23 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
   }
 
   getFontFamily(font?: string): string {
-    switch (font) {
-      case 'cinzel':
-        return "'Cinzel', Georgia, serif"
-      case 'playfair':
-        return "'Playfair Display', Georgia, serif"
-      case 'montserrat':
-      case 'sans':
-        return "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-      case 'times':
-        return "'Times New Roman', Times, serif"
-      case 'serif':
-      default:
-        return "Georgia, 'Times New Roman', serif"
+    return getCertificateFontFamily(font)
+  }
+
+  isCursiveFont(font?: string): boolean {
+    return isCursiveFont(font)
+  }
+
+  getEffectiveStudentFont(style?: CertificateTemplateStyle | null): string {
+    if (!style) return 'serif'
+    if (style.studentNameFontFamily && style.studentNameFontFamily !== 'same') {
+      return style.studentNameFontFamily
     }
+    return style.fontFamily || 'serif'
+  }
+
+  getStudentNameFontFamily(style?: CertificateTemplateStyle | null): string {
+    return this.getFontFamily(this.getEffectiveStudentFont(style))
   }
 
   applyColorPreset(target: 'form' | 'doc', preset: string): void {

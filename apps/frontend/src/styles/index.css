@@ -1515,6 +1515,13 @@ main:focus-visible {
     line-height: 1.1 !important;
   }
 
+  #print-portal-mount .cert-title.is-cursive {
+    font-size: 3.2rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: capitalize !important;
+  }
+
   #print-portal-mount .cert-body-text {
     font-size: 1rem !important;
     line-height: 1.6 !important;
@@ -1529,6 +1536,22 @@ main:focus-visible {
   #print-portal-mount .highlight-name {
     font-size: 1.25rem !important;
     font-weight: 800 !important;
+  }
+
+  #print-portal-mount .highlight-name.is-cursive {
+    font-size: 1.95rem !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    line-height: 1.1 !important;
+    display: inline-block !important;
+    padding: 0 0.35rem !important;
+  }
+
+  #print-portal-mount .custom-cert-name.is-cursive {
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    font-weight: 500 !important;
   }
 
   #print-portal-mount .highlight-event {

@@ -70,7 +70,28 @@ export interface CertificateTemplateStyle {
   showInnerBorder?: boolean
 
   // Tipografia e Cores
-  fontFamily?: 'serif' | 'playfair' | 'cinzel' | 'sans' | 'times' | 'montserrat'
+  fontFamily?:
+    | 'serif'
+    | 'playfair'
+    | 'cinzel'
+    | 'sans'
+    | 'times'
+    | 'montserrat'
+    | 'great-vibes'
+    | 'alex-brush'
+    | 'pinyon'
+    | 'dancing'
+  studentNameFontFamily?:
+    | 'same'
+    | 'great-vibes'
+    | 'alex-brush'
+    | 'pinyon'
+    | 'dancing'
+    | 'playfair'
+    | 'cinzel'
+    | 'montserrat'
+    | 'times'
+    | 'serif'
   titleColor?: string
   institutionColor?: string
   subheadingColor?: string
@@ -110,6 +131,7 @@ export function getDefaultTemplateStyle(): CertificateTemplateStyle {
     frameBorderWidth: 4,
     showInnerBorder: true,
     fontFamily: 'serif',
+    studentNameFontFamily: 'same',
     titleColor: '#0f172a',
     institutionColor: '#0f172a',
     subheadingColor: '#d97706',

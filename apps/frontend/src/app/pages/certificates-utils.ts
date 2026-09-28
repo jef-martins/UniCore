@@ -106,3 +106,45 @@ export function executeCertificatePrint(sourceElementId = 'printable-certificate
   }, 100)
 }
 
+/**
+ * Retorna a declaração CSS font-family correspondente à chave tipográfica,
+ * suportando serifadas clássicas, romanas, sem serifa e caligrafias cursivas.
+ */
+export function getCertificateFontFamily(font?: string): string {
+  switch (font) {
+    case 'great-vibes':
+      return "'Great Vibes', 'Brush Script MT', cursive"
+    case 'alex-brush':
+      return "'Alex Brush', 'Brush Script MT', cursive"
+    case 'pinyon':
+      return "'Pinyon Script', 'Brush Script MT', cursive"
+    case 'dancing':
+      return "'Dancing Script', cursive"
+    case 'cinzel':
+      return "'Cinzel', Georgia, serif"
+    case 'playfair':
+      return "'Playfair Display', Georgia, serif"
+    case 'montserrat':
+    case 'sans':
+      return "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    case 'times':
+      return "'Times New Roman', Times, serif"
+    case 'serif':
+    default:
+      return "Georgia, 'Times New Roman', serif"
+  }
+}
+
+/**
+ * Verifica se a fonte escolhida é cursiva/manuscrita
+ */
+export function isCursiveFont(font?: string): boolean {
+  return (
+    font === 'great-vibes' ||
+    font === 'alex-brush' ||
+    font === 'pinyon' ||
+    font === 'dancing'
+  )
+}
+
+
