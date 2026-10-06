@@ -66,8 +66,9 @@ export interface ResidenceContextInfo {
             <button class="btn-close" type="button" (click)="closeModal()" aria-label="Fechar">✕</button>
           </header>
 
-          <form (ngSubmit)="saveLead()" class="modal-body">
-            @if (errorMessage) {
+          <form (ngSubmit)="saveLead()" class="modal-form">
+            <div class="modal-body-scroll">
+              @if (errorMessage) {
               <div class="alert-box alert-error">
                 <span>⚠ {{ errorMessage }}</span>
               </div>
@@ -430,25 +431,33 @@ export interface ResidenceContextInfo {
                 ></textarea>
               </div>
             </div>
+          </div>
 
-            <footer class="modal-footer">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                (click)="closeModal()"
-                [disabled]="isSaving"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                class="btn btn-primary"
-                [disabled]="isSaving || !isValid"
-              >
-                {{ isSaving ? 'Salvando...' : (leadToEdit ? 'Atualizar Lead' : 'Salvar Lead e Atualizar Conclusão') }}
-              </button>
-            </footer>
-          </form>
+          <footer class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              (click)="closeModal()"
+              [disabled]="isSaving"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="isSaving || !isValid"
+            >
+              @if (isSaving) {
+                <span>Salvando...</span>
+              } @else if (leadToEdit) {
+                <span>Atualizar Lead</span>
+              } @else {
+                <span class="desktop-btn-label">Salvar Lead e Atualizar Conclusão</span>
+                <span class="mobile-btn-label">Salvar Lead</span>
+              }
+            </button>
+          </footer>
+        </form>
         </div>
       </div>
     }
@@ -458,8 +467,12 @@ export interface ResidenceContextInfo {
       position: fixed;
       top: 0;
       left: 0;
+      right: 0;
+      bottom: 0;
       width: 100vw;
+      width: 100%;
       height: 100vh;
+      height: 100dvh;
       background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(4px);
       display: flex;
@@ -467,6 +480,8 @@ export interface ResidenceContextInfo {
       justify-content: center;
       z-index: 1100;
       padding: 1rem;
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .modal-card {
       background: var(--color-surface, #18181b);
@@ -474,8 +489,11 @@ export interface ResidenceContextInfo {
       border-radius: 12px;
       width: 100%;
       max-width: 650px;
-      max-height: 92vh;
-      overflow-y: auto;
+      max-height: calc(100vh - 2rem);
+      max-height: calc(100dvh - 2rem);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
       animation: modalEnter 0.2s ease-out;
     }
@@ -484,12 +502,14 @@ export interface ResidenceContextInfo {
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
     .modal-header {
-      padding: 1.5rem 1.75rem 1rem;
+      padding: 1.25rem 1.75rem 1rem;
       border-bottom: 1px solid var(--border-color, #3f3f46);
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
+      flex-shrink: 0;
+      background: var(--color-surface, #18181b);
     }
     .breadcrumb-context {
       font-size: 0.8rem;
@@ -517,11 +537,30 @@ export interface ResidenceContextInfo {
       font-size: 1.25rem;
       cursor: pointer;
       line-height: 1;
-      padding: 4px;
-      border-radius: 4px;
+      padding: 6px;
+      min-width: 36px;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
     }
     .btn-close:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
-    .modal-body { padding: 1.5rem 1.75rem; }
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .modal-body-scroll {
+      padding: 1.5rem 1.75rem 2rem;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
     .alert-box {
       padding: 0.75rem 1rem;
       border-radius: 8px;
@@ -649,12 +688,23 @@ export interface ResidenceContextInfo {
     }
     .consent-text strong { color: #fff; }
     .modal-footer {
+      flex-shrink: 0;
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 0.75rem;
-      margin-top: 1.5rem;
-      padding-top: 1.25rem;
+      padding: 1rem 1.75rem;
+      padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
       border-top: 1px solid var(--border-color, #3f3f46);
+      background: var(--color-surface, #18181b);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+      z-index: 10;
+    }
+    .desktop-btn-label {
+      display: inline;
+    }
+    .mobile-btn-label {
+      display: none;
     }
     .btn {
       padding: 0.65rem 1.25rem;
@@ -863,7 +913,62 @@ export interface ResidenceContextInfo {
       text-overflow: ellipsis;
       max-width: 100%;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 640px) {
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-card {
+        border-radius: 16px 16px 0 0;
+        max-width: 100%;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .modal-title {
+        font-size: 1.15rem;
+      }
+      .modal-body-scroll {
+        padding: 1rem 1.25rem 1.5rem;
+      }
+      .modal-footer {
+        padding: 0.75rem 1rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+        background: #18181b;
+      }
+      .modal-footer .btn {
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.925rem;
+      }
+      .modal-footer .btn-secondary {
+        flex: 0 0 auto;
+        min-width: 90px;
+        padding: 0.65rem 0.85rem;
+      }
+      .modal-footer .btn-primary {
+        flex: 1;
+        padding: 0.65rem 0.85rem;
+        text-align: center;
+      }
+      .desktop-btn-label {
+        display: none;
+      }
+      .mobile-btn-label {
+        display: inline;
+      }
       .form-grid { grid-template-columns: 1fr; }
       .location-grid { grid-template-columns: 1fr; }
       .full-width { grid-column: span 1; }
