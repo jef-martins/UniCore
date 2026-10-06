@@ -1,16 +1,16 @@
 <div class="layout-shell">
   <aside class="sidebar" [class.is-open]="menuOpen">
     <div class="sidebar-header">
-      <a class="portal-mark" routerLink="/" [attr.aria-label]="portalLabel + ', início'">{{ portalLabel }}</a>
+      <a class="portal-mark" routerLink="/" (click)="closeMenu()" [attr.aria-label]="portalLabel + ', início'">{{ portalLabel }}</a>
       <button
         class="menu-toggle"
         type="button"
         aria-controls="portal-menu"
         [attr.aria-expanded]="menuOpen"
-        aria-label="Abrir menu principal"
+        [attr.aria-label]="menuOpen ? 'Fechar menu principal' : 'Abrir menu principal'"
         (click)="toggleMenu()"
       >
-        <span aria-hidden="true">☰</span>
+        <span aria-hidden="true">{{ menuOpen ? '✕' : '☰' }}</span>
       </button>
     </div>
 
