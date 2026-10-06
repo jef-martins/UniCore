@@ -55,6 +55,11 @@ export interface CertificateDocument {
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
   templateStyle?: CertificateTemplateStyle | null
+  issnCode?: string | null
+  verificationUrl?: string | null
+  hash?: string | null
+  monitorTemplateUrl?: string | null
+  articleTemplateUrl?: string | null
 }
 
 export interface CertificateTemplateStyle {
@@ -177,7 +182,10 @@ export interface CertificatesFilter {
   busca?: string
 }
 
-// Custom Events (UniCore)
+// ==========================================
+// CUSTOM EVENTS & REGRAS ESTENDIDAS (UniCore)
+// ==========================================
+
 export interface CreateCustomEvent {
   title: string
   description?: string
@@ -190,6 +198,25 @@ export interface CreateCustomEvent {
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
   templateStyle?: CertificateTemplateStyle | null
+  bannerUrl?: string | null
+  ticketType?: string
+  paymentLink?: string | null
+  pixKey?: string | null
+  pixQrCodeUrl?: string | null
+  ticketLimit?: number | null
+  standardPrice?: number | null
+  teacherPrice?: number | null
+  promoPrice?: number | null
+  promoDeadline?: string | null
+  teacherPromoPrice?: number | null
+  teacherPromoDeadline?: string | null
+  targetAudience?: string
+  acceptsArticles?: boolean
+  articlesDeadline?: string | null
+  issnCode?: string | null
+  monitorTemplateUrl?: string | null
+  articleTemplateUrl?: string | null
+  certificateReleaseDate?: string | null
 }
 
 export interface UpdateCustomEvent {
@@ -205,6 +232,25 @@ export interface UpdateCustomEvent {
   logoUrl?: string | null
   certificateTemplateUrl?: string | null
   templateStyle?: CertificateTemplateStyle | null
+  bannerUrl?: string | null
+  ticketType?: string
+  paymentLink?: string | null
+  pixKey?: string | null
+  pixQrCodeUrl?: string | null
+  ticketLimit?: number | null
+  standardPrice?: number | null
+  teacherPrice?: number | null
+  promoPrice?: number | null
+  promoDeadline?: string | null
+  teacherPromoPrice?: number | null
+  teacherPromoDeadline?: string | null
+  targetAudience?: string
+  acceptsArticles?: boolean
+  articlesDeadline?: string | null
+  issnCode?: string | null
+  monitorTemplateUrl?: string | null
+  articleTemplateUrl?: string | null
+  certificateReleaseDate?: string | null
 }
 
 export interface CreateCustomParticipant {
@@ -242,6 +288,26 @@ export interface CustomEventSummary {
   paidParticipants: number
   eligibleParticipants: number
   createdAt: string
+  bannerUrl?: string | null
+  ticketType?: string | null
+  paymentLink?: string | null
+  pixKey?: string | null
+  pixQrCodeUrl?: string | null
+  ticketLimit?: number | null
+  ticketsSold?: number | null
+  standardPrice?: number | null
+  teacherPrice?: number | null
+  promoPrice?: number | null
+  promoDeadline?: string | null
+  teacherPromoPrice?: number | null
+  teacherPromoDeadline?: string | null
+  targetAudience?: string | null
+  acceptsArticles?: boolean
+  articlesDeadline?: string | null
+  issnCode?: string | null
+  monitorTemplateUrl?: string | null
+  articleTemplateUrl?: string | null
+  certificateReleaseDate?: string | null
 }
 
 export interface EventCatalogItem {
@@ -264,6 +330,22 @@ export interface EventCatalogItem {
   hasAttendance?: boolean
   isEligible?: boolean
   issuedAt?: string | null
+  bannerUrl?: string | null
+  ticketType?: string | null
+  standardPrice?: number | null
+  teacherPrice?: number | null
+  promoPrice?: number | null
+  promoDeadline?: string | null
+  teacherPromoPrice?: number | null
+  teacherPromoDeadline?: string | null
+  targetAudience?: string | null
+  acceptsArticles?: boolean
+  articlesDeadline?: string | null
+  issnCode?: string | null
+  certificateReleaseDate?: string | null
+  isReleaseLocked?: boolean
+  pixKey?: string | null
+  pixQrCodeUrl?: string | null
 }
 
 export interface CustomParticipantItem {
@@ -302,7 +384,257 @@ export interface CustomEventDetails {
   certificateTemplateUrl?: string | null
   templateStyle?: CertificateTemplateStyle | null
   createdAt: string
+  bannerUrl?: string | null
+  ticketType?: string | null
+  paymentLink?: string | null
+  pixKey?: string | null
+  pixQrCodeUrl?: string | null
+  ticketLimit?: number | null
+  ticketsSold?: number | null
+  standardPrice?: number | null
+  teacherPrice?: number | null
+  promoPrice?: number | null
+  promoDeadline?: string | null
+  teacherPromoPrice?: number | null
+  teacherPromoDeadline?: string | null
+  targetAudience?: string | null
+  acceptsArticles?: boolean
+  articlesDeadline?: string | null
+  issnCode?: string | null
+  monitorTemplateUrl?: string | null
+  articleTemplateUrl?: string | null
+  certificateReleaseDate?: string | null
   participants: CustomParticipantItem[]
+}
+
+// ==========================================
+// INTERFACES DOS NOVOS MÓDULOS DE EVENTOS
+// ==========================================
+
+export interface LookupCpfResult {
+  cpf: string
+  encontrado: boolean
+  perfil: 'aluno' | 'professor' | 'visitante'
+  nome?: string
+  curso?: string
+  ra?: string
+  email?: string
+}
+
+export interface CreateEventTicket {
+  workshopIds?: string[]
+}
+
+export interface ValidateTicket {
+  status: 'pago' | 'rejeitado'
+  isMonitor?: boolean
+}
+
+export interface EventTicket {
+  id: string
+  eventId: string
+  eventTitle: string
+  userId: string | null
+  userName: string | null
+  userEmail: string | null
+  userRole?: string | null
+  uniqueCode: string
+  status: string // aguardando_pagamento, em_analise, pago, rejeitado, utilizado
+  amountPaid: number
+  dueDate: string | null
+  receiptUrl: string | null
+  isMonitor: boolean
+  isUsed: boolean
+  usedAt: string | null
+  validatedAt: string | null
+  workshops: { id: string; title: string; courseName?: string | null }[]
+  createdAt: string
+}
+
+export interface CreateEventWorkshop {
+  title: string
+  courseName?: string
+  description?: string
+  vacancies: number
+}
+
+export interface UpdateEventWorkshop {
+  title?: string
+  courseName?: string
+  description?: string
+  vacancies?: number
+}
+
+export interface EventWorkshop {
+  id: string
+  eventId: string
+  title: string
+  courseName: string | null
+  description: string | null
+  vacancies: number
+  occupiedVacancies: number
+  remainingVacancies: number
+  createdAt: string
+}
+
+export interface CreateEventArticle {
+  title: string
+  coauthors?: string
+  advisorName?: string
+  coAdvisorName?: string
+}
+
+export interface ReviewEventArticle {
+  status: 'aprovado' | 'reprovado' | 'correcao'
+  score?: number
+  feedbackNotes?: string
+}
+
+export interface EventArticle {
+  id: string
+  eventId: string
+  authorId: string
+  authorName: string
+  authorEmail: string
+  title: string
+  coauthors: string | null
+  docFileUrl: string
+  pdfFileUrl: string | null
+  plagiarismReport: string | null
+  correctionFile: string | null
+  status: string
+  advisorName: string | null
+  coAdvisorName: string | null
+  currentLockId: string | null
+  evaluatorId: string | null
+  evaluatorName?: string | null
+  evaluatedAt: string | null
+  createdAt: string
+}
+
+export interface CreateEventRoom {
+  name: string
+  description?: string
+  capacity?: number
+  responsibleIds?: string[]
+}
+
+export interface EventRoom {
+  id: string
+  name: string
+  description: string | null
+  capacity: number
+  isActive: boolean
+  responsibleIds: string[]
+  createdAt: string
+}
+
+export interface ScanAttendance {
+  eventId: string
+  roomId: string
+  code: string
+}
+
+export interface ScanAttendanceResult {
+  status: 'entrada' | 'saida' | 'erro'
+  message: string
+  studentName?: string
+  studentProfile?: string
+  timestamp: string
+  totalScansToday?: number
+  roomName?: string
+}
+
+export interface EventAttendanceItem {
+  id: string
+  eventId: string
+  userId: string
+  userName: string
+  userRole: string
+  roomId: string | null
+  roomName: string
+  operatorId: string | null
+  operatorName: string
+  checkinType: string
+  checkinDate: string
+}
+
+export interface CreateEventExpense {
+  description: string
+  category: string
+  amount: number
+  expenseDate: string
+  groupId?: string
+}
+
+export interface EventExpense {
+  id: string
+  eventId: string | null
+  groupId: string | null
+  description: string
+  category: string
+  amount: number
+  receiptUrl: string | null
+  expenseDate: string
+  createdAt: string
+}
+
+export interface CreateEventSponsor {
+  name: string
+  contact?: string
+}
+
+export interface CreateSponsorMovement {
+  type?: 'entrada' | 'saida'
+  nature: string
+  description: string
+  amount?: number
+  quantity?: number
+}
+
+export interface EventSponsor {
+  id: string
+  eventId: string
+  name: string
+  contact: string | null
+  movementsCount: number
+  totalAmount: number
+  createdAt: string
+}
+
+export interface FinancialSummary {
+  eventId: string
+  eventTitle: string
+  ticketsRevenue: number
+  ticketsCount: number
+  paidTicketsCount: number
+  sponsorsTotal: number
+  expensesTotal: number
+  netBalance: number
+  expenses?: EventExpense[]
+  sponsors?: EventSponsor[]
+}
+
+export interface EventFinancialGroup {
+  id: string
+  eventIds: string[]
+  name: string
+  createdAt: string
+}
+
+export interface CreateEventFeedback {
+  rating: number
+  comment?: string
+}
+
+export interface EventFeedback {
+  id: string
+  eventId: string
+  userId: string
+  userName: string
+  rating: number
+  comment: string | null
+  createdAt: string
 }
 
 @Injectable({
@@ -387,7 +719,11 @@ export class CertificatesService {
     return this.http.delete(`/api/certificates/custom-events/${id}`)
   }
 
-  uploadEventAsset(eventId: string, type: 'logo' | 'template', file: File): Observable<{ assetUrl: string; fileName: string }> {
+  uploadEventAsset(
+    eventId: string,
+    type: 'logo' | 'template' | 'banner' | 'monitorTemplate' | 'articleTemplate' | 'pixQrCode',
+    file: File,
+  ): Observable<{ assetUrl: string; fileName: string }> {
     const formData = new FormData()
     formData.append('file', file)
     return this.http.post<{ assetUrl: string; fileName: string }>(
@@ -410,5 +746,221 @@ export class CertificatesService {
 
   getParticipantDocument(participantId: string): Observable<CertificateDocument> {
     return this.http.get<CertificateDocument>(`/api/certificates/participants/${participantId}/document`)
+  }
+
+  // ==========================================
+  // CONSULTA INTELIGENTE DE CPF
+  // ==========================================
+
+  lookupCpf(cpf: string): Observable<LookupCpfResult> {
+    return this.http.get<LookupCpfResult>(`/api/certificates/lookup-cpf/${cpf}`)
+  }
+
+  // ==========================================
+  // INGRESSOS & BILHETERIA
+  // ==========================================
+
+  createTicket(eventId: string, data: CreateEventTicket): Observable<EventTicket> {
+    return this.http.post<EventTicket>(`/api/certificates/custom-events/${eventId}/tickets`, data)
+  }
+
+  getEventTickets(eventId: string, status?: string): Observable<EventTicket[]> {
+    let params = new HttpParams()
+    if (status?.trim()) params = params.set('status', status.trim())
+    return this.http.get<EventTicket[]>(`/api/certificates/custom-events/${eventId}/tickets`, { params })
+  }
+
+  getMyTickets(): Observable<EventTicket[]> {
+    return this.http.get<EventTicket[]>('/api/certificates/my-tickets')
+  }
+
+  getTicketDetails(ticketId: string): Observable<EventTicket> {
+    return this.http.get<EventTicket>(`/api/certificates/tickets/${ticketId}`)
+  }
+
+  uploadTicketReceipt(ticketId: string, file: File): Observable<EventTicket> {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.http.post<EventTicket>(`/api/certificates/tickets/${ticketId}/receipt`, formData)
+  }
+
+  validateTicket(ticketId: string, data: ValidateTicket): Observable<EventTicket> {
+    return this.http.patch<EventTicket>(`/api/certificates/tickets/${ticketId}/validate`, data)
+  }
+
+  cronExpireTickets(): Observable<{ canceledCount: number }> {
+    return this.http.post<{ canceledCount: number }>('/api/certificates/tickets/cron-expire', {})
+  }
+
+  switchWorkshop(ticketId: string, workshopId: string): Observable<any> {
+    return this.http.patch(`/api/certificates/tickets/${ticketId}/switch-workshop`, { workshopId })
+  }
+
+  // ==========================================
+  // WORKSHOPS E VAGAS
+  // ==========================================
+
+  getEventWorkshops(eventId: string): Observable<EventWorkshop[]> {
+    return this.http.get<EventWorkshop[]>(`/api/certificates/custom-events/${eventId}/workshops`)
+  }
+
+  createWorkshop(eventId: string, data: CreateEventWorkshop): Observable<EventWorkshop> {
+    return this.http.post<EventWorkshop>(`/api/certificates/custom-events/${eventId}/workshops`, data)
+  }
+
+  updateWorkshop(workshopId: string, data: UpdateEventWorkshop): Observable<EventWorkshop> {
+    return this.http.put<EventWorkshop>(`/api/certificates/workshops/${workshopId}`, data)
+  }
+
+  deleteWorkshop(workshopId: string): Observable<any> {
+    return this.http.delete(`/api/certificates/workshops/${workshopId}`)
+  }
+
+  // ==========================================
+  // SUBMISSÃO E AVALIAÇÃO DE ARTIGOS CIENTÍFICOS
+  // ==========================================
+
+  getEligibleCoauthors(eventId: string): Observable<{ id: string; name: string; email: string }[]> {
+    return this.http.get<{ id: string; name: string; email: string }[]>(
+      `/api/certificates/custom-events/${eventId}/eligible-coauthors`,
+    )
+  }
+
+  submitArticle(eventId: string, data: CreateEventArticle, docFile: File, pdfFile?: File): Observable<EventArticle> {
+    const formData = new FormData()
+    formData.append('title', data.title)
+    if (data.coauthors) formData.append('coauthors', data.coauthors)
+    if (data.advisorName) formData.append('advisorName', data.advisorName)
+    if (data.coAdvisorName) formData.append('coAdvisorName', data.coAdvisorName)
+    formData.append('docFile', docFile)
+    if (pdfFile) formData.append('pdfFile', pdfFile)
+
+    return this.http.post<EventArticle>(`/api/certificates/custom-events/${eventId}/articles`, formData)
+  }
+
+  listEventArticles(eventId: string, status?: string): Observable<EventArticle[]> {
+    let params = new HttpParams()
+    if (status?.trim()) params = params.set('status', status.trim())
+    return this.http.get<EventArticle[]>(`/api/certificates/custom-events/${eventId}/articles`, { params })
+  }
+
+  getMyArticles(): Observable<EventArticle[]> {
+    return this.http.get<EventArticle[]>('/api/certificates/my-articles')
+  }
+
+  lockArticle(articleId: string, lock: boolean): Observable<{ success: boolean; locked: boolean }> {
+    return this.http.patch<{ success: boolean; locked: boolean }>(`/api/certificates/articles/${articleId}/lock`, {
+      lock,
+    })
+  }
+
+  reviewArticle(
+    articleId: string,
+    data: ReviewEventArticle,
+    plagioFile?: File,
+    correcaoFile?: File,
+  ): Observable<any> {
+    const formData = new FormData()
+    formData.append('status', data.status)
+    if (data.score !== undefined) formData.append('score', String(data.score))
+    if (data.feedbackNotes) formData.append('feedbackNotes', data.feedbackNotes)
+    if (plagioFile) formData.append('plagioFile', plagioFile)
+    if (correcaoFile) formData.append('correcaoFile', correcaoFile)
+
+    return this.http.patch(`/api/certificates/articles/${articleId}/review`, formData)
+  }
+
+  getCommitteeMembers(): Observable<any[]> {
+    return this.http.get<any[]>('/api/certificates/committee')
+  }
+
+  toggleArticleEvaluator(userId: string, isEvaluator: boolean): Observable<any> {
+    return this.http.patch(`/api/certificates/users/${userId}/evaluator`, { isEvaluator })
+  }
+
+  // ==========================================
+  // SALAS FÍSICAS E PORTARIA COM SCANNER
+  // ==========================================
+
+  getRooms(): Observable<EventRoom[]> {
+    return this.http.get<EventRoom[]>('/api/certificates/rooms')
+  }
+
+  createRoom(data: CreateEventRoom): Observable<EventRoom> {
+    return this.http.post<EventRoom>('/api/certificates/rooms', data)
+  }
+
+  deleteRoom(roomId: string): Observable<any> {
+    return this.http.delete(`/api/certificates/rooms/${roomId}`)
+  }
+
+  scanAttendance(data: ScanAttendance): Observable<ScanAttendanceResult> {
+    return this.http.post<ScanAttendanceResult>('/api/certificates/attendance/scan', data)
+  }
+
+  getEventAttendances(eventId: string): Observable<EventAttendanceItem[]> {
+    return this.http.get<EventAttendanceItem[]>(`/api/certificates/custom-events/${eventId}/attendances`)
+  }
+
+  // ==========================================
+  // FINANÇAS, DESPESAS E PATROCINADORES
+  // ==========================================
+
+  getFinancialSummary(eventId: string): Observable<FinancialSummary> {
+    return this.http.get<FinancialSummary>(`/api/certificates/custom-events/${eventId}/finances`)
+  }
+
+  getFinancialGroups(eventId: string): Observable<EventFinancialGroup[]> {
+    return this.http.get<EventFinancialGroup[]>(`/api/certificates/custom-events/${eventId}/expense-groups`)
+  }
+
+  createFinancialGroup(eventId: string, name: string): Observable<EventFinancialGroup> {
+    return this.http.post<EventFinancialGroup>(`/api/certificates/custom-events/${eventId}/expense-groups`, { name })
+  }
+
+  addExpense(eventId: string, data: CreateEventExpense, file?: File): Observable<EventExpense> {
+    const formData = new FormData()
+    formData.append('description', data.description)
+    formData.append('category', data.category)
+    formData.append('amount', String(data.amount))
+    formData.append('expenseDate', data.expenseDate)
+    if (data.groupId) formData.append('groupId', data.groupId)
+    if (file) formData.append('file', file)
+
+    return this.http.post<EventExpense>(`/api/certificates/custom-events/${eventId}/expenses`, formData)
+  }
+
+  deleteExpense(expenseId: string): Observable<any> {
+    return this.http.delete(`/api/certificates/expenses/${expenseId}`)
+  }
+
+  addSponsor(eventId: string, data: CreateEventSponsor): Observable<EventSponsor> {
+    return this.http.post<EventSponsor>(`/api/certificates/custom-events/${eventId}/sponsors`, data)
+  }
+
+  addSponsorMovement(sponsorId: string, data: CreateSponsorMovement): Observable<any> {
+    return this.http.post(`/api/certificates/sponsors/${sponsorId}/movements`, data)
+  }
+
+  // ==========================================
+  // PESQUISA DE SATISFAÇÃO (FEEDBACK)
+  // ==========================================
+
+  submitFeedback(eventId: string, data: CreateEventFeedback): Observable<EventFeedback> {
+    return this.http.post<EventFeedback>(`/api/certificates/custom-events/${eventId}/feedbacks`, data)
+  }
+
+  getEventFeedbacks(eventId: string): Observable<EventFeedback[]> {
+    return this.http.get<EventFeedback[]>(`/api/certificates/custom-events/${eventId}/feedbacks`)
+  }
+
+  // ==========================================
+  // RELATÓRIOS EXCEL
+  // ==========================================
+
+  exportEventReport(eventId: string, reportType: string): Observable<Blob> {
+    return this.http.get(`/api/certificates/custom-events/${eventId}/export/${reportType}`, {
+      responseType: 'blob',
+    })
   }
 }

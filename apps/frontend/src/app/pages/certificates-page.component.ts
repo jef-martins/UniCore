@@ -240,6 +240,32 @@ import {
                 <span class="modal-subtitle">Visualização e impressão do documento oficial</span>
               </div>
               <div class="modal-header-actions">
+                <div class="page-view-selector no-print">
+                  <button
+                    type="button"
+                    class="view-pill"
+                    [class.active]="certPageView === 'front'"
+                    (click)="certPageView = 'front'"
+                  >
+                    📄 Frente
+                  </button>
+                  <button
+                    type="button"
+                    class="view-pill"
+                    [class.active]="certPageView === 'back'"
+                    (click)="certPageView = 'back'"
+                  >
+                    🛡️ Verso (QR Code)
+                  </button>
+                  <button
+                    type="button"
+                    class="view-pill"
+                    [class.active]="certPageView === 'both'"
+                    (click)="certPageView = 'both'"
+                  >
+                    📑 Ambas as Páginas
+                  </button>
+                </div>
                 <button class="button button-primary print-action-btn" type="button" (click)="printCertificate()">
                   🖨️ Imprimir / Salvar em PDF
                 </button>
@@ -248,78 +274,156 @@ import {
             </div>
 
             <div class="modal-body cert-modal-body">
-              <!-- FOLHA DE IMPRESSÃO A4 PAISAGEM -->
-              <div class="certificate-sheet" id="printable-certificate">
-                <div class="cert-outer-border">
-                  <div class="cert-inner-border">
-                    <!-- Brasão / Cabeçalho -->
-                    <div class="cert-header">
-                      <div class="cert-emblem">🎓</div>
-                      <h1 class="cert-institution-name">{{ currentDoc.institutionName }}</h1>
-                      <p class="cert-subheading">Secretaria Geral de Cursos de Extensão e Capacitação</p>
-                      <div class="cert-divider">
-                        <span class="cert-divider-line"></span>
-                        <span class="cert-divider-diamond">◆</span>
-                        <span class="cert-divider-line"></span>
+              <div class="certificate-sheet-container" id="printable-certificate">
+                <!-- PÁGINA 1: FRENTE DO CERTIFICADO -->
+                <div
+                  class="certificate-sheet cert-page cert-page-front"
+                  [class.screen-hidden]="certPageView === 'back'"
+                >
+                  <div class="cert-outer-border">
+                    <div class="cert-inner-border">
+                      <!-- Brasão / Cabeçalho -->
+                      <div class="cert-header">
+                        <div class="cert-emblem">🎓</div>
+                        <h1 class="cert-institution-name">{{ currentDoc.institutionName }}</h1>
+                        <p class="cert-subheading">Secretaria Geral de Cursos de Extensão e Capacitação</p>
+                        <div class="cert-divider">
+                          <span class="cert-divider-line"></span>
+                          <span class="cert-divider-diamond">◆</span>
+                          <span class="cert-divider-line"></span>
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- Título do Certificado -->
-                    <div class="cert-title-area">
-                      <h2 class="cert-title">CERTIFICADO</h2>
-                    </div>
+                      <!-- Título do Certificado -->
+                      <div class="cert-title-area">
+                        <h2 class="cert-title">CERTIFICADO</h2>
+                      </div>
 
-                    <!-- Corpo do Texto Oficial -->
-                    <div class="cert-body-text">
-                      <p>
-                        Certificamos para os devidos fins que o(a) acadêmico(a)
-                        <strong class="highlight-name">{{ currentDoc.studentName }}</strong>,
-                        portador(a) do Registro Acadêmico (RA) <strong>{{ currentDoc.studentRa }}</strong>
-                        @if (currentDoc.studentCpf) {
-                          e do CPF <strong>{{ formatCpf(currentDoc.studentCpf) }}</strong>
-                        },
-                        concluiu com aproveitamento e frequência regular as atividades do evento
-                      </p>
-                      <p class="highlight-event">
-                        "{{ currentDoc.eventTitle }}"
-                      </p>
-                      @if (currentDoc.courseName) {
-                        <p class="cert-course-mention">
-                          vinculado ao curso de <strong>{{ currentDoc.courseName }}</strong>,
+                      <!-- Corpo do Texto Oficial -->
+                      <div class="cert-body-text">
+                        <p>
+                          Certificamos para os devidos fins que o(a) acadêmico(a)
+                          <strong class="highlight-name">{{ currentDoc.studentName }}</strong>,
+                          portador(a) do Registro Acadêmico (RA) <strong>{{ currentDoc.studentRa }}</strong>
+                          @if (currentDoc.studentCpf) {
+                            e do CPF <strong>{{ formatCpf(currentDoc.studentCpf) }}</strong>
+                          },
+                          concluiu com aproveitamento e frequência regular as atividades do evento
                         </p>
-                      }
-                      <p class="cert-workload-text">
-                        com carga horária total comprovada de <strong>{{ currentDoc.workloadHours }} horas</strong>
-                        @if (currentDoc.startDate && currentDoc.endDate) {
-                          , realizado no período de <strong>{{ formatDate(currentDoc.startDate) }}</strong> a
-                          <strong>{{ formatDate(currentDoc.endDate) }}</strong>
-                        }.
-                      </p>
-                    </div>
+                        <p class="highlight-event">
+                          "{{ currentDoc.eventTitle }}"
+                        </p>
+                        @if (currentDoc.courseName) {
+                          <p class="cert-course-mention">
+                            vinculado ao curso de <strong>{{ currentDoc.courseName }}</strong>,
+                          </p>
+                        }
+                        <p class="cert-workload-text">
+                          com carga horária total comprovada de <strong>{{ currentDoc.workloadHours }} horas</strong>
+                          @if (currentDoc.startDate && currentDoc.endDate) {
+                            , realizado no período de <strong>{{ formatDate(currentDoc.startDate) }}</strong> a
+                            <strong>{{ formatDate(currentDoc.endDate) }}</strong>
+                          }.
+                        </p>
+                        @if (currentDoc.issnCode) {
+                          <p class="cert-issn-mention">
+                            Trabalhos e anais catalogados sob o registro oficial <strong>ISSN {{ currentDoc.issnCode }}</strong>.
+                          </p>
+                        }
+                      </div>
 
-                    <!-- Rodapé do Certificado: Data, Assinaturas e Autenticidade -->
-                    <div class="cert-footer">
-                      <div class="cert-signatures">
-                        <div class="signature-block">
-                          <div class="signature-line"></div>
-                          <span class="signature-role">Coordenação de Extensão</span>
-                          <span class="signature-dept">UniCore / FAIP</span>
+                      <!-- Rodapé do Certificado: Data, Assinaturas e Autenticidade -->
+                      <div class="cert-footer">
+                        <div class="cert-signatures">
+                          <div class="signature-block">
+                            <div class="signature-line"></div>
+                            <span class="signature-role">Coordenação de Extensão</span>
+                            <span class="signature-dept">UniCore / FAIP</span>
+                          </div>
+                          <div class="signature-block">
+                            <div class="signature-line"></div>
+                            <span class="signature-role">Secretaria Acadêmica Geral</span>
+                            <span class="signature-dept">Diretoria de Registros</span>
+                          </div>
                         </div>
-                        <div class="signature-block">
-                          <div class="signature-line"></div>
-                          <span class="signature-role">Secretaria Acadêmica Geral</span>
-                          <span class="signature-dept">Diretoria de Registros</span>
+
+                        <div class="cert-verification-bar">
+                          <div class="cert-date-location">
+                            Marília - SP, {{ formatCurrentDate(currentDoc.issuedAt) }}
+                          </div>
+                          <div class="cert-auth-code">
+                            <span>Código de Autenticidade Digital:</span>
+                            <strong>{{ currentDoc.verificationCode }}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PÁGINA 2: VERSO OFICIAL DE AUTENTICIDADE COM QR CODE -->
+                <div
+                  class="certificate-sheet cert-page cert-page-back"
+                  [class.screen-hidden]="certPageView === 'front'"
+                >
+                  <div class="cert-outer-border">
+                    <div class="cert-inner-border verso-inner">
+                      <div class="verso-header">
+                        <div class="cert-emblem">🛡️</div>
+                        <h2 class="verso-title">VERIFICAÇÃO DE AUTENTICIDADE E REGISTRO ACADÊMICO</h2>
+                        <p class="cert-subheading">{{ currentDoc.institutionName }} &bull; Diretoria de Registros</p>
+                        <div class="cert-divider">
+                          <span class="cert-divider-line"></span>
+                          <span class="cert-divider-diamond">◆</span>
+                          <span class="cert-divider-line"></span>
                         </div>
                       </div>
 
-                      <div class="cert-verification-bar">
-                        <div class="cert-date-location">
-                          Marília - SP, {{ formatCurrentDate(currentDoc.issuedAt) }}
+                      <div class="verso-content">
+                        <p class="verso-explanation">
+                          Este certificado foi expedido em conformidade com as diretrizes do Ministério da Educação (MEC)
+                          e com a Lei de Diretrizes e Bases da Educação Nacional (Lei nº 9.394/1996), possuindo validade em todo o território nacional.
+                        </p>
+
+                        <div class="verso-qr-block">
+                          <img
+                            [src]="'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + (currentDoc.verificationUrl || currentDoc.verificationCode)"
+                            alt="QR Code Oficial"
+                            class="verso-qr-image"
+                          />
+                          <span class="verso-qr-hint">QR Code oficial (50x50 mm) para validação via leitor/câmera</span>
                         </div>
-                        <div class="cert-auth-code">
-                          <span>Código de Autenticidade Digital:</span>
-                          <strong>{{ currentDoc.verificationCode }}</strong>
+
+                        <div class="verso-data-grid">
+                          <div class="verso-data-item">
+                            <span class="verso-data-label">Código de Autenticidade:</span>
+                            <span class="verso-data-value code-highlight">{{ currentDoc.verificationCode }}</span>
+                          </div>
+                          @if (currentDoc.hash) {
+                            <div class="verso-data-item">
+                              <span class="verso-data-label">Hash Criptográfico de Segurança:</span>
+                              <span class="verso-data-value code-highlight hash-text">{{ currentDoc.hash }}</span>
+                            </div>
+                          }
+                          @if (currentDoc.issnCode) {
+                            <div class="verso-data-item">
+                              <span class="verso-data-label">Registro ISSN Oficial:</span>
+                              <span class="verso-data-value">{{ currentDoc.issnCode }}</span>
+                            </div>
+                          }
+                          <div class="verso-data-item">
+                            <span class="verso-data-label">Data e Hora de Registro:</span>
+                            <span class="verso-data-value">{{ formatCurrentDate(currentDoc.issuedAt) }}</span>
+                          </div>
+                          <div class="verso-data-item">
+                            <span class="verso-data-label">Portal Público de Validação:</span>
+                            <span class="verso-data-value link-text">{{ currentDoc.verificationUrl || 'https://unicore.faip.edu.br/certificados/validar' }}</span>
+                          </div>
                         </div>
+                      </div>
+
+                      <div class="verso-footer">
+                        <span>UniCore Academic Certification Engine &bull; Documento digital oficial com fé pública</span>
                       </div>
                     </div>
                   </div>
@@ -884,6 +988,173 @@ import {
       background: #09090b;
     }
 
+    .certificate-sheet-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      width: 100%;
+      max-width: 980px;
+    }
+
+    .page-view-selector {
+      display: flex;
+      gap: 0.35rem;
+      background: #27272a;
+      padding: 0.25rem;
+      border-radius: 0.5rem;
+    }
+
+    .view-pill {
+      background: transparent;
+      border: none;
+      color: #a1a1aa;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .view-pill:hover {
+      color: #ffffff;
+    }
+
+    .view-pill.active {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
+    .screen-hidden {
+      display: none !important;
+    }
+
+    .verso-inner {
+      background: radial-gradient(circle at center, #ffffff 70%, #f8fafc 100%) !important;
+      border-color: #3b82f6 !important;
+      padding: 24px 36px !important;
+    }
+
+    .verso-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .verso-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: #1e3a8a;
+      text-transform: uppercase;
+      font-family: 'Times New Roman', serif, Georgia;
+    }
+
+    .verso-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 0.5rem 0;
+    }
+
+    .verso-explanation {
+      font-size: 0.78rem;
+      color: #475569;
+      max-width: 720px;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .verso-qr-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.5rem;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .verso-qr-image {
+      width: 140px;
+      height: 140px;
+      display: block;
+    }
+
+    .verso-qr-hint {
+      font-size: 0.7rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .verso-data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 1.5rem;
+      width: 100%;
+      max-width: 750px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 0.75rem 1.25rem;
+      border-radius: 0.5rem;
+      text-align: left;
+    }
+
+    .verso-data-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .verso-data-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .verso-data-value {
+      font-size: 0.82rem;
+      color: #1e293b;
+      font-weight: 600;
+    }
+
+    .code-highlight {
+      font-family: monospace;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .hash-text {
+      word-break: break-all;
+      font-size: 0.75rem;
+    }
+
+    .link-text {
+      color: #2563eb;
+      text-decoration: underline;
+      font-size: 0.78rem;
+    }
+
+    .verso-footer {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 0.5rem;
+    }
+
+    .cert-issn-mention {
+      margin: 0.35rem 0 0 0;
+      font-size: 0.85rem;
+      color: #3b82f6;
+      font-weight: 500;
+    }
+
     .certificate-sheet {
       width: 100%;
       max-width: 980px;
@@ -1124,6 +1395,7 @@ export class CertificatesPageComponent implements OnInit {
 
   isCertModalOpen = false
   currentDoc: CertificateDocument | null = null
+  certPageView: 'front' | 'back' | 'both' = 'front'
 
   isLogsModalOpen = false
   emissionLogs: CertificateEmissionLog[] = []

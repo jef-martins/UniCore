@@ -1,9 +1,10 @@
-import { Component, HostListener, Input, OnInit } from '@angular/core'
+import { Component, HostListener, Input, OnDestroy, OnInit } from '@angular/core'
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
-import { filter } from 'rxjs'
+import { filter, Subscription } from 'rxjs'
 import { AuthService, AuthUser } from '../services/auth.service'
 import { SectorContextService } from '../services/sector-context.service'
 import { SectorUserSelectModalComponent } from './sector-user-select-modal.component'
+import { TicketsService, UnattendedTicketItem } from '../services/tickets.service'
 
 export interface LayoutNavigationItem {
   href: string
@@ -184,6 +185,274 @@ export interface LayoutFooterLink {
       border-radius: 99px;
       color: #D4D4D8;
     }
+    /* Bell Notification Button & Dropdown */
+    .notification-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .top-bar-icon-btn.bell-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #3F3F46);
+      color: #D4D4D8;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+    .top-bar-icon-btn.bell-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .top-bar-icon-btn.bell-btn.is-active {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: #3B82F6;
+      color: #60A5FA;
+    }
+    .bell-icon {
+      width: 17px;
+      height: 17px;
+      transition: transform 0.2s ease;
+    }
+    .top-bar-icon-btn.bell-btn:hover .bell-icon {
+      transform: rotate(8deg);
+    }
+    .top-bar-icon-btn.bell-btn.has-badge .bell-icon {
+      animation: bellGentleSwing 4.5s ease-in-out infinite;
+    }
+    @keyframes bellGentleSwing {
+      0%, 85%, 100% { transform: rotate(0); }
+      88% { transform: rotate(12deg); }
+      92% { transform: rotate(-10deg); }
+      96% { transform: rotate(6deg); }
+    }
+    .notification-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: #EF4444;
+      color: #FFFFFF;
+      font-size: 0.65rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #18181B;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+      animation: badgePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes badgePop {
+      0% { transform: scale(0); }
+      70% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    .notification-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 360px;
+      max-width: 90vw;
+      background: #202024;
+      border: 1px solid var(--border-color, #3F3F46);
+      border-radius: 10px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes dropdownFadeIn {
+      from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .notification-header {
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color, #333338);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .notification-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .notification-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #F4F4F5;
+    }
+    .notification-count-tag {
+      font-size: 0.7rem;
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #A1A1AA;
+      font-weight: 600;
+    }
+    .notification-count-tag.danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: #FCA5A5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .btn-refresh-notifications {
+      background: transparent;
+      border: none;
+      color: #A1A1AA;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .btn-refresh-notifications:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .notification-body {
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .notification-empty {
+      padding: 2rem 1.25rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .notification-empty .empty-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.25rem;
+    }
+    .notification-empty .empty-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #E4E4E7;
+      margin: 0;
+    }
+    .notification-empty .empty-sub {
+      font-size: 0.75rem;
+      color: #71717A;
+    }
+    .notification-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .notification-item {
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: background 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .notification-item:last-child {
+      border-bottom: none;
+    }
+    .notification-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+    }
+    .item-code {
+      font-family: monospace;
+      font-weight: 700;
+      color: #60A5FA;
+    }
+    .item-priority {
+      padding: 0.08rem 0.35rem;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.62rem;
+    }
+    .priority-urgente {
+      background: rgba(239, 68, 68, 0.2);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .priority-alta {
+      background: rgba(245, 158, 11, 0.2);
+      color: #FBBF24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .priority-media {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93C5FD;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .priority-baixa {
+      background: rgba(107, 114, 128, 0.2);
+      color: #D1D5DB;
+      border: 1px solid rgba(107, 114, 128, 0.3);
+    }
+    .item-sector {
+      color: #A1A1AA;
+    }
+    .item-time {
+      margin-left: auto;
+      color: #71717A;
+      font-size: 0.68rem;
+    }
+    .item-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #F4F4F5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-user {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      color: #A1A1AA;
+    }
+    .item-user .user-icon {
+      font-size: 0.72rem;
+      opacity: 0.8;
+    }
+    .notification-footer {
+      padding: 0.6rem 1rem;
+      background: rgba(0, 0, 0, 0.25);
+      border-top: 1px solid var(--border-color, #333338);
+      text-align: center;
+    }
+    .notification-footer-link {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #60A5FA;
+      text-decoration: none;
+      display: inline-block;
+      transition: color 0.15s ease;
+    }
+    .notification-footer-link:hover {
+      color: #93C5FD;
+      text-decoration: underline;
+    }
     .action-link {
       background: transparent;
       border: none;
@@ -293,7 +562,7 @@ export interface LayoutFooterLink {
     .menu-toggle { display: none; }
   `]
 })
-export class LayoutShellComponent implements OnInit {
+export class LayoutShellComponent implements OnInit, OnDestroy {
   menuOpen = false
 
   isSectorModalOpen = false
@@ -302,10 +571,18 @@ export class LayoutShellComponent implements OnInit {
   pendingTargetDestination = ''
   private dismissedSector: string | null = null
 
+  isNotificationOpen = false
+  unattendedCount = 0
+  unattendedTickets: UnattendedTicketItem[] = []
+  private pollInterval: ReturnType<typeof setInterval> | null = null
+  private ticketSub?: Subscription
+  private routeSub?: Subscription
+
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
     public readonly sectorContextService: SectorContextService,
+    private readonly ticketsService: TicketsService,
   ) {}
 
   @Input() portalLabel = 'UniCore'
@@ -356,6 +633,7 @@ export class LayoutShellComponent implements OnInit {
         { href: '/coordenacao/unimestre', label: 'Cursos & Turmas' },
         { href: '/coordenacao/classroom', label: 'Google Classroom' },
         { href: '/coordenacao/eventos', label: 'Eventos' },
+        { href: '/coordenacao/eventos/portaria', label: 'Portaria & Scanner QR' },
         { href: '/coordenacao/agenda', label: 'Agenda' },
         { href: '/coordenacao/chamados', label: 'Chamados' },
         { href: '/coordenacao/alterar-senha', label: 'Alterar Senha' },
@@ -375,6 +653,7 @@ export class LayoutShellComponent implements OnInit {
       label: 'Professor',
       children: [
         { href: '/professor/eventos', label: 'Eventos' },
+        { href: '/professor/eventos/portaria', label: 'Portaria & Scanner QR' },
         { href: '/professor/agenda', label: 'Agenda' },
         { href: '/professor/reservas', label: 'Reserva de Itens' },
         { href: '/professor/salas', label: 'Salas e Laboratórios' },
@@ -412,6 +691,7 @@ export class LayoutShellComponent implements OnInit {
         },
         { href: '/administracao/chamados', label: 'Central de Chamados' },
         { href: '/administracao/eventos', label: 'Eventos Acadêmicos' },
+        { href: '/administracao/eventos/portaria', label: 'Portaria & Scanner QR' },
         { href: '/administracao/agenda', label: 'Agenda' },
         { href: '/administracao/salas', label: 'Salas e Laboratórios' },
         { href: '/administracao/reservas', label: 'Reserva de Itens' },
@@ -450,6 +730,7 @@ export class LayoutShellComponent implements OnInit {
         },
         { href: '/desenvolvedor/chamados', label: 'Gestão de Chamados' },
         { href: '/desenvolvedor/eventos', label: 'Eventos Acadêmicos' },
+        { href: '/desenvolvedor/eventos/portaria', label: 'Portaria & Scanner QR' },
         { href: '/desenvolvedor/agenda', label: 'Agenda' },
         { href: '/desenvolvedor/salas', label: 'Salas e Laboratórios' },
         { href: '/desenvolvedor/reservas', label: 'Reserva de Itens' },
@@ -472,13 +753,121 @@ export class LayoutShellComponent implements OnInit {
   ]
 
   ngOnInit(): void {
-    this.router.events
+    this.routeSub = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
         this.checkRouteSectorContext(event.urlAfterRedirects || event.url)
+        if (this.isMasterUser) {
+          this.fetchUnattendedTickets()
+        }
       })
 
     this.checkRouteSectorContext(this.router.url)
+
+    if (this.isMasterUser) {
+      this.fetchUnattendedTickets()
+      this.startPolling()
+    }
+
+    this.ticketSub = this.ticketsService.ticketUpdated$.subscribe(() => {
+      if (this.isMasterUser) {
+        this.fetchUnattendedTickets()
+      }
+    })
+  }
+
+  ngOnDestroy(): void {
+    this.stopPolling()
+    this.ticketSub?.unsubscribe()
+    this.routeSub?.unsubscribe()
+  }
+
+  get isMasterUser(): boolean {
+    return this.authService.currentUser?.role === 'master'
+  }
+
+  startPolling(): void {
+    this.stopPolling()
+    this.pollInterval = setInterval(() => {
+      if (this.isMasterUser && this.authService.isAuthenticated()) {
+        this.fetchUnattendedTickets()
+      } else {
+        this.stopPolling()
+      }
+    }, 30000)
+  }
+
+  stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
+    }
+  }
+
+  fetchUnattendedTickets(): void {
+    if (!this.isMasterUser) {
+      this.unattendedCount = 0
+      this.unattendedTickets = []
+      return
+    }
+
+    this.ticketsService.getUnattendedSummary().subscribe({
+      next: (res) => {
+        this.unattendedCount = res?.count ?? 0
+        this.unattendedTickets = res?.tickets ?? []
+      },
+      error: () => {
+        // Silencioso em caso de falha de conexão temporária
+      },
+    })
+  }
+
+  refreshUnattendedTickets(): void {
+    this.fetchUnattendedTickets()
+  }
+
+  toggleNotificationDropdown(event: MouseEvent): void {
+    event.stopPropagation()
+    this.isNotificationOpen = !this.isNotificationOpen
+    if (this.isNotificationOpen) {
+      this.fetchUnattendedTickets()
+    }
+  }
+
+  closeNotificationDropdown(): void {
+    this.isNotificationOpen = false
+  }
+
+  goToTicket(ticketId: string): void {
+    this.closeNotificationDropdown()
+    void this.router.navigate(['/chamados'], { queryParams: { id: ticketId } })
+  }
+
+  formatPriority(priority: string): string {
+    switch (priority) {
+      case 'URGENTE': return 'Urgente'
+      case 'ALTA': return 'Alta'
+      case 'MEDIA': return 'Média'
+      case 'BAIXA': return 'Baixa'
+      default: return priority || 'Média'
+    }
+  }
+
+  formatTimeAgo(dateStr: string): string {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diffMs = Math.max(0, now.getTime() - d.getTime())
+    const diffMin = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMin / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMin < 2) return 'Agora mesmo'
+    if (diffMin < 60) return `Há ${diffMin} min`
+    if (diffHours < 24) return `Há ${diffHours} h`
+    if (diffDays === 1) return 'Ontem'
+    if (diffDays < 7) return `Há ${diffDays} d`
+    return d.toLocaleDateString('pt-BR')
   }
 
   get visibleNavigation(): readonly LayoutNavigationItem[] {
@@ -615,14 +1004,32 @@ export class LayoutShellComponent implements OnInit {
   }
 
   logout(): void {
+    this.stopPolling()
+    this.unattendedCount = 0
+    this.unattendedTickets = []
+    this.isNotificationOpen = false
     this.authService.logout()
     this.sectorContextService.clearContextUser()
     this.closeMenu()
     void this.router.navigateByUrl('/login')
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.isNotificationOpen) {
+      const target = event.target as HTMLElement
+      if (!target.closest('.notification-container')) {
+        this.closeNotificationDropdown()
+      }
+    }
+  }
+
   @HostListener('document:keydown.escape')
   handleEscape(): void {
+    if (this.isNotificationOpen) {
+      this.closeNotificationDropdown()
+      return
+    }
     if (this.isSectorModalOpen) {
       this.closeSectorModal()
       return

@@ -56,6 +56,11 @@ export class TicketsController {
     return this.ticketsService.getUsers()
   }
 
+  @Get('unattended')
+  getUnattendedSummary(@Req() request: AuthenticatedRequest) {
+    return this.ticketsService.getUnattendedSummary(request.user)
+  }
+
   @Get(':id')
   findById(@Param('id', new ParseUUIDPipe()) id: string, @Req() request: AuthenticatedRequest) {
     return this.ticketsService.findById(id, request.user)

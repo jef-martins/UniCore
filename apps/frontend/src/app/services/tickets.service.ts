@@ -1,9 +1,25 @@
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
-import { Observable } from 'rxjs'
+import { Observable, Subject, tap } from 'rxjs'
 
 export type TicketStatus = 'ABERTO' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'FINALIZADO' | 'CANCELADO'
 export type TicketPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
+
+export interface UnattendedTicketItem {
+  id: string
+  code: number
+  title: string
+  priority: TicketPriority
+  sector: string
+  sectorLabel: string
+  createdAt: string
+  user: TicketUser
+}
+
+export interface UnattendedTicketsSummary {
+  count: number
+  tickets: UnattendedTicketItem[]
+}
 
 export interface TicketAttachment {
   id: string
@@ -123,19 +139,36 @@ export class TicketsService {
     return this.http.get<TicketDetail>(`/api/tickets/${id}`)
   }
 
+  private readonly ticketUpdatedSubject = new Subject<void>()
+  readonly ticketUpdated$ = this.ticketUpdatedSubject.asObservable()
+
+  notifyTicketUpdated(): void {
+    this.ticketUpdatedSubject.next()
+  }
+
+  getUnattendedSummary(): Observable<UnattendedTicketsSummary> {
+    return this.http.get<UnattendedTicketsSummary>('/api/tickets/unattended')
+  }
+
   createTicket(formData: FormData): Observable<TicketDetail> {
-    return this.http.post<TicketDetail>('/api/tickets', formData)
+    return this.http.post<TicketDetail>('/api/tickets', formData).pipe(
+      tap(() => this.notifyTicketUpdated()),
+    )
   }
 
   addMessage(ticketId: string, formData: FormData): Observable<{ message: TicketMessage; ticket: TicketDetail }> {
-    return this.http.post<{ message: TicketMessage; ticket: TicketDetail }>(`/api/tickets/${ticketId}/messages`, formData)
+    return this.http.post<{ message: TicketMessage; ticket: TicketDetail }>(`/api/tickets/${ticketId}/messages`, formData).pipe(
+      tap(() => this.notifyTicketUpdated()),
+    )
   }
 
   updateStatus(
     ticketId: string,
     body: { status: TicketStatus; resolutionNotes?: string; assignedToId?: string; priority?: TicketPriority },
   ): Observable<TicketDetail> {
-    return this.http.patch<TicketDetail>(`/api/tickets/${ticketId}/status`, body)
+    return this.http.patch<TicketDetail>(`/api/tickets/${ticketId}/status`, body).pipe(
+      tap(() => this.notifyTicketUpdated()),
+    )
   }
 
   getDashboardMetrics(filters?: { sector?: string; days?: number; userId?: string }): Observable<TicketDashboardData> {

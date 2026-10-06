@@ -77,6 +77,83 @@
     <div class="top-bar">
       <div></div>
       <div class="top-bar-actions">
+        @if (isMasterUser) {
+          <div class="notification-container">
+            <button
+              type="button"
+              class="top-bar-icon-btn bell-btn"
+              id="ticket-notification-bell-btn"
+              [class.has-badge]="unattendedCount > 0"
+              [class.is-active]="isNotificationOpen"
+              (click)="toggleNotificationDropdown($event)"
+              [attr.aria-label]="'Notificações de chamados: ' + unattendedCount + ' aguardando início de atendimento'"
+              title="Notificações de Chamados Aguardando Atendimento"
+            >
+              <svg class="bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              @if (unattendedCount > 0) {
+                <span class="notification-badge" id="ticket-notification-badge" aria-hidden="true">
+                  {{ unattendedCount > 99 ? '99+' : unattendedCount }}
+                </span>
+              }
+            </button>
+
+            @if (isNotificationOpen) {
+              <div class="notification-dropdown" id="ticket-notification-dropdown" (click)="$event.stopPropagation()">
+                <div class="notification-header">
+                  <div class="notification-title-wrap">
+                    <span class="notification-title">🔔 Chamados Pendentes</span>
+                    <span class="notification-count-tag" [class.danger]="unattendedCount > 0">
+                      {{ unattendedCount }} {{ unattendedCount === 1 ? 'aguardando' : 'aguardando' }}
+                    </span>
+                  </div>
+                  <button type="button" class="btn-refresh-notifications" (click)="refreshUnattendedTickets()" title="Atualizar lista">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="notification-body">
+                  @if (unattendedTickets.length === 0) {
+                    <div class="notification-empty">
+                      <span class="empty-icon">🎉</span>
+                      <p class="empty-text">Tudo em dia!</p>
+                      <span class="empty-sub">Nenhum chamado aberto aguardando atendimento.</span>
+                    </div>
+                  } @else {
+                    <ul class="notification-list">
+                      @for (t of unattendedTickets; track t.id) {
+                        <li class="notification-item" (click)="goToTicket(t.id)">
+                          <div class="item-header">
+                            <span class="item-code">#{{ t.code }}</span>
+                            <span class="item-priority priority-{{ t.priority.toLowerCase() }}">{{ formatPriority(t.priority) }}</span>
+                            <span class="item-sector">{{ t.sectorLabel }}</span>
+                            <span class="item-time">{{ formatTimeAgo(t.createdAt) }}</span>
+                          </div>
+                          <div class="item-title" [title]="t.title">{{ t.title }}</div>
+                          <div class="item-user">
+                            <span class="user-icon">👤</span>
+                            <span>{{ t.user.username }}</span>
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+
+                <div class="notification-footer">
+                  <a routerLink="/chamados" [queryParams]="{ status: 'ABERTO' }" (click)="closeNotificationDropdown()" class="notification-footer-link">
+                    Ver todos os chamados abertos →
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
         <a routerLink="/chamados" class="top-bar-btn" title="Central de Chamados">
           <span>🎫 Chamados</span>
         </a>

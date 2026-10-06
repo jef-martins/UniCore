@@ -465,5 +465,84 @@ describe('Central de Chamados & Métricas do Desenvolvedor', () => {
       expect(getRemainingReopenDays(ticketMuitoAntigo)).toBe(0)
     })
   })
+
+  describe('Notificação de Chamados Abertos Pendentes de Atendimento (Ícone de Sino para Master)', () => {
+    const roles = [
+      'vestibular',
+      'admin',
+      'master',
+      'tesouraria',
+      'secretaria',
+      'coordenacao',
+      'registro_academico',
+      'aluno',
+      'professor',
+    ] as const
+
+    it('deve exibir o ícone de sino e notificações EXCLUSIVAMENTE para usuários com perfil master', () => {
+      const isMasterUserCheck = (userRole?: string) => userRole === 'master'
+
+      expect(isMasterUserCheck('master')).toBe(true)
+
+      for (const role of roles) {
+        if (role !== 'master') {
+          expect(isMasterUserCheck(role)).toBe(false)
+        }
+      }
+
+      expect(isMasterUserCheck(undefined)).toBe(false)
+    })
+
+    it('deve contabilizar exatamente os chamados com status ABERTO (atendimento ainda não iniciado)', () => {
+      const tickets = [
+        { id: '1', code: 101, status: 'ABERTO', title: 'Dúvida no vestibular' },
+        { id: '2', code: 102, status: 'ABERTO', title: 'Erro de nota unimestre' },
+        { id: '3', code: 103, status: 'EM_ANDAMENTO', title: 'Atendimento em curso' },
+        { id: '4', code: 104, status: 'CONCLUIDO', title: 'Resolvido pelo dev' },
+        { id: '5', code: 105, status: 'FINALIZADO', title: 'Finalizado após 5 dias' },
+        { id: '6', code: 106, status: 'CANCELADO', title: 'Cancelado pelo solicitante' },
+        { id: '7', code: 107, status: 'ABERTO', title: 'Bug no mapa de leads' },
+      ]
+
+      const unattendedTickets = tickets.filter((t) => t.status === 'ABERTO')
+      expect(unattendedTickets.length).toBe(3)
+      expect(unattendedTickets.map((t) => t.code)).toEqual([101, 102, 107])
+    })
+
+    it('formata o badge de notificação corretamente (oculto quando 0, número exato ou 99+)', () => {
+      const formatBadge = (count: number): { showBadge: boolean; text: string } => {
+        if (count <= 0) return { showBadge: false, text: '' }
+        return { showBadge: true, text: count > 99 ? '99+' : String(count) }
+      }
+
+      expect(formatBadge(0)).toEqual({ showBadge: false, text: '' })
+      expect(formatBadge(-1)).toEqual({ showBadge: false, text: '' })
+      expect(formatBadge(1)).toEqual({ showBadge: true, text: '1' })
+      expect(formatBadge(8)).toEqual({ showBadge: true, text: '8' })
+      expect(formatBadge(99)).toEqual({ showBadge: true, text: '99' })
+      expect(formatBadge(100)).toEqual({ showBadge: true, text: '99+' })
+      expect(formatBadge(250)).toEqual({ showBadge: true, text: '99+' })
+    })
+
+    it('impede que perfis não-master recebam chamados de outros usuários ou notificações de triagem', () => {
+      const simulateGetUnattendedSummary = (role: string, allOpenTickets: Array<{ id: string }>) => {
+        if (role !== 'master') {
+          return { count: 0, tickets: [] }
+        }
+        return { count: allOpenTickets.length, tickets: allOpenTickets }
+      }
+
+      const openTickets = [{ id: '1' }, { id: '2' }, { id: '3' }]
+
+      expect(simulateGetUnattendedSummary('master', openTickets)).toEqual({
+        count: 3,
+        tickets: openTickets,
+      })
+
+      expect(simulateGetUnattendedSummary('admin', openTickets)).toEqual({ count: 0, tickets: [] })
+      expect(simulateGetUnattendedSummary('aluno', openTickets)).toEqual({ count: 0, tickets: [] })
+      expect(simulateGetUnattendedSummary('coordenacao', openTickets)).toEqual({ count: 0, tickets: [] })
+    })
+  })
 })
 

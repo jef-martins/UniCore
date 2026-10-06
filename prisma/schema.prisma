@@ -38,29 +38,35 @@ enum ClassroomRoomStatus {
 }
 
 model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  username     String     @unique
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  role         AccessRole
-  isActive            Boolean           @default(true) @map("is_active")
-  emailVerified       Boolean           @default(false) @map("email_verified")
-  verificationToken   String?           @unique @map("verification_token")
-  verificationExpires DateTime?         @map("verification_expires")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  assignedTasks Task[]            @relation("AssignedTasks")
-  createdTasks  Task[]            @relation("CreatedTasks")
-  reservations  ItemReservation[]
-  evaluations   ItemEvaluation[]
-  coordinatedCourses AcademicCourseSetting[]
-  issuedCertificates CertificateEmissionLog[]
-  createdEvents      CertificateEvent[]
-  participatedEvents CertificateParticipant[]
-  registeredLeads    Lead[]                    @relation("RegisteredLeads")
-  openedTickets      Ticket[]                  @relation("OpenedTickets")
-  assignedTickets    Ticket[]                  @relation("AssignedTickets")
-  ticketMessages     TicketMessage[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  username            String                   @unique
+  email               String                   @unique
+  passwordHash        String                   @map("password_hash")
+  role                AccessRole
+  isActive            Boolean                  @default(true) @map("is_active")
+  emailVerified       Boolean                  @default(false) @map("email_verified")
+  verificationToken   String?                  @unique @map("verification_token")
+  verificationExpires DateTime?                @map("verification_expires")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  assignedTasks       Task[]                   @relation("AssignedTasks")
+  createdTasks        Task[]                   @relation("CreatedTasks")
+  reservations        ItemReservation[]
+  evaluations         ItemEvaluation[]
+  coordinatedCourses  AcademicCourseSetting[]
+  issuedCertificates  CertificateEmissionLog[]
+  createdEvents       CertificateEvent[]
+  participatedEvents  CertificateParticipant[]
+  registeredLeads     Lead[]                   @relation("RegisteredLeads")
+  openedTickets       Ticket[]                 @relation("OpenedTickets")
+  assignedTickets     Ticket[]                 @relation("AssignedTickets")
+  ticketMessages      TicketMessage[]
+  isArticleEvaluator  Boolean                  @default(false) @map("is_article_evaluator")
+  eventTickets        EventTicket[]
+  authoredArticles    EventArticle[]           @relation("ArticleAuthor")
+  evaluatedArticles   EventArticle[]           @relation("ArticleEvaluator")
+  eventAttendances    EventAttendance[]
+  eventFeedbacks      EventFeedback[]
 
   @@map("users")
 }
@@ -323,14 +329,14 @@ model CertificateEmissionLog {
 }
 
 model CertificateEvent {
-  id            String                   @id @default(uuid()) @db.Uuid
-  title         String
-  description   String?
-  workloadHours Int                      @default(20) @map("workload_hours")
-  speaker       String?
-  courseName    String?                  @map("course_name")
-  startDate     DateTime                 @map("start_date")
-  endDate       DateTime?                @map("end_date")
+  id                     String                   @id @default(uuid()) @db.Uuid
+  title                  String
+  description            String?
+  workloadHours          Int                      @default(20) @map("workload_hours")
+  speaker                String?
+  courseName             String?                  @map("course_name")
+  startDate              DateTime                 @map("start_date")
+  endDate                DateTime?                @map("end_date")
   location               String?
   isActive               Boolean                  @default(true) @map("is_active")
   logoUrl                String?                  @map("logo_url")
@@ -341,6 +347,37 @@ model CertificateEvent {
   participants           CertificateParticipant[]
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
+
+  // --- NOVOS CAMPOS ADICIONAIS DE EVENTOS (OPCIONAIS) ---
+  bannerUrl              String?   @map("banner_url")
+  ticketType             String?   @default("requerimento") @map("ticket_type") // requerimento, link, pix
+  paymentLink            String?   @map("payment_link")
+  pixKey                 String?   @map("pix_key")
+  pixQrCodeUrl           String?   @map("pix_qr_code_url")
+  ticketLimit            Int?      @default(0) @map("ticket_limit")
+  ticketsSold            Int?      @default(0) @map("tickets_sold")
+  standardPrice          Decimal?  @default(0.00) @map("standard_price") @db.Decimal(10, 2)
+  teacherPrice           Decimal?  @map("teacher_price") @db.Decimal(10, 2)
+  promoPrice             Decimal?  @map("promo_price") @db.Decimal(10, 2)
+  promoDeadline          DateTime? @map("promo_deadline")
+  teacherPromoPrice      Decimal?  @map("teacher_promo_price") @db.Decimal(10, 2)
+  teacherPromoDeadline   DateTime? @map("teacher_promo_deadline")
+  targetAudience         String?   @default("todos") @map("target_audience") // todos, aluno, professor, visitante
+  acceptsArticles        Boolean   @default(false) @map("accepts_articles")
+  articlesDeadline       DateTime? @map("articles_deadline")
+  issnCode               String?   @map("issn_code")
+  monitorTemplateUrl     String?   @map("monitor_template_url")
+  articleTemplateUrl     String?   @map("article_template_url")
+  certificateReleaseDate DateTime? @map("certificate_release_date")
+
+  // Relacionamentos com os novos módulos
+  workshops   EventWorkshop[]
+  tickets     EventTicket[]
+  articles    EventArticle[]
+  attendances EventAttendance[]
+  expenses    EventExpense[]
+  sponsors    EventSponsor[]
+  feedbacks   EventFeedback[]
 
   @@index([createdById])
   @@map("certificate_events")
@@ -369,6 +406,205 @@ model CertificateParticipant {
   @@index([studentRa])
   @@index([userId])
   @@map("certificate_participants")
+}
+
+/// Oficinas e workshops com controle rígido de vagas
+model EventWorkshop {
+  id          String                @id @default(uuid()) @db.Uuid
+  eventId     String                @map("event_id") @db.Uuid
+  event       CertificateEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title       String
+  courseName  String?               @map("course_name")
+  description String?
+  vacancies   Int                   @default(50)
+  tickets     EventTicketWorkshop[]
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@map("event_workshops")
+}
+
+/// Ingressos digitais, requerimentos e ciclo de cobrança
+model EventTicket {
+  id            String                @id @default(uuid()) @db.Uuid
+  eventId       String                @map("event_id") @db.Uuid
+  event         CertificateEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId        String?               @map("user_id") @db.Uuid
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  uniqueCode    String                @unique @map("unique_code") // Ex: A91E75D4
+  status        String                @default("aguardando_pagamento") // aguardando_pagamento, em_analise, pago, rejeitado, utilizado
+  amountPaid    Decimal               @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  dueDate       DateTime?             @map("due_date") // Data calculada de vencimento
+  receiptUrl    String?               @map("receipt_url")
+  isMonitor     Boolean               @default(false) @map("is_monitor")
+  isUsed        Boolean               @default(false) @map("is_used") // Destrava certificado após check-in
+  usedAt        DateTime?             @map("used_at")
+  validatedAt   DateTime?             @map("validated_at")
+  validatedById String?               @map("validated_by_id") @db.Uuid
+  workshops     EventTicketWorkshop[]
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([uniqueCode])
+  @@map("event_tickets")
+}
+
+/// Vínculo entre ingresso e workshops escolhidos
+model EventTicketWorkshop {
+  id         String        @id @default(uuid()) @db.Uuid
+  ticketId   String        @map("ticket_id") @db.Uuid
+  ticket     EventTicket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  workshopId String        @map("workshop_id") @db.Uuid
+  workshop   EventWorkshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, workshopId])
+  @@index([ticketId])
+  @@index([workshopId])
+  @@map("event_ticket_workshops")
+}
+
+/// Submissão e avaliação de artigos científicos
+model EventArticle {
+  id               String           @id @default(uuid()) @db.Uuid
+  eventId          String           @map("event_id") @db.Uuid
+  event            CertificateEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  authorId         String           @map("author_id") @db.Uuid
+  author           User             @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  title            String
+  coauthors        String? // IDs ou nomes de coautores
+  docFileUrl       String           @map("doc_file_url")
+  pdfFileUrl       String?          @map("pdf_file_url")
+  plagiarismReport String?          @map("plagiarism_report")
+  correctionFile   String?          @map("correction_file")
+  status           String           @default("pendente") // pendente, aprovado, rejeitado
+  advisorName      String?          @map("advisor_name")
+  coAdvisorName    String?          @map("co_advisor_name")
+  currentLockId    String?          @map("current_lock_id") @db.Uuid // Lock anti-concorrência
+  evaluatorId      String?          @map("evaluator_id") @db.Uuid
+  evaluator        User?            @relation("ArticleEvaluator", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  evaluatedAt      DateTime?        @map("evaluated_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([authorId])
+  @@index([evaluatorId])
+  @@map("event_articles")
+}
+
+/// Cadastro de salas e auditórios físicos
+model EventRoom {
+  id             String            @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  capacity       Int               @default(0)
+  isActive       Boolean           @default(true) @map("is_active")
+  responsibleIds String[]          @default([]) @map("responsible_ids") // IDs de professores autorizados a escanear
+  attendances    EventAttendance[]
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@map("event_rooms")
+}
+
+/// Registro refinado de presença (Entrada / Saída por paridade matemática)
+model EventAttendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  eventId        String           @map("event_id") @db.Uuid
+  event          CertificateEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         String           @map("user_id") @db.Uuid
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId         String?          @map("room_id") @db.Uuid
+  room           EventRoom?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  checkinType    String           @default("entrada") @map("checkin_type") // entrada, saida
+  checkinDate    DateTime         @default(now()) @map("checkin_date")
+  operatorId     String?          @map("operator_id") @db.Uuid
+  validationHash String?          @map("validation_hash")
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([roomId])
+  @@map("event_attendances")
+}
+
+/// Consolidação orçamentária de múltiplos eventos
+model EventFinancialGroup {
+  id        String         @id @default(uuid()) @db.Uuid
+  title     String
+  eventIds  String[]       @map("event_ids")
+  expenses  EventExpense[]
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@map("event_financial_groups")
+}
+
+/// Despesas operacionais do evento
+model EventExpense {
+  id          String               @id @default(uuid()) @db.Uuid
+  eventId     String?              @map("event_id") @db.Uuid
+  event       CertificateEvent?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  groupId     String?              @map("group_id") @db.Uuid
+  group       EventFinancialGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  description String
+  category    String
+  amount      Decimal              @db.Decimal(10, 2)
+  receiptUrl  String?              @map("receipt_url")
+  expenseDate DateTime             @map("expense_date")
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  @@index([eventId])
+  @@index([groupId])
+  @@map("event_expenses")
+}
+
+/// Empresas patrocinadoras
+model EventSponsor {
+  id        String                 @id @default(uuid()) @db.Uuid
+  eventId   String                 @map("event_id") @db.Uuid
+  event     CertificateEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  contact   String?
+  movements EventSponsorMovement[]
+  createdAt DateTime               @default(now()) @map("created_at")
+
+  @@index([eventId])
+  @@map("event_sponsors")
+}
+
+/// Movimentações de patrocínio e cotas
+model EventSponsorMovement {
+  id           String       @id @default(uuid()) @db.Uuid
+  sponsorId    String       @map("sponsor_id") @db.Uuid
+  sponsor      EventSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  type         String       @default("entrada")
+  nature       String // dinheiro, brindes, servico, equipamento
+  description  String
+  amount       Decimal      @default(0.00) @db.Decimal(10, 2)
+  quantity     Int          @default(1)
+  receiptUrl   String?      @map("receipt_url")
+  movementDate DateTime     @default(now()) @map("movement_date")
+
+  @@index([sponsorId])
+  @@map("event_sponsor_movements")
+}
+
+/// Pesquisa de satisfação pós-evento
+model EventFeedback {
+  id        String           @id @default(uuid()) @db.Uuid
+  eventId   String           @map("event_id") @db.Uuid
+  event     CertificateEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String           @map("user_id") @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int // 1 a 5
+  comment   String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_feedbacks")
 }
 
 enum LeadStatus {
@@ -438,15 +674,15 @@ model Street {
 }
 
 model ResidenceNumber {
-  id          String   @id @default(uuid()) @db.Uuid
-  streetId    String   @map("street_id") @db.Uuid
-  street      Street   @relation(fields: [streetId], references: [id], onDelete: Cascade)
-  number      String
-  complement  String?
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  leads       Lead[]
+  id         String   @id @default(uuid()) @db.Uuid
+  streetId   String   @map("street_id") @db.Uuid
+  street     Street   @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  number     String
+  complement String?
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  leads      Lead[]
 
   @@index([streetId])
   @@map("residence_numbers")
@@ -554,6 +790,3 @@ model TicketMessage {
   @@index([userId])
   @@map("ticket_messages")
 }
-
-
-

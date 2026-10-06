@@ -401,6 +401,8 @@ export class CertificatesService {
       verificationCode,
       institutionName: 'FAIP - Faculdade de Ensino Superior do Interior Paulista',
       issuedByName: existingLog.issuedByUser?.username || 'Secretaria Geral',
+      verificationUrl: `${process.env.FRONTEND_URL || 'https://unicore.faip.edu.br'}/certificados/validar/${verificationCode}`,
+      hash: Buffer.from(`${verificationCode}:${studentRa}:${existingLog.issuedAt.getTime()}`).toString('base64').substring(0, 32).toUpperCase(),
     }
   }
 
@@ -443,6 +445,25 @@ export class CertificatesService {
             : null,
         templateStyle: dto.templateStyle || undefined,
         createdById: currentUserId || null,
+        bannerUrl: dto.bannerUrl?.trim() || null,
+        ticketType: dto.ticketType || 'gratuito',
+        paymentLink: dto.paymentLink?.trim() || null,
+        pixKey: dto.pixKey?.trim() || null,
+        pixQrCodeUrl: dto.pixQrCodeUrl?.trim() || null,
+        ticketLimit: dto.ticketLimit ? Number(dto.ticketLimit) : null,
+        standardPrice: dto.standardPrice !== undefined && dto.standardPrice !== null ? Number(dto.standardPrice) : null,
+        teacherPrice: dto.teacherPrice !== undefined && dto.teacherPrice !== null ? Number(dto.teacherPrice) : null,
+        promoPrice: dto.promoPrice !== undefined && dto.promoPrice !== null ? Number(dto.promoPrice) : null,
+        promoDeadline: dto.promoDeadline ? new Date(dto.promoDeadline) : null,
+        teacherPromoPrice: dto.teacherPromoPrice !== undefined && dto.teacherPromoPrice !== null ? Number(dto.teacherPromoPrice) : null,
+        teacherPromoDeadline: dto.teacherPromoDeadline ? new Date(dto.teacherPromoDeadline) : null,
+        targetAudience: dto.targetAudience || 'todos',
+        acceptsArticles: dto.acceptsArticles ?? false,
+        articlesDeadline: dto.articlesDeadline ? new Date(dto.articlesDeadline) : null,
+        issnCode: dto.issnCode?.trim() || null,
+        monitorTemplateUrl: dto.monitorTemplateUrl?.trim() || null,
+        articleTemplateUrl: dto.articleTemplateUrl?.trim() || null,
+        certificateReleaseDate: dto.certificateReleaseDate ? new Date(dto.certificateReleaseDate) : null,
       },
       include: {
         participants: { select: { isPaid: true, hasAttendance: true } },
@@ -486,6 +507,26 @@ export class CertificatesService {
       paidParticipants: 0,
       eligibleParticipants: 0,
       createdAt: event.createdAt.toISOString(),
+      bannerUrl: event.bannerUrl,
+      ticketType: event.ticketType,
+      paymentLink: event.paymentLink,
+      pixKey: event.pixKey,
+      pixQrCodeUrl: event.pixQrCodeUrl,
+      ticketLimit: event.ticketLimit,
+      ticketsSold: event.ticketsSold,
+      standardPrice: event.standardPrice ? Number(event.standardPrice) : null,
+      teacherPrice: event.teacherPrice ? Number(event.teacherPrice) : null,
+      promoPrice: event.promoPrice ? Number(event.promoPrice) : null,
+      promoDeadline: event.promoDeadline ? event.promoDeadline.toISOString() : null,
+      teacherPromoPrice: event.teacherPromoPrice ? Number(event.teacherPromoPrice) : null,
+      teacherPromoDeadline: event.teacherPromoDeadline ? event.teacherPromoDeadline.toISOString() : null,
+      targetAudience: event.targetAudience,
+      acceptsArticles: event.acceptsArticles,
+      articlesDeadline: event.articlesDeadline ? event.articlesDeadline.toISOString() : null,
+      issnCode: event.issnCode,
+      monitorTemplateUrl: event.monitorTemplateUrl,
+      articleTemplateUrl: event.articleTemplateUrl,
+      certificateReleaseDate: event.certificateReleaseDate ? event.certificateReleaseDate.toISOString() : null,
     }
   }
 
@@ -535,6 +576,26 @@ export class CertificatesService {
         paidParticipants: paid,
         eligibleParticipants: eligible,
         createdAt: ev.createdAt.toISOString(),
+        bannerUrl: ev.bannerUrl,
+        ticketType: ev.ticketType,
+        paymentLink: ev.paymentLink,
+        pixKey: ev.pixKey,
+        pixQrCodeUrl: ev.pixQrCodeUrl,
+        ticketLimit: ev.ticketLimit,
+        ticketsSold: ev.ticketsSold,
+        standardPrice: ev.standardPrice ? Number(ev.standardPrice) : null,
+        teacherPrice: ev.teacherPrice ? Number(ev.teacherPrice) : null,
+        promoPrice: ev.promoPrice ? Number(ev.promoPrice) : null,
+        promoDeadline: ev.promoDeadline ? ev.promoDeadline.toISOString() : null,
+        teacherPromoPrice: ev.teacherPromoPrice ? Number(ev.teacherPromoPrice) : null,
+        teacherPromoDeadline: ev.teacherPromoDeadline ? ev.teacherPromoDeadline.toISOString() : null,
+        targetAudience: ev.targetAudience,
+        acceptsArticles: ev.acceptsArticles,
+        articlesDeadline: ev.articlesDeadline ? ev.articlesDeadline.toISOString() : null,
+        issnCode: ev.issnCode,
+        monitorTemplateUrl: ev.monitorTemplateUrl,
+        articleTemplateUrl: ev.articleTemplateUrl,
+        certificateReleaseDate: ev.certificateReleaseDate ? ev.certificateReleaseDate.toISOString() : null,
       }
     })
   }
@@ -628,6 +689,26 @@ export class CertificatesService {
       certificateTemplateUrl: event.certificateTemplateUrl,
       templateStyle: event.templateStyle,
       createdAt: event.createdAt.toISOString(),
+      bannerUrl: event.bannerUrl,
+      ticketType: event.ticketType,
+      paymentLink: event.paymentLink,
+      pixKey: event.pixKey,
+      pixQrCodeUrl: event.pixQrCodeUrl,
+      ticketLimit: event.ticketLimit,
+      ticketsSold: event.ticketsSold,
+      standardPrice: event.standardPrice ? Number(event.standardPrice) : null,
+      teacherPrice: event.teacherPrice ? Number(event.teacherPrice) : null,
+      promoPrice: event.promoPrice ? Number(event.promoPrice) : null,
+      promoDeadline: event.promoDeadline ? event.promoDeadline.toISOString() : null,
+      teacherPromoPrice: event.teacherPromoPrice ? Number(event.teacherPromoPrice) : null,
+      teacherPromoDeadline: event.teacherPromoDeadline ? event.teacherPromoDeadline.toISOString() : null,
+      targetAudience: event.targetAudience,
+      acceptsArticles: event.acceptsArticles,
+      articlesDeadline: event.articlesDeadline ? event.articlesDeadline.toISOString() : null,
+      issnCode: event.issnCode,
+      monitorTemplateUrl: event.monitorTemplateUrl,
+      articleTemplateUrl: event.articleTemplateUrl,
+      certificateReleaseDate: event.certificateReleaseDate ? event.certificateReleaseDate.toISOString() : null,
       participants,
     }
   }
@@ -674,6 +755,25 @@ export class CertificatesService {
         logoUrl,
         certificateTemplateUrl,
         templateStyle: dto.templateStyle !== undefined ? dto.templateStyle : undefined,
+        bannerUrl: dto.bannerUrl !== undefined ? dto.bannerUrl?.trim() || null : undefined,
+        ticketType: dto.ticketType !== undefined ? dto.ticketType : undefined,
+        paymentLink: dto.paymentLink !== undefined ? dto.paymentLink?.trim() || null : undefined,
+        pixKey: dto.pixKey !== undefined ? dto.pixKey?.trim() || null : undefined,
+        pixQrCodeUrl: dto.pixQrCodeUrl !== undefined ? dto.pixQrCodeUrl?.trim() || null : undefined,
+        ticketLimit: dto.ticketLimit !== undefined ? (dto.ticketLimit ? Number(dto.ticketLimit) : null) : undefined,
+        standardPrice: dto.standardPrice !== undefined ? (dto.standardPrice !== null ? Number(dto.standardPrice) : null) : undefined,
+        teacherPrice: dto.teacherPrice !== undefined ? (dto.teacherPrice !== null ? Number(dto.teacherPrice) : null) : undefined,
+        promoPrice: dto.promoPrice !== undefined ? (dto.promoPrice !== null ? Number(dto.promoPrice) : null) : undefined,
+        promoDeadline: dto.promoDeadline !== undefined ? (dto.promoDeadline ? new Date(dto.promoDeadline) : null) : undefined,
+        teacherPromoPrice: dto.teacherPromoPrice !== undefined ? (dto.teacherPromoPrice !== null ? Number(dto.teacherPromoPrice) : null) : undefined,
+        teacherPromoDeadline: dto.teacherPromoDeadline !== undefined ? (dto.teacherPromoDeadline ? new Date(dto.teacherPromoDeadline) : null) : undefined,
+        targetAudience: dto.targetAudience !== undefined ? dto.targetAudience : undefined,
+        acceptsArticles: dto.acceptsArticles !== undefined ? dto.acceptsArticles : undefined,
+        articlesDeadline: dto.articlesDeadline !== undefined ? (dto.articlesDeadline ? new Date(dto.articlesDeadline) : null) : undefined,
+        issnCode: dto.issnCode !== undefined ? dto.issnCode?.trim() || null : undefined,
+        monitorTemplateUrl: dto.monitorTemplateUrl !== undefined ? dto.monitorTemplateUrl?.trim() || null : undefined,
+        articleTemplateUrl: dto.articleTemplateUrl !== undefined ? dto.articleTemplateUrl?.trim() || null : undefined,
+        certificateReleaseDate: dto.certificateReleaseDate !== undefined ? (dto.certificateReleaseDate ? new Date(dto.certificateReleaseDate) : null) : undefined,
       },
     })
   }
@@ -802,6 +902,13 @@ export class CertificatesService {
       throw new BadRequestException(`O aluno não está apto a emitir este certificado (${details}).`)
     }
 
+    if (participant.event.certificateReleaseDate && new Date(participant.event.certificateReleaseDate) > new Date()) {
+      const releaseStr = new Date(participant.event.certificateReleaseDate).toLocaleDateString('pt-BR')
+      throw new BadRequestException(
+        `Os certificados deste evento estarão disponíveis para emissão somente a partir de ${releaseStr}.`,
+      )
+    }
+
     const inscricaoId = `EV-${participant.id}`
     let existingLog = await this.prisma.certificateEmissionLog.findFirst({
       where: { inscricaoId },
@@ -830,6 +937,9 @@ export class CertificatesService {
       })
     }
 
+    const verificationUrl = `${process.env.FRONTEND_URL || 'https://unicore.faip.edu.br'}/certificados/validar/${verificationCode}`
+    const hash = Buffer.from(`${verificationCode}:${participant.studentRa}:${existingLog.issuedAt.getTime()}`).toString('base64').substring(0, 32).toUpperCase()
+
     return {
       inscricaoId,
       studentRa: participant.studentRa,
@@ -848,6 +958,11 @@ export class CertificatesService {
       logoUrl: participant.event.logoUrl,
       certificateTemplateUrl: participant.event.certificateTemplateUrl,
       templateStyle: participant.event.templateStyle,
+      issnCode: participant.event.issnCode || null,
+      verificationUrl,
+      hash,
+      monitorTemplateUrl: participant.event.monitorTemplateUrl || null,
+      articleTemplateUrl: participant.event.articleTemplateUrl || null,
     }
   }
 
@@ -873,6 +988,10 @@ export class CertificatesService {
           (currentUser?.username && p.studentRa && p.studentRa.toLowerCase() === currentUser.username.toLowerCase()),
       )
 
+      const isReleaseLocked = Boolean(
+        ev.certificateReleaseDate && new Date(ev.certificateReleaseDate) > new Date(),
+      )
+
       return {
         id: ev.id,
         title: ev.title,
@@ -891,7 +1010,17 @@ export class CertificatesService {
         participantId: userParticipant?.id || null,
         isPaid: userParticipant ? userParticipant.isPaid : undefined,
         hasAttendance: userParticipant ? userParticipant.hasAttendance : undefined,
-        isEligible: userParticipant ? userParticipant.isPaid && userParticipant.hasAttendance : undefined,
+        isEligible: userParticipant ? userParticipant.isPaid && userParticipant.hasAttendance && !isReleaseLocked : undefined,
+        bannerUrl: ev.bannerUrl,
+        ticketType: ev.ticketType,
+        standardPrice: ev.standardPrice ? Number(ev.standardPrice) : null,
+        promoPrice: ev.promoPrice ? Number(ev.promoPrice) : null,
+        promoDeadline: ev.promoDeadline ? ev.promoDeadline.toISOString() : null,
+        targetAudience: ev.targetAudience,
+        acceptsArticles: ev.acceptsArticles,
+        articlesDeadline: ev.articlesDeadline ? ev.articlesDeadline.toISOString() : null,
+        certificateReleaseDate: ev.certificateReleaseDate ? ev.certificateReleaseDate.toISOString() : null,
+        isReleaseLocked,
       }
     })
   }
@@ -920,7 +1049,11 @@ export class CertificatesService {
     return this.getParticipantCertificateDocument(participantId, user.sub)
   }
 
-  async saveEventAsset(eventId: string, type: 'logo' | 'template', file: Express.Multer.File) {
+  async saveEventAsset(
+    eventId: string,
+    type: 'logo' | 'template' | 'banner' | 'monitorTemplate' | 'articleTemplate' | 'pixQrCode',
+    file: Express.Multer.File,
+  ) {
     const existing = await this.prisma.certificateEvent.findUnique({ where: { id: eventId } })
     if (!existing) {
       throw new NotFoundException('Evento acadêmico não encontrado.')
@@ -930,7 +1063,19 @@ export class CertificatesService {
       await fs.mkdir(this.eventsUploadDir, { recursive: true })
     }
 
-    const oldUrl = type === 'logo' ? existing.logoUrl : existing.certificateTemplateUrl
+    const oldUrl =
+      type === 'logo'
+        ? existing.logoUrl
+        : type === 'template'
+        ? existing.certificateTemplateUrl
+        : type === 'banner'
+        ? existing.bannerUrl
+        : type === 'monitorTemplate'
+        ? existing.monitorTemplateUrl
+        : type === 'articleTemplate'
+        ? existing.articleTemplateUrl
+        : existing.pixQrCodeUrl
+
     if (oldUrl) {
       this.deleteAssetFile(oldUrl)
     }
@@ -941,17 +1086,18 @@ export class CertificatesService {
     await fs.writeFile(destination, file.buffer)
     const assetUrl = `/api/certificates/custom-events/${eventId}/assets/${uniqueName}`
 
-    if (type === 'logo') {
-      await this.prisma.certificateEvent.update({
-        where: { id: eventId },
-        data: { logoUrl: assetUrl },
-      })
-    } else {
-      await this.prisma.certificateEvent.update({
-        where: { id: eventId },
-        data: { certificateTemplateUrl: assetUrl },
-      })
-    }
+    const updateData: any = {}
+    if (type === 'logo') updateData.logoUrl = assetUrl
+    else if (type === 'template') updateData.certificateTemplateUrl = assetUrl
+    else if (type === 'banner') updateData.bannerUrl = assetUrl
+    else if (type === 'monitorTemplate') updateData.monitorTemplateUrl = assetUrl
+    else if (type === 'articleTemplate') updateData.articleTemplateUrl = assetUrl
+    else if (type === 'pixQrCode') updateData.pixQrCodeUrl = assetUrl
+
+    await this.prisma.certificateEvent.update({
+      where: { id: eventId },
+      data: updateData,
+    })
 
     return { assetUrl, fileName: uniqueName }
   }

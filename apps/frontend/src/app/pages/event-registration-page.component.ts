@@ -12,6 +12,16 @@ import {
   type CustomEventSummary,
   type CustomParticipantItem,
   type UpdateCustomEvent,
+  type EventTicket,
+  type EventWorkshop,
+  type EventArticle,
+  type EventExpense,
+  type EventSponsor,
+  type FinancialSummary,
+  type EventFeedback,
+  type ReviewEventArticle,
+  type CreateEventWorkshop,
+  type UpdateEventWorkshop,
   CertificatesService,
   getDefaultTemplateStyle,
 } from '../services/certificates.service'
@@ -94,7 +104,11 @@ import {
         } @else {
           @for (ev of events; track ev.id) {
             <article class="card card-elevated event-card">
-              @if (ev.logoUrl) {
+              @if (ev.bannerUrl) {
+                <div class="event-card-banner">
+                  <img [src]="ev.bannerUrl" alt="Banner do Evento" class="card-banner-img" />
+                </div>
+              } @else if (ev.logoUrl) {
                 <div class="event-card-banner-logo">
                   <img [src]="ev.logoUrl" alt="Logo do Evento" class="card-banner-logo-img" />
                 </div>
@@ -114,6 +128,20 @@ import {
               @if (ev.description) {
                 <p class="event-card-desc">{{ ev.description }}</p>
               }
+
+              <!-- Badges de Ingressos e Artigos -->
+              <div class="event-chips-row">
+                @if (ev.ticketType === 'pago') {
+                  <span class="chip chip-paid">💰 R$ {{ (ev.standardPrice || 0).toFixed(2) }}</span>
+                } @else if (ev.ticketType === 'solidario') {
+                  <span class="chip chip-solidary">🤝 Solidário</span>
+                } @else {
+                  <span class="chip chip-free">🆓 Gratuito</span>
+                }
+                @if (ev.acceptsArticles) {
+                  <span class="chip chip-article">📄 Artigos</span>
+                }
+              </div>
 
               <div class="event-meta-list">
                 @if (ev.speaker) {
@@ -156,9 +184,17 @@ import {
                   type="button"
                   (click)="openParticipantsDrawer(ev.id)"
                 >
-                  👥 Gerenciar Alunos ({{ ev.totalParticipants }})
+                  ⚙️ Gestão do Evento ({{ ev.totalParticipants }})
                 </button>
                 <div class="event-btn-group">
+                  <a
+                    class="btn-icon"
+                    [routerLink]="['/eventos/portaria']"
+                    [queryParams]="{ eventId: ev.id }"
+                    title="Portaria & Scanner QR Code"
+                  >
+                    📱
+                  </a>
                   <button class="btn-icon" type="button" (click)="openEditEventModal(ev)" title="Editar Evento">
                     ✏️
                   </button>
@@ -613,6 +649,267 @@ import {
                     }
                   </div>
                 </div>
+
+                <!-- Seção Ingressos e Valores -->
+                <div class="form-group col-span-2 form-card-section">
+                  <h4 class="form-section-title">🎟️ Modalidade de Ingressos e Bilheteria</h4>
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <label for="event-ticket-type">Tipo de Ingresso</label>
+                      <select id="event-ticket-type" class="form-control" [(ngModel)]="eventForm.ticketType" name="ticketType">
+                        <option value="gratuito">Gratuito (Aberto / Sem Cobrança)</option>
+                        <option value="pago">Pago (Com Chave Pix e Lotes)</option>
+                        <option value="solidario">Solidário (Doação de Alimentos)</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="event-ticket-limit">Limite de Ingressos / Vagas</label>
+                      <input
+                        id="event-ticket-limit"
+                        type="number"
+                        min="1"
+                        class="form-control"
+                        placeholder="Ex: 100 (vazio = ilimitado)"
+                        [(ngModel)]="eventForm.ticketLimit"
+                        name="ticketLimit"
+                      />
+                    </div>
+
+                    @if (eventForm.ticketType === 'pago') {
+                      <div class="form-group">
+                        <label for="event-standard-price">Preço Padrão Aluno / Geral (R$)</label>
+                        <input
+                          id="event-standard-price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          class="form-control"
+                          placeholder="Ex: 50.00"
+                          [(ngModel)]="eventForm.standardPrice"
+                          name="standardPrice"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-promo-price">Preço Promocional 1º Lote (R$)</label>
+                        <input
+                          id="event-promo-price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          class="form-control"
+                          placeholder="Ex: 35.00"
+                          [(ngModel)]="eventForm.promoPrice"
+                          name="promoPrice"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-promo-deadline">Data Limite do Lote Promocional</label>
+                        <input
+                          id="event-promo-deadline"
+                          type="date"
+                          class="form-control"
+                          [(ngModel)]="eventForm.promoDeadline"
+                          name="promoDeadline"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-teacher-price">Preço para Professores (R$)</label>
+                        <input
+                          id="event-teacher-price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          class="form-control"
+                          placeholder="Ex: 80.00"
+                          [(ngModel)]="eventForm.teacherPrice"
+                          name="teacherPrice"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-teacher-promo-price">Preço Promo Professores (R$)</label>
+                        <input
+                          id="event-teacher-promo-price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          class="form-control"
+                          placeholder="Ex: 60.00"
+                          [(ngModel)]="eventForm.teacherPromoPrice"
+                          name="teacherPromoPrice"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-teacher-promo-deadline">Data Limite Promo Professores</label>
+                        <input
+                          id="event-teacher-promo-deadline"
+                          type="date"
+                          class="form-control"
+                          [(ngModel)]="eventForm.teacherPromoDeadline"
+                          name="teacherPromoDeadline"
+                        />
+                      </div>
+
+                      <div class="form-group col-span-2">
+                        <label for="event-pix-key">Chave Pix para Pagamento</label>
+                        <input
+                          id="event-pix-key"
+                          type="text"
+                          class="form-control"
+                          placeholder="Ex: financeiro@faip.edu.br ou CNPJ"
+                          [(ngModel)]="eventForm.pixKey"
+                          name="pixKey"
+                        />
+                      </div>
+
+                      <div class="form-group col-span-2 upload-section">
+                        <label>QR Code Pix (Imagem Opcional)</label>
+                        @if (eventForm.pixQrCodeUrl) {
+                          <div class="media-preview-card">
+                            <img [src]="eventForm.pixQrCodeUrl" alt="Preview QR Pix" class="preview-logo-img" />
+                            <div class="preview-actions">
+                              <span class="preview-filename">QR Code Pix carregado</span>
+                              <button type="button" class="button button-danger button-sm" (click)="removePixQr()">✕ Remover QR Code</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <div class="upload-dropzone">
+                            <span class="upload-icon">📱</span>
+                            <label class="button button-secondary button-sm btn-file-picker">
+                              Selecionar Imagem QR Code Pix
+                              <input type="file" accept="image/*" (change)="onPixQrFileSelected($event)" class="file-hidden-input" />
+                            </label>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Seção Artigos Científicos -->
+                <div class="form-group col-span-2 form-card-section">
+                  <h4 class="form-section-title">📄 Submissão de Trabalhos & Artigos Científicos</h4>
+                  <div class="checkbox-group mb-2">
+                    <label class="checkbox-label">
+                      <input type="checkbox" [(ngModel)]="eventForm.acceptsArticles" name="acceptsArticles" />
+                      <span><strong>Habilitar submissão de artigos científicos</strong> para este evento</span>
+                    </label>
+                  </div>
+
+                  @if (eventForm.acceptsArticles) {
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label for="event-articles-deadline">Data Limite de Submissão de Artigos</label>
+                        <input
+                          id="event-articles-deadline"
+                          type="date"
+                          class="form-control"
+                          [(ngModel)]="eventForm.articlesDeadline"
+                          name="articlesDeadline"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="event-issn">Código ISSN dos Anais do Evento</label>
+                        <input
+                          id="event-issn"
+                          type="text"
+                          class="form-control"
+                          placeholder="Ex: 2965-1234"
+                          [(ngModel)]="eventForm.issnCode"
+                          name="issnCode"
+                        />
+                      </div>
+
+                      <div class="form-group col-span-2 upload-section">
+                        <label>Modelo Oficial de Artigo (.DOC ou .DOCX para download dos autores)</label>
+                        @if (eventForm.articleTemplateUrl) {
+                          <div class="media-preview-card">
+                            <span class="preview-filename">📄 Modelo de Artigo Carregado</span>
+                            <div class="preview-actions">
+                              <a [href]="eventForm.articleTemplateUrl" target="_blank" class="button button-secondary button-sm">📥 Baixar</a>
+                              <button type="button" class="button button-danger button-sm" (click)="removeArticleTemplate()">✕ Remover</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <div class="upload-dropzone">
+                            <span class="upload-icon">📝</span>
+                            <label class="button button-secondary button-sm btn-file-picker">
+                              Selecionar Arquivo DOC/DOCX do Modelo
+                              <input type="file" accept=".doc,.docx" (change)="onArticleFileSelected($event)" class="file-hidden-input" />
+                            </label>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <!-- Seção Banner Promocional & Certificação de Monitores -->
+                <div class="form-group col-span-2 form-card-section">
+                  <h4 class="form-section-title">🎨 Banner Promocional & Certificados Especiais</h4>
+                  <div class="form-grid">
+                    <div class="form-group col-span-2 upload-section">
+                      <label>Banner Promocional do Evento (Exibido no Catálogo Público)</label>
+                      @if (eventForm.bannerUrl) {
+                        <div class="media-preview-card">
+                          <img [src]="eventForm.bannerUrl" alt="Preview Banner" class="preview-banner-img" />
+                          <div class="preview-actions">
+                            <span class="preview-filename">Banner carregado com sucesso</span>
+                            <button type="button" class="button button-danger button-sm" (click)="removeBanner()">✕ Remover Banner</button>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="upload-dropzone">
+                          <span class="upload-icon">🖼️</span>
+                          <label class="button button-secondary button-sm btn-file-picker">
+                            Selecionar Imagem do Banner (Paisagem)
+                            <input type="file" accept="image/*" (change)="onBannerFileSelected($event)" class="file-hidden-input" />
+                          </label>
+                          <span class="dropzone-sub">Formato Recomendado: 1200x400px ou proporção 3:1</span>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="form-group col-span-2 upload-section">
+                      <label>Modelo Gráfico para Certificado de Monitores (A4 Paisagem)</label>
+                      @if (eventForm.monitorTemplateUrl) {
+                        <div class="media-preview-card">
+                          <img [src]="eventForm.monitorTemplateUrl" alt="Preview Monitor" class="preview-template-img" />
+                          <div class="preview-actions">
+                            <span class="preview-filename">Modelo de Monitor ativo</span>
+                            <button type="button" class="button button-danger button-sm" (click)="removeMonitorTemplate()">✕ Remover</button>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="upload-dropzone">
+                          <span class="upload-icon">🎓</span>
+                          <label class="button button-secondary button-sm btn-file-picker">
+                            Selecionar Modelo para Monitor (A4 Paisagem)
+                            <input type="file" accept="image/*" (change)="onMonitorFileSelected($event)" class="file-hidden-input" />
+                          </label>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="form-group col-span-2">
+                      <label for="event-cert-release">Data de Liberação Geral do Certificado</label>
+                      <input
+                        id="event-cert-release"
+                        type="date"
+                        class="form-control"
+                        [(ngModel)]="eventForm.certificateReleaseDate"
+                        name="certificateReleaseDate"
+                      />
+                      <small class="form-hint">Se configurado, os participantes só poderão emitir/baixar o certificado após essa data.</small>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="modal-footer">
@@ -636,18 +933,88 @@ import {
           <div class="modal-dialog modal-dialog-xl card card-elevated" (click)="$event.stopPropagation()">
             <div class="modal-header">
               <div>
-                <h2>Participantes do Evento</h2>
+                <h2>Painel de Gestão do Evento</h2>
                 <span class="modal-subtitle">
                   <strong>{{ activeEventDetails.title }}</strong> &bull;
                   Carga Horária: {{ activeEventDetails.workloadHours }}h
                 </span>
               </div>
-              <button class="btn-close" type="button" (click)="closeParticipantsDrawer()" aria-label="Fechar">✕</button>
+              <div class="drawer-header-actions">
+                <div class="export-dropdown-wrapper">
+                  <select
+                    class="export-select"
+                    (change)="onExportReportSelect($event)"
+                    [disabled]="isExportingReport"
+                    title="Exportar Relatório Gerencial (.xlsx)"
+                  >
+                    <option value="">{{ isExportingReport ? '⏳ Gerando Planilha...' : '📊 Exportar Relatório Excel...' }}</option>
+                    <option value="vendas">💰 Vendas & Financeiro (.xlsx)</option>
+                    <option value="salas">🚪 Fluxo & Ocupação de Salas (.xlsx)</option>
+                    <option value="artigos">📑 Submissões de Artigos (.xlsx)</option>
+                    <option value="demografico">👥 Perfil Demográfico (.xlsx)</option>
+                    <option value="cursos">🎓 Participação por Curso (.xlsx)</option>
+                    <option value="workshops">🛠️ Workshops & Minicursos (.xlsx)</option>
+                  </select>
+                </div>
+                <button class="btn-close" type="button" (click)="closeParticipantsDrawer()" aria-label="Fechar">✕</button>
+              </div>
             </div>
 
+            <nav class="drawer-tabs-nav">
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'participantes'"
+                (click)="selectDrawerTab('participantes')"
+              >
+                👥 Participantes ({{ activeEventDetails.participants.length }})
+              </button>
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'ingressos'"
+                (click)="selectDrawerTab('ingressos')"
+              >
+                🎟️ Ingressos & Bilheteria ({{ tickets.length }})
+              </button>
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'workshops'"
+                (click)="selectDrawerTab('workshops')"
+              >
+                🛠️ Workshops & Vagas ({{ workshops.length }})
+              </button>
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'artigos'"
+                (click)="selectDrawerTab('artigos')"
+              >
+                📄 Artigos Científicos ({{ articles.length }})
+              </button>
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'financas'"
+                (click)="selectDrawerTab('financas')"
+              >
+                💰 Finanças & Patrocínios
+              </button>
+              <button
+                type="button"
+                class="drawer-tab-btn"
+                [class.active]="activeDrawerTab === 'feedbacks'"
+                (click)="selectDrawerTab('feedbacks')"
+              >
+                ⭐ Feedbacks ({{ feedbacks.length }})
+              </button>
+            </nav>
+
             <div class="modal-body p-0">
-              <!-- Barra de Resumo e Ação de Adicionar -->
-              <div class="participants-topbar">
+              @if (activeDrawerTab === 'participantes') {
+                <!-- Barra de Resumo e Ação de Adicionar -->
+                <div class="participants-topbar">
                 <div class="participants-stats">
                   <span class="stat-pill">👥 Total: <strong>{{ activeEventDetails.participants.length }}</strong></span>
                   <span class="stat-pill stat-paid">💳 Pagos: <strong>{{ countPaidParticipants() }}</strong></span>
@@ -870,19 +1237,766 @@ import {
                   </table>
                 </div>
               }
-            </div>
+            }
 
-            <div class="modal-footer">
-              <span class="footer-hint">
-                💡 Dica: Você pode clicar diretamente sobre os botões de <strong>"Taxa Paga / Pendente"</strong> ou <strong>"Presente / Ausente"</strong> para alternar o status instantaneamente.
-              </span>
-              <button class="button button-secondary" type="button" (click)="closeParticipantsDrawer()">
-                Fechar
-              </button>
-            </div>
+            <!-- TAB 2: INGRESSOS & BILHETERIA -->
+            @if (activeDrawerTab === 'ingressos') {
+              <div class="drawer-tab-content p-4">
+                <div class="tickets-topbar mb-3">
+                  <div class="filter-pills">
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === ''" (click)="filterTicketsByStatus('')">Todos ({{ tickets.length }})</button>
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === 'pago'" (click)="filterTicketsByStatus('pago')">✓ Pagos</button>
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === 'em_analise'" (click)="filterTicketsByStatus('em_analise')">⏳ Em Análise</button>
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === 'aguardando_pagamento'" (click)="filterTicketsByStatus('aguardando_pagamento')">🕒 Aguardando</button>
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === 'utilizado'" (click)="filterTicketsByStatus('utilizado')">🎫 Utilizados</button>
+                    <button type="button" class="filter-pill" [class.active]="ticketStatusFilter === 'rejeitado'" (click)="filterTicketsByStatus('rejeitado')">✕ Rejeitados</button>
+                  </div>
+
+                  <button type="button" class="button button-secondary button-sm" (click)="cronExpireTickets()" [disabled]="isExpiringTickets">
+                    ⏰ {{ isExpiringTickets ? 'Cancelando Vencidos…' : 'Cancelar Ingressos Vencidos (Cron)' }}
+                  </button>
+                </div>
+
+                @if (isLoadingTickets) {
+                  <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando ingressos do evento…</p>
+                  </div>
+                } @else if (tickets.length === 0) {
+                  <div class="empty-state p-6">
+                    <p>Nenhum ingresso emitido nesta categoria até o momento.</p>
+                  </div>
+                } @else {
+                  <div class="table-responsive">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Titular</th>
+                          <th>Valor / Vencimento</th>
+                          <th>Workshop Vinculado</th>
+                          <th>Status</th>
+                          <th>Comprovante</th>
+                          <th class="text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (t of tickets; track t.id) {
+                          <tr>
+                            <td>
+                              <code class="ticket-code">#{{ t.uniqueCode }}</code>
+                              @if (t.isMonitor) {
+                                <span class="badge badge-warning ml-1">🌟 Monitor</span>
+                              }
+                            </td>
+                            <td>
+                              <div class="student-info">
+                                <strong>{{ t.userName || 'Visitante / Sem cadastro' }}</strong>
+                                <span class="student-ra">{{ t.userEmail || '—' }} &bull; {{ t.userRole || 'aluno' }}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div>
+                                <strong>R$ {{ t.amountPaid.toFixed(2) }}</strong>
+                                @if (t.dueDate) {
+                                  <div class="text-muted text-xs">Venc: {{ formatDate(t.dueDate) }}</div>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              @if (t.workshops && t.workshops.length > 0) {
+                                @for (w of t.workshops; track w.id) {
+                                  <span class="badge badge-info">{{ w.title }}</span>
+                                }
+                              } @else {
+                                <span class="text-muted text-xs">Nenhum</span>
+                              }
+                            </td>
+                            <td>
+                              @if (t.status === 'pago') {
+                                <span class="badge badge-paid">✓ Pago</span>
+                              } @else if (t.status === 'em_analise') {
+                                <span class="badge badge-pending">⏳ Em Análise</span>
+                              } @else if (t.status === 'aguardando_pagamento') {
+                                <span class="badge badge-pending">🕒 Aguardando</span>
+                              } @else if (t.status === 'utilizado') {
+                                <span class="badge badge-attendance-ok">🎫 Utilizado</span>
+                              } @else {
+                                <span class="badge badge-danger">✕ {{ t.status }}</span>
+                              }
+                            </td>
+                            <td>
+                              @if (t.receiptUrl) {
+                                <button type="button" class="button button-secondary button-xs" (click)="viewReceipt(t.receiptUrl)">
+                                  👁️ Ver Recibo
+                                </button>
+                              } @else {
+                                <span class="text-muted text-xs">—</span>
+                              }
+                            </td>
+                            <td class="text-right">
+                              <div class="action-buttons-group justify-end">
+                                @if (t.status === 'em_analise' || t.status === 'aguardando_pagamento') {
+                                  <button type="button" class="button button-success button-xs" (click)="validateTicket(t.id, 'pago')">
+                                    ✓ Aprovar
+                                  </button>
+                                  <button type="button" class="button button-accent button-xs" (click)="validateTicket(t.id, 'pago', true)" title="Aprovar e conceder papel de Monitor">
+                                    🌟 Monitor
+                                  </button>
+                                  <button type="button" class="button button-danger button-xs" (click)="validateTicket(t.id, 'rejeitado')">
+                                    ✕ Rejeitar
+                                  </button>
+                                }
+                                <button type="button" class="button button-secondary button-xs" (click)="openSwitchWorkshop(t)" title="Mudar o aluno para outro mini-curso">
+                                  🔄 Workshop
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- TAB 3: WORKSHOPS & VAGAS -->
+            @if (activeDrawerTab === 'workshops') {
+              <div class="drawer-tab-content p-4">
+                <div class="participants-topbar mb-3">
+                  <div>
+                    <h4>Workshops & Mini-cursos Práticos</h4>
+                    <p class="text-muted text-xs">Oficinas temáticas com controle de concorrência e limite de vagas em tempo real.</p>
+                  </div>
+                  <button type="button" class="button button-primary button-sm" (click)="openNewWorkshopModal()">
+                    ➕ Novo Workshop
+                  </button>
+                </div>
+
+                @if (isLoadingWorkshops) {
+                  <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando workshops…</p>
+                  </div>
+                } @else if (workshops.length === 0) {
+                  <div class="empty-state p-6">
+                    <span class="empty-icon">🛠️</span>
+                    <p>Nenhum workshop cadastrado para este evento.</p>
+                    <button type="button" class="button button-primary button-sm" (click)="openNewWorkshopModal()">
+                      Cadastrar Primeiro Workshop
+                    </button>
+                  </div>
+                } @else {
+                  <div class="workshops-list">
+                    @for (w of workshops; track w.id) {
+                      <div class="card card-elevated workshop-manage-card mb-3 p-3">
+                        <div class="workshop-card-header">
+                          <div>
+                            @if (w.courseName) {
+                              <span class="event-course-tag">{{ w.courseName }}</span>
+                            }
+                            <h4 class="workshop-title">{{ w.title }}</h4>
+                            @if (w.description) {
+                              <p class="workshop-desc">{{ w.description }}</p>
+                            }
+                          </div>
+                          <div class="workshop-actions-row">
+                            <button type="button" class="btn-icon" (click)="openEditWorkshopModal(w)" title="Editar Workshop">✏️</button>
+                            <button type="button" class="btn-icon text-danger" (click)="deleteWorkshop(w)" title="Excluir Workshop">🗑️</button>
+                          </div>
+                        </div>
+
+                        <!-- Barra de Ocupação de Vagas -->
+                        <div class="vacancy-stats-box mt-2">
+                          <div class="vacancy-labels">
+                            <span>Ocupação de Vagas</span>
+                            <span><strong>{{ w.occupiedVacancies }}</strong> / {{ w.vacancies }} preenchidas ({{ w.remainingVacancies }} restantes)</span>
+                          </div>
+                          <div class="vacancy-bar-bg">
+                            <div
+                              class="vacancy-bar-fill"
+                              [style.width.%]="w.vacancies > 0 ? (w.occupiedVacancies / w.vacancies) * 100 : 0"
+                              [class.full]="w.remainingVacancies <= 0"
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- TAB 4: ARTIGOS CIENTÍFICOS -->
+            @if (activeDrawerTab === 'artigos') {
+              <div class="drawer-tab-content p-4">
+                <div class="tickets-topbar mb-3">
+                  <div class="filter-pills">
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === ''" (click)="filterArticlesByStatus('')">Todos ({{ articles.length }})</button>
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === 'submetido'" (click)="filterArticlesByStatus('submetido')">Submetidos</button>
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === 'em_analise'" (click)="filterArticlesByStatus('em_analise')">Em Análise</button>
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === 'aprovado'" (click)="filterArticlesByStatus('aprovado')">✓ Aprovados</button>
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === 'correcao'" (click)="filterArticlesByStatus('correcao')">⚠️ Correções</button>
+                    <button type="button" class="filter-pill" [class.active]="articleStatusFilter === 'reprovado'" (click)="filterArticlesByStatus('reprovado')">✕ Reprovados</button>
+                  </div>
+
+                  @if (activeEventDetails.issnCode) {
+                    <span class="stat-pill">📚 ISSN: <strong>{{ activeEventDetails.issnCode }}</strong></span>
+                  }
+                </div>
+
+                @if (isLoadingArticles) {
+                  <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando artigos científicos…</p>
+                  </div>
+                } @else if (articles.length === 0) {
+                  <div class="empty-state p-6">
+                    <span class="empty-icon">📄</span>
+                    <p>Nenhum artigo científico submetido para este evento.</p>
+                  </div>
+                } @else {
+                  <div class="table-responsive">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Título do Trabalho</th>
+                          <th>Autor(es) / Orientador</th>
+                          <th>Arquivos</th>
+                          <th>Trava / Avaliador</th>
+                          <th>Status</th>
+                          <th class="text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (a of articles; track a.id) {
+                          <tr>
+                            <td>
+                              <strong>{{ a.title }}</strong>
+                              <div class="text-xs text-muted">Submetido em {{ formatDate(a.createdAt) }}</div>
+                            </td>
+                            <td>
+                              <div class="student-info">
+                                <span><strong>Autor:</strong> {{ a.authorName }}</span>
+                                @if (a.coauthors) {
+                                  <span class="text-xs text-muted"><strong>Coautores:</strong> {{ a.coauthors }}</span>
+                                }
+                                @if (a.advisorName) {
+                                  <span class="text-xs text-muted"><strong>Orientador:</strong> {{ a.advisorName }}</span>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              <div class="action-buttons-group">
+                                <a [href]="a.docFileUrl" target="_blank" class="button button-secondary button-xs">📥 DOC</a>
+                                @if (a.pdfFileUrl) {
+                                  <a [href]="a.pdfFileUrl" target="_blank" class="button button-secondary button-xs">📄 PDF</a>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              <div class="lock-indicator">
+                                @if (a.currentLockId) {
+                                  <span class="badge badge-warning">🔒 Travado</span>
+                                } @else {
+                                  <span class="badge badge-success">🔓 Livre</span>
+                                }
+                                <button type="button" class="button button-xs button-secondary mt-1" (click)="toggleArticleLock(a)">
+                                  {{ a.currentLockId ? 'Destravar' : 'Travar' }}
+                                </button>
+                                @if (a.evaluatorName) {
+                                  <span class="text-xs text-muted d-block mt-1">Por: {{ a.evaluatorName }}</span>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              @if (a.status === 'aprovado') {
+                                <span class="badge badge-success">✓ Aprovado</span>
+                              } @else if (a.status === 'correcao') {
+                                <span class="badge badge-pending">⚠️ Correção</span>
+                              } @else if (a.status === 'reprovado') {
+                                <span class="badge badge-danger">✕ Reprovado</span>
+                              } @else {
+                                <span class="badge badge-info">{{ a.status }}</span>
+                              }
+                            </td>
+                            <td class="text-right">
+                              <button type="button" class="button button-primary button-xs" (click)="openReviewModal(a)">
+                                📝 Avaliar
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- TAB 5: FINANÇAS & PATROCÍNIOS -->
+            @if (activeDrawerTab === 'financas') {
+              <div class="drawer-tab-content p-4">
+                @if (isLoadingFinances) {
+                  <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando dados financeiros…</p>
+                  </div>
+                } @else {
+                  <!-- KPI Cards Grid -->
+                  <div class="financial-cards-grid">
+                    <div class="card card-elevated fin-kpi-card p-3">
+                      <span class="kpi-icon">🎟️</span>
+                      <div class="kpi-info">
+                        <span class="kpi-label">Receita de Ingressos</span>
+                        <strong class="kpi-val text-success">R$ {{ (financialSummary?.ticketsRevenue || 0).toFixed(2) }}</strong>
+                        <span class="kpi-sub">{{ financialSummary?.paidTicketsCount || 0 }} pagos de {{ financialSummary?.ticketsCount || 0 }}</span>
+                      </div>
+                    </div>
+
+                    <div class="card card-elevated fin-kpi-card p-3">
+                      <span class="kpi-icon">🤝</span>
+                      <div class="kpi-info">
+                        <span class="kpi-label">Arrecadação de Patrocínios</span>
+                        <strong class="kpi-val text-info">R$ {{ (financialSummary?.sponsorsTotal || 0).toFixed(2) }}</strong>
+                        <span class="kpi-sub">{{ sponsors.length }} parceiros</span>
+                      </div>
+                    </div>
+
+                    <div class="card card-elevated fin-kpi-card p-3">
+                      <span class="kpi-icon">📉</span>
+                      <div class="kpi-info">
+                        <span class="kpi-label">Despesas Totais</span>
+                        <strong class="kpi-val text-danger">R$ {{ (financialSummary?.expensesTotal || 0).toFixed(2) }}</strong>
+                        <span class="kpi-sub">{{ expenses.length }} comprovantes</span>
+                      </div>
+                    </div>
+
+                    <div class="card card-elevated fin-kpi-card p-3">
+                      <span class="kpi-icon">⚖️</span>
+                      <div class="kpi-info">
+                        <span class="kpi-label">Saldo Líquido</span>
+                        <strong class="kpi-val" [ngClass]="(financialSummary?.netBalance || 0) >= 0 ? 'text-success' : 'text-danger'">
+                          R$ {{ (financialSummary?.netBalance || 0).toFixed(2) }}
+                        </strong>
+                        <span class="kpi-sub">{{ (financialSummary?.netBalance || 0) >= 0 ? 'Superávit do Evento' : 'Déficit' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Seção de Despesas -->
+                  <div class="mt-4">
+                    <div class="participants-topbar mb-2">
+                      <h4>📉 Despesas do Evento</h4>
+                      <button type="button" class="button button-primary button-sm" (click)="openNewExpenseModal()">
+                        ➕ Lançar Despesa
+                      </button>
+                    </div>
+
+                    @if (expenses.length === 0) {
+                      <p class="text-muted p-4">Nenhuma despesa lançada para este evento.</p>
+                    } @else {
+                      <div class="table-responsive">
+                        <table class="data-table">
+                          <thead>
+                            <tr>
+                              <th>Descrição</th>
+                              <th>Categoria</th>
+                              <th>Data</th>
+                              <th>Valor (R$)</th>
+                              <th>Comprovante</th>
+                              <th class="text-right">Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (e of expenses; track e.id) {
+                              <tr>
+                                <td><strong>{{ e.description }}</strong></td>
+                                <td><span class="badge badge-info">{{ e.category }}</span></td>
+                                <td>{{ formatDate(e.expenseDate) }}</td>
+                                <td class="text-danger font-semibold">R$ {{ e.amount.toFixed(2) }}</td>
+                                <td>
+                                  @if (e.receiptUrl) {
+                                    <a [href]="e.receiptUrl" target="_blank" class="button button-secondary button-xs">📄 Recibo</a>
+                                  } @else {
+                                    <span class="text-muted text-xs">—</span>
+                                  }
+                                </td>
+                                <td class="text-right">
+                                  <button type="button" class="btn-icon text-danger" (click)="deleteExpense(e)" title="Excluir Despesa">🗑️</button>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Seção de Patrocinadores -->
+                  <div class="mt-4">
+                    <div class="participants-topbar mb-2">
+                      <h4>🤝 Patrocinadores & Parceiros</h4>
+                      <button type="button" class="button button-primary button-sm" (click)="openNewSponsorModal()">
+                        ➕ Novo Patrocinador
+                      </button>
+                    </div>
+
+                    @if (sponsors.length === 0) {
+                      <p class="text-muted p-4">Nenhum patrocinador cadastrado para este evento.</p>
+                    } @else {
+                      <div class="sponsors-grid">
+                        @for (sp of sponsors; track sp.id) {
+                          <div class="card card-elevated sponsor-card p-3 mb-2">
+                            <div class="sponsor-card-top">
+                              <div>
+                                <h5>{{ sp.name }}</h5>
+                                <span class="text-xs text-muted">{{ sp.contact || 'Sem contato informado' }}</span>
+                              </div>
+                              <strong class="text-success">R$ {{ sp.totalAmount.toFixed(2) }}</strong>
+                            </div>
+                            <div class="sponsor-card-actions mt-2">
+                              <span class="text-xs text-muted">{{ sp.movementsCount }} movimentações</span>
+                              <button type="button" class="button button-secondary button-xs" (click)="openSponsorMovementModal(sp)">
+                                + Lançar Movimento
+                              </button>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- TAB 6: FEEDBACKS -->
+            @if (activeDrawerTab === 'feedbacks') {
+              <div class="drawer-tab-content p-4">
+                @if (isLoadingFeedbacks) {
+                  <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Carregando avaliações…</p>
+                  </div>
+                } @else if (feedbacks.length === 0) {
+                  <div class="empty-state p-6">
+                    <span class="empty-icon">⭐</span>
+                    <p>Nenhuma avaliação recebida para este evento até o momento.</p>
+                  </div>
+                } @else {
+                  <div class="feedbacks-overview card card-elevated mb-3 p-3">
+                    <div class="avg-score-box">
+                      <span class="avg-score-number">{{ getAverageRating().toFixed(1) }}</span>
+                      <div class="avg-stars">
+                        @for (s of [1,2,3,4,5]; track s) {
+                          <span [class.filled]="s <= getAverageRating()">★</span>
+                        }
+                      </div>
+                      <span class="avg-total">Média baseada em {{ feedbacks.length }} avaliações</span>
+                    </div>
+                  </div>
+
+                  <div class="feedbacks-list">
+                    @for (fb of feedbacks; track fb.id) {
+                      <div class="card card-elevated feedback-card mb-2 p-3">
+                        <div class="feedback-card-header">
+                          <div class="student-info">
+                            <strong>{{ fb.userName }}</strong>
+                            <span class="text-xs text-muted">{{ formatDate(fb.createdAt) }}</span>
+                          </div>
+                          <div class="feedback-stars">
+                            @for (s of [1,2,3,4,5]; track s) {
+                              <span [class.filled]="s <= fb.rating">★</span>
+                            }
+                          </div>
+                        </div>
+                        @if (fb.comment) {
+                          <p class="feedback-comment mt-2">"{{ fb.comment }}"</p>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="modal-footer">
+            <span class="footer-hint">
+              💡 Painel Geral de Administração do Evento &bull; UniCore Extensão
+            </span>
+            <button class="button button-secondary" type="button" (click)="closeParticipantsDrawer()">
+              Fechar
+            </button>
           </div>
         </div>
-      }
+      </div>
+    }
+
+    <!-- SUBMODAL 1: Mudar Workshop do Aluno -->
+    @if (selectedTicketForWorkshop) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeSwitchWorkshop()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>🔄 Mudar Workshop do Aluno</h3>
+            <button class="btn-close" type="button" (click)="closeSwitchWorkshop()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>Selecione o novo workshop para <strong>{{ selectedTicketForWorkshop.userName }}</strong>:</p>
+            <div class="form-group mt-2">
+              <label for="new-workshop-select">Workshop Destino</label>
+              <select id="new-workshop-select" class="form-control" [(ngModel)]="selectedNewWorkshopId">
+                <option value="">Selecione um workshop…</option>
+                @for (w of workshops; track w.id) {
+                  <option [value]="w.id" [disabled]="w.remainingVacancies <= 0">
+                    {{ w.title }} ({{ w.remainingVacancies }} vagas restantes)
+                  </option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="button button-secondary button-sm" (click)="closeSwitchWorkshop()">Cancelar</button>
+            <button type="button" class="button button-primary button-sm" [disabled]="!selectedNewWorkshopId" (click)="confirmSwitchWorkshop()">
+              Confirmar Troca
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 2: Criar / Editar Workshop -->
+    @if (isWorkshopModalOpen) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeWorkshopModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ isEditingWorkshop ? 'Editar Workshop' : 'Novo Workshop / Mini-Curso' }}</h3>
+            <button class="btn-close" type="button" (click)="closeWorkshopModal()">✕</button>
+          </div>
+          <form (ngSubmit)="saveWorkshop()">
+            <div class="modal-body form-grid">
+              <div class="form-group col-span-2">
+                <label for="w-title">Título do Workshop *</label>
+                <input id="w-title" type="text" class="form-control" [(ngModel)]="workshopForm.title" name="wTitle" required />
+              </div>
+              <div class="form-group">
+                <label for="w-course">Curso Vinculado</label>
+                <input id="w-course" type="text" class="form-control" [(ngModel)]="workshopForm.courseName" name="wCourse" />
+              </div>
+              <div class="form-group">
+                <label for="w-vacancies">Limite de Vagas *</label>
+                <input id="w-vacancies" type="number" min="1" class="form-control" [(ngModel)]="workshopForm.vacancies" name="wVacancies" required />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="w-desc">Descrição / Ementa</label>
+                <textarea id="w-desc" rows="3" class="form-control" [(ngModel)]="workshopForm.description" name="wDesc"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button button-secondary button-sm" (click)="closeWorkshopModal()">Cancelar</button>
+              <button type="submit" class="button button-primary button-sm">Salvar Workshop</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 3: Avaliar Artigo Científico -->
+    @if (selectedArticleForReview) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeReviewModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div>
+              <h3>📝 Avaliação de Artigo Científico</h3>
+              <span class="modal-subtitle"><strong>{{ selectedArticleForReview.title }}</strong></span>
+            </div>
+            <button class="btn-close" type="button" (click)="closeReviewModal()">✕</button>
+          </div>
+          <form (ngSubmit)="submitArticleReview()">
+            <div class="modal-body form-grid">
+              <div class="form-group">
+                <label for="rev-status">Parecer Final *</label>
+                <select id="rev-status" class="form-control" [(ngModel)]="reviewForm.status" name="revStatus">
+                  <option value="aprovado">✓ Aprovado para Publicação</option>
+                  <option value="correcao">⚠️ Necessita Correções</option>
+                  <option value="reprovado">✕ Reprovado</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="rev-score">Nota (0 a 10)</label>
+                <input id="rev-score" type="number" min="0" max="10" step="0.1" class="form-control" [(ngModel)]="reviewForm.score" name="revScore" />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="rev-notes">Parecer / Observações do Parecerista</label>
+                <textarea id="rev-notes" rows="3" class="form-control" [(ngModel)]="reviewForm.feedbackNotes" name="revNotes" placeholder="Comentários sobre a escrita, metodologia, referências…"></textarea>
+              </div>
+              <div class="form-group col-span-2">
+                <label>Relatório Anti-Plágio (PDF opcional)</label>
+                <input type="file" accept=".pdf" (change)="onPlagioFileSelected($event)" class="form-control" />
+              </div>
+              <div class="form-group col-span-2">
+                <label>Arquivo com Correções e Apontamentos (DOCX ou PDF opcional)</label>
+                <input type="file" accept=".doc,.docx,.pdf" (change)="onCorrecaoFileSelected($event)" class="form-control" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button button-secondary button-sm" (click)="closeReviewModal()">Cancelar</button>
+              <button type="submit" class="button button-primary button-sm" [disabled]="isSubmittingReview">
+                {{ isSubmittingReview ? 'Enviando Parecer…' : 'Salvar Avaliação' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 4: Lançar Despesa -->
+    @if (isExpenseModalOpen) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeExpenseModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>➕ Lançar Nova Despesa</h3>
+            <button class="btn-close" type="button" (click)="closeExpenseModal()">✕</button>
+          </div>
+          <form (ngSubmit)="saveExpense()">
+            <div class="modal-body form-grid">
+              <div class="form-group col-span-2">
+                <label for="exp-desc">Descrição do Gasto *</label>
+                <input id="exp-desc" type="text" class="form-control" [(ngModel)]="expenseForm.description" name="expDesc" placeholder="Ex: Coffee Break 1º Dia, Impressão de Crachás" required />
+              </div>
+              <div class="form-group">
+                <label for="exp-cat">Categoria *</label>
+                <select id="exp-cat" class="form-control" [(ngModel)]="expenseForm.category" name="expCat">
+                  <option value="Geral">Geral</option>
+                  <option value="Alimentação">Alimentação / Coffee Break</option>
+                  <option value="Gráfica">Gráfica / Crachás / Banner</option>
+                  <option value="Palestrante">Cachê / Palestrante</option>
+                  <option value="Transporte">Transporte / Passagens</option>
+                  <option value="Equipamentos">Equipamentos / TI</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="exp-amount">Valor (R$) *</label>
+                <input id="exp-amount" type="number" step="0.01" min="0" class="form-control" [(ngModel)]="expenseForm.amount" name="expAmount" required />
+              </div>
+              <div class="form-group">
+                <label for="exp-date">Data da Despesa *</label>
+                <input id="exp-date" type="date" class="form-control" [(ngModel)]="expenseForm.expenseDate" name="expDate" required />
+              </div>
+              <div class="form-group col-span-2">
+                <label>Comprovante / Nota Fiscal (PDF ou Imagem opcional)</label>
+                <input type="file" accept="image/*,.pdf" (change)="onExpenseFileSelected($event)" class="form-control" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button button-secondary button-sm" (click)="closeExpenseModal()">Cancelar</button>
+              <button type="submit" class="button button-primary button-sm" [disabled]="isSubmittingExpense">
+                {{ isSubmittingExpense ? 'Salvando…' : 'Salvar Despesa' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 5: Novo Patrocinador -->
+    @if (isSponsorModalOpen) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeSponsorModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>🤝 Novo Patrocinador / Parceiro</h3>
+            <button class="btn-close" type="button" (click)="closeSponsorModal()">✕</button>
+          </div>
+          <form (ngSubmit)="saveSponsor()">
+            <div class="modal-body form-grid">
+              <div class="form-group col-span-2">
+                <label for="sp-name">Nome da Empresa / Instituição *</label>
+                <input id="sp-name" type="text" class="form-control" [(ngModel)]="sponsorForm.name" name="spName" placeholder="Ex: Tech Solutions Brasil" required />
+              </div>
+              <div class="form-group col-span-2">
+                <label for="sp-contact">Contato (Telefone / Email)</label>
+                <input id="sp-contact" type="text" class="form-control" [(ngModel)]="sponsorForm.contact" name="spContact" placeholder="Ex: contato@empresa.com.br" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button button-secondary button-sm" (click)="closeSponsorModal()">Cancelar</button>
+              <button type="submit" class="button button-primary button-sm">Salvar Patrocinador</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 6: Movimento de Patrocinador -->
+    @if (selectedSponsorForMovement) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeSponsorMovementModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div>
+              <h3>+ Lançar Movimento de Patrocínio</h3>
+              <span class="modal-subtitle"><strong>{{ selectedSponsorForMovement.name }}</strong></span>
+            </div>
+            <button class="btn-close" type="button" (click)="closeSponsorMovementModal()">✕</button>
+          </div>
+          <form (ngSubmit)="saveSponsorMovement()">
+            <div class="modal-body form-grid">
+              <div class="form-group">
+                <label for="mv-type">Tipo</label>
+                <select id="mv-type" class="form-control" [(ngModel)]="sponsorMovementForm.type" name="mvType">
+                  <option value="entrada">Entrada (Aporte recebido)</option>
+                  <option value="saida">Saída (Contrapartida)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="mv-nature">Natureza</label>
+                <select id="mv-nature" class="form-control" [(ngModel)]="sponsorMovementForm.nature" name="mvNature">
+                  <option value="Financeiro">Financeiro (Dinheiro / Pix)</option>
+                  <option value="Material">Material / Insumos</option>
+                  <option value="Brindes">Brindes / Kits</option>
+                  <option value="Serviços">Serviços / Apoio Técnico</option>
+                </select>
+              </div>
+              <div class="form-group col-span-2">
+                <label for="mv-desc">Descrição do Movimento *</label>
+                <input id="mv-desc" type="text" class="form-control" [(ngModel)]="sponsorMovementForm.description" name="mvDesc" placeholder="Ex: Cota Ouro Patrocínio 2026" required />
+              </div>
+              <div class="form-group">
+                <label for="mv-amount">Valor Financeiro (R$)</label>
+                <input id="mv-amount" type="number" step="0.01" min="0" class="form-control" [(ngModel)]="sponsorMovementForm.amount" name="mvAmount" />
+              </div>
+              <div class="form-group">
+                <label for="mv-qty">Quantidade</label>
+                <input id="mv-qty" type="number" min="1" class="form-control" [(ngModel)]="sponsorMovementForm.quantity" name="mvQty" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button button-secondary button-sm" (click)="closeSponsorMovementModal()">Cancelar</button>
+              <button type="submit" class="button button-primary button-sm">Salvar Movimento</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- SUBMODAL 7: Ver Comprovante -->
+    @if (viewingReceiptUrl) {
+      <div class="modal-backdrop submodal-backdrop" (click)="closeReceiptModal()">
+        <div class="modal-dialog card card-elevated" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>📄 Comprovante de Pagamento</h3>
+            <button class="btn-close" type="button" (click)="closeReceiptModal()">✕</button>
+          </div>
+          <div class="modal-body text-center">
+            <img [src]="viewingReceiptUrl" alt="Comprovante" class="receipt-full-preview" />
+          </div>
+          <div class="modal-footer">
+            <a [href]="viewingReceiptUrl" target="_blank" class="button button-primary button-sm">Abrir em Nova Aba</a>
+            <button type="button" class="button button-secondary button-sm" (click)="closeReceiptModal()">Fechar</button>
+          </div>
+        </div>
+      </div>
+    }
 
       <!-- ==========================================
            MODAL DE VISUALIZAÇÃO E IMPRESSÃO DO CERTIFICADO
@@ -1391,6 +2505,11 @@ import {
                               <strong>{{ formatDate(currentDoc.endDate) }}</strong>
                             }.
                           </p>
+                          @if (currentDoc.issnCode) {
+                            <p class="cert-issn-mention">
+                              Trabalhos e anais catalogados sob o registro oficial <strong>ISSN {{ currentDoc.issnCode }}</strong>.
+                            </p>
+                          }
                         </div>
 
                         <div class="cert-footer">
@@ -2870,6 +3989,343 @@ import {
 
     .cert-modal-hint { font-size: 0.8rem; color: #fbbf24; }
 
+    /* Chips e Badges nos Cards */
+    .event-card-banner {
+      width: 100%;
+      height: 120px;
+      overflow: hidden;
+      border-radius: 8px 8px 0 0;
+      background: #1e293b;
+    }
+    .card-banner-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .event-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.4rem 0 0.6rem 0;
+    }
+    .chip {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+    .chip-paid { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .chip-solidary { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .chip-free { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .chip-article { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+    /* Seções do Formulário de Evento */
+    .form-card-section {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-top: 0.75rem;
+    }
+    .form-section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 0.85rem;
+    }
+    .preview-banner-img {
+      max-width: 100%;
+      max-height: 140px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .drawer-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .export-dropdown-wrapper {
+      position: relative;
+    }
+    .export-select {
+      padding: 0.45rem 0.85rem;
+      border-radius: 0.5rem;
+      border: 1px solid #059669;
+      background: #064e3b;
+      color: #6ee7b7;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .export-select:hover:not(:disabled) {
+      background: #047857;
+      color: #ffffff;
+      border-color: #10b981;
+    }
+    .export-select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Tabs de Navegação do Drawer */
+    .drawer-tabs-nav {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.5rem 1.5rem 0;
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      overflow-x: auto;
+    }
+    .drawer-tab-btn {
+      padding: 0.65rem 1rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #a1a1aa;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .drawer-tab-btn:hover {
+      color: #f4f4f5;
+    }
+    .drawer-tab-btn.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+    }
+
+    /* Ingressos & Filtros */
+    .tickets-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-pills {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .filter-pill {
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      color: #a1a1aa;
+      padding: 0.3rem 0.65rem;
+      border-radius: 16px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-pill:hover, .filter-pill.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+    .ticket-code {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    /* Workshops & Vagas */
+    .workshops-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .workshop-manage-card {
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+    }
+    .workshop-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .workshop-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0.25rem 0;
+      color: #ffffff;
+    }
+    .workshop-desc {
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      margin: 0;
+    }
+    .workshop-actions-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .vacancy-stats-box {
+      margin-top: 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.75rem;
+      border-radius: 6px;
+    }
+    .vacancy-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-bottom: 0.4rem;
+    }
+    .vacancy-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .vacancy-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .vacancy-bar-fill.full {
+      background: #ef4444;
+    }
+
+    /* Finanças & KPIs */
+    .financial-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .fin-kpi-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+    }
+    .kpi-icon {
+      font-size: 2rem;
+    }
+    .kpi-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .kpi-label {
+      font-size: 0.78rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .kpi-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: #71717a;
+    }
+    .sponsors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .sponsor-card {
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+    }
+    .sponsor-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .sponsor-card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Feedbacks */
+    .avg-score-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 1rem;
+    }
+    .avg-score-number {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #facc15;
+    }
+    .avg-stars span, .feedback-stars span {
+      font-size: 1.25rem;
+      color: #4b5563;
+    }
+    .avg-stars span.filled, .feedback-stars span.filled {
+      color: #facc15;
+    }
+    .avg-total {
+      font-size: 0.8rem;
+      color: #a1a1aa;
+      margin-top: 0.25rem;
+    }
+    .feedback-card {
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+    }
+    .feedback-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .feedback-comment {
+      font-style: italic;
+      color: #e4e4e7;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    /* Sub-Modais */
+    .submodal-backdrop {
+      z-index: 1050;
+      background: rgba(0, 0, 0, 0.75);
+    }
+    .receipt-full-preview {
+      max-width: 100%;
+      max-height: 500px;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+
+    /* Utilitários */
+    .text-success { color: #34d399; }
+    .text-danger { color: #f87171; }
+    .text-info { color: #38bdf8; }
+    .text-xs { font-size: 0.75rem; }
+    .button-xs { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+    .justify-end { justify-content: flex-end; }
+    .p-0 { padding: 0 !important; }
+    .p-3 { padding: 0.75rem !important; }
+    .p-4 { padding: 1rem !important; }
+    .p-6 { padding: 1.5rem !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 0.75rem !important; }
+    .mt-1 { margin-top: 0.25rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-4 { margin-top: 1rem !important; }
+    .ml-1 { margin-left: 0.25rem !important; }
+    .d-block { display: block; }
+
     /* Impressão delegada globalmente com portal isolado para A4 Paisagem */
     @media print {
       .no-print {
@@ -2901,13 +4357,31 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     endDate: string
     location: string
     logoUrl?: string | null
+    bannerUrl?: string | null
     certificateTemplateUrl?: string | null
+    monitorTemplateUrl?: string | null
+    articleTemplateUrl?: string | null
+    pixQrCodeUrl?: string | null
+    pixKey: string
+    ticketType: 'gratuito' | 'pago' | 'solidario'
+    ticketLimit?: number | null
+    standardPrice?: number | null
+    teacherPrice?: number | null
+    promoPrice?: number | null
+    promoDeadline?: string
+    teacherPromoPrice?: number | null
+    teacherPromoDeadline?: string
+    acceptsArticles: boolean
+    articlesDeadline?: string
+    issnCode?: string
+    certificateReleaseDate?: string
     templateStyle: CertificateTemplateStyle
   } = this.getEmptyEventForm()
 
-  // Drawer de Participantes
+  // Drawer de Gestão do Evento
   isParticipantsDrawerOpen = false
   activeEventDetails: CustomEventDetails | null = null
+  activeDrawerTab: 'participantes' | 'ingressos' | 'workshops' | 'artigos' | 'financas' | 'feedbacks' = 'participantes'
   showAddParticipantForm = false
   isSubmittingParticipant = false
   participantForm: {
@@ -2918,6 +4392,76 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     isPaid: boolean
     hasAttendance: boolean
   } = this.getEmptyParticipantForm()
+
+  // Bilheteria & Ingressos
+  tickets: EventTicket[] = []
+  isLoadingTickets = false
+  ticketStatusFilter = ''
+  isExpiringTickets = false
+  selectedTicketForWorkshop: EventTicket | null = null
+  selectedNewWorkshopId = ''
+  viewingReceiptUrl: string | null = null
+
+  // Workshops & Vagas
+  workshops: EventWorkshop[] = []
+  isLoadingWorkshops = false
+  isWorkshopModalOpen = false
+  isEditingWorkshop = false
+  editingWorkshopId: string | null = null
+  workshopForm = {
+    title: '',
+    courseName: '',
+    description: '',
+    vacancies: 30,
+  }
+
+  // Artigos Científicos
+  articles: EventArticle[] = []
+  isLoadingArticles = false
+  articleStatusFilter = ''
+  selectedArticleForReview: EventArticle | null = null
+  reviewForm: ReviewEventArticle = {
+    status: 'aprovado',
+    score: 10,
+    feedbackNotes: '',
+  }
+  selectedPlagioFile: File | null = null
+  selectedCorrecaoFile: File | null = null
+  isSubmittingReview = false
+
+  // Finanças
+  financialSummary: FinancialSummary | null = null
+  isLoadingFinances = false
+  expenses: EventExpense[] = []
+  isExpenseModalOpen = false
+  expenseForm = {
+    description: '',
+    category: 'Geral',
+    amount: 0,
+    expenseDate: new Date().toISOString().split('T')[0],
+  }
+  selectedExpenseFile: File | null = null
+  isSubmittingExpense = false
+
+  // Patrocinadores
+  sponsors: EventSponsor[] = []
+  isSponsorModalOpen = false
+  sponsorForm = {
+    name: '',
+    contact: '',
+  }
+  selectedSponsorForMovement: EventSponsor | null = null
+  sponsorMovementForm = {
+    type: 'entrada' as 'entrada' | 'saida',
+    nature: 'Financeiro',
+    description: '',
+    amount: 0,
+    quantity: 1,
+  }
+
+  // Feedbacks
+  feedbacks: EventFeedback[] = []
+  isLoadingFeedbacks = false
 
   // Modal de Certificado
   isCertModalOpen = false
@@ -2933,6 +4477,10 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
   // Arquivos selecionados para upload
   selectedLogoFile: File | null = null
   selectedTemplateFile: File | null = null
+  selectedBannerFile: File | null = null
+  selectedPixQrFile: File | null = null
+  selectedMonitorFile: File | null = null
+  selectedArticleFile: File | null = null
 
   private printCleanupFn: (() => void) | null = null
 
@@ -2976,7 +4524,24 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
       endDate: today,
       location: '',
       logoUrl: null as string | null,
+      bannerUrl: null as string | null,
       certificateTemplateUrl: null as string | null,
+      monitorTemplateUrl: null as string | null,
+      articleTemplateUrl: null as string | null,
+      pixQrCodeUrl: null as string | null,
+      pixKey: '',
+      ticketType: 'gratuito' as 'gratuito' | 'pago' | 'solidario',
+      ticketLimit: null as number | null,
+      standardPrice: null as number | null,
+      teacherPrice: null as number | null,
+      promoPrice: null as number | null,
+      promoDeadline: '',
+      teacherPromoPrice: null as number | null,
+      teacherPromoDeadline: '',
+      acceptsArticles: false,
+      articlesDeadline: '',
+      issnCode: '',
+      certificateReleaseDate: '',
       templateStyle: getDefaultTemplateStyle(),
     }
   }
@@ -3017,6 +4582,74 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     this.eventForm.certificateTemplateUrl = null
   }
 
+  onBannerFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0]
+      this.selectedBannerFile = file
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        this.eventForm.bannerUrl = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  removeBanner(): void {
+    this.selectedBannerFile = null
+    this.eventForm.bannerUrl = null
+  }
+
+  onPixQrFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0]
+      this.selectedPixQrFile = file
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        this.eventForm.pixQrCodeUrl = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  removePixQr(): void {
+    this.selectedPixQrFile = null
+    this.eventForm.pixQrCodeUrl = null
+  }
+
+  onMonitorFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0]
+      this.selectedMonitorFile = file
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        this.eventForm.monitorTemplateUrl = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  removeMonitorTemplate(): void {
+    this.selectedMonitorFile = null
+    this.eventForm.monitorTemplateUrl = null
+  }
+
+  onArticleFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0]
+      this.selectedArticleFile = file
+      this.eventForm.articleTemplateUrl = file.name
+    }
+  }
+
+  removeArticleTemplate(): void {
+    this.selectedArticleFile = null
+    this.eventForm.articleTemplateUrl = null
+  }
+
   getEmptyParticipantForm() {
     return {
       studentRa: '',
@@ -3050,6 +4683,10 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     this.editingEventId = null
     this.selectedLogoFile = null
     this.selectedTemplateFile = null
+    this.selectedBannerFile = null
+    this.selectedPixQrFile = null
+    this.selectedMonitorFile = null
+    this.selectedArticleFile = null
     this.eventForm = this.getEmptyEventForm()
     this.isEventModalOpen = true
   }
@@ -3059,6 +4696,10 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     this.editingEventId = event.id
     this.selectedLogoFile = null
     this.selectedTemplateFile = null
+    this.selectedBannerFile = null
+    this.selectedPixQrFile = null
+    this.selectedMonitorFile = null
+    this.selectedArticleFile = null
     this.eventForm = {
       title: event.title,
       description: event.description || '',
@@ -3069,7 +4710,24 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
       endDate: event.endDate ? event.endDate.split('T')[0] : '',
       location: event.location || '',
       logoUrl: event.logoUrl || null,
+      bannerUrl: event.bannerUrl || null,
       certificateTemplateUrl: event.certificateTemplateUrl || null,
+      monitorTemplateUrl: event.monitorTemplateUrl || null,
+      articleTemplateUrl: event.articleTemplateUrl || null,
+      pixQrCodeUrl: event.pixQrCodeUrl || null,
+      pixKey: event.pixKey || '',
+      ticketType: (event.ticketType as any) || 'gratuito',
+      ticketLimit: event.ticketLimit ?? null,
+      standardPrice: event.standardPrice ?? null,
+      teacherPrice: event.teacherPrice ?? null,
+      promoPrice: event.promoPrice ?? null,
+      promoDeadline: event.promoDeadline ? event.promoDeadline.split('T')[0] : '',
+      teacherPromoPrice: event.teacherPromoPrice ?? null,
+      teacherPromoDeadline: event.teacherPromoDeadline ? event.teacherPromoDeadline.split('T')[0] : '',
+      acceptsArticles: !!event.acceptsArticles,
+      articlesDeadline: event.articlesDeadline ? event.articlesDeadline.split('T')[0] : '',
+      issnCode: event.issnCode || '',
+      certificateReleaseDate: event.certificateReleaseDate ? event.certificateReleaseDate.split('T')[0] : '',
       templateStyle: {
         ...getDefaultTemplateStyle(),
         ...(event.templateStyle || {}),
@@ -3084,6 +4742,10 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     this.editingEventId = null
     this.selectedLogoFile = null
     this.selectedTemplateFile = null
+    this.selectedBannerFile = null
+    this.selectedPixQrFile = null
+    this.selectedMonitorFile = null
+    this.selectedArticleFile = null
   }
 
   saveEvent(): void {
@@ -3116,7 +4778,24 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
       endDate,
       location: this.eventForm.location.trim() || undefined,
       logoUrl: this.eventForm.logoUrl || null,
+      bannerUrl: this.eventForm.bannerUrl || null,
       certificateTemplateUrl: this.eventForm.certificateTemplateUrl || null,
+      monitorTemplateUrl: this.eventForm.monitorTemplateUrl || null,
+      articleTemplateUrl: this.eventForm.articleTemplateUrl || null,
+      pixQrCodeUrl: this.eventForm.pixQrCodeUrl || null,
+      pixKey: this.eventForm.pixKey.trim() || null,
+      ticketType: this.eventForm.ticketType,
+      ticketLimit: this.eventForm.ticketLimit ? Number(this.eventForm.ticketLimit) : null,
+      standardPrice: this.eventForm.standardPrice !== null && this.eventForm.standardPrice !== undefined && this.eventForm.standardPrice !== ('' as any) ? Number(this.eventForm.standardPrice) : null,
+      teacherPrice: this.eventForm.teacherPrice !== null && this.eventForm.teacherPrice !== undefined && this.eventForm.teacherPrice !== ('' as any) ? Number(this.eventForm.teacherPrice) : null,
+      promoPrice: this.eventForm.promoPrice !== null && this.eventForm.promoPrice !== undefined && this.eventForm.promoPrice !== ('' as any) ? Number(this.eventForm.promoPrice) : null,
+      promoDeadline: this.eventForm.promoDeadline ? new Date(this.eventForm.promoDeadline).toISOString() : null,
+      teacherPromoPrice: this.eventForm.teacherPromoPrice !== null && this.eventForm.teacherPromoPrice !== undefined && this.eventForm.teacherPromoPrice !== ('' as any) ? Number(this.eventForm.teacherPromoPrice) : null,
+      teacherPromoDeadline: this.eventForm.teacherPromoDeadline ? new Date(this.eventForm.teacherPromoDeadline).toISOString() : null,
+      acceptsArticles: this.eventForm.acceptsArticles,
+      articlesDeadline: this.eventForm.articlesDeadline ? new Date(this.eventForm.articlesDeadline).toISOString() : null,
+      issnCode: this.eventForm.issnCode ? this.eventForm.issnCode.trim() : null,
+      certificateReleaseDate: this.eventForm.certificateReleaseDate ? new Date(this.eventForm.certificateReleaseDate).toISOString() : null,
       templateStyle: this.eventForm.templateStyle,
     }
 
@@ -3127,7 +4806,30 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     request$
       .pipe(finalize(() => (this.isSubmittingEvent = false)))
       .subscribe({
-        next: () => {
+        next: (savedEvent) => {
+          const targetId = this.isEditingEvent && this.editingEventId ? this.editingEventId : (savedEvent as any)?.id
+
+          if (targetId) {
+            if (this.selectedLogoFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'logo', this.selectedLogoFile).subscribe()
+            }
+            if (this.selectedTemplateFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'template', this.selectedTemplateFile).subscribe()
+            }
+            if (this.selectedBannerFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'banner', this.selectedBannerFile).subscribe()
+            }
+            if (this.selectedPixQrFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'pixQrCode', this.selectedPixQrFile).subscribe()
+            }
+            if (this.selectedMonitorFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'monitorTemplate', this.selectedMonitorFile).subscribe()
+            }
+            if (this.selectedArticleFile) {
+              this.certificatesService.uploadEventAsset(targetId, 'articleTemplate', this.selectedArticleFile).subscribe()
+            }
+          }
+
           this.successMessage = this.isEditingEvent ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!'
           this.closeEventModal()
           this.loadEvents()
@@ -3156,18 +4858,20 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     })
   }
 
-  // Gerenciamento de Participantes
-  openParticipantsDrawer(eventId: string): void {
+  // Painel Geral de Gestão do Evento
+  openParticipantsDrawer(eventId: string, initialTab: 'participantes' | 'ingressos' | 'workshops' | 'artigos' | 'financas' | 'feedbacks' = 'participantes'): void {
     this.errorMessage = ''
+    this.activeDrawerTab = initialTab
     this.certificatesService.getCustomEventById(eventId).subscribe({
       next: (details) => {
         this.activeEventDetails = details
         this.showAddParticipantForm = false
         this.participantForm = this.getEmptyParticipantForm()
         this.isParticipantsDrawerOpen = true
+        this.selectDrawerTab(this.activeDrawerTab)
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erro ao carregar detalhes e participantes do evento.'
+        this.errorMessage = err.error?.message || 'Erro ao carregar detalhes do evento.'
       },
     })
   }
@@ -3176,7 +4880,451 @@ export class EventRegistrationPageComponent implements OnInit, OnDestroy {
     this.isParticipantsDrawerOpen = false
     this.activeEventDetails = null
     this.showAddParticipantForm = false
+    this.selectedTicketForWorkshop = null
+    this.isWorkshopModalOpen = false
+    this.selectedArticleForReview = null
+    this.isExpenseModalOpen = false
+    this.isSponsorModalOpen = false
+    this.selectedSponsorForMovement = null
+    this.viewingReceiptUrl = null
     this.loadEvents()
+  }
+
+  isExportingReport = false
+
+  onExportReportSelect(event: Event): void {
+    const select = event.target as HTMLSelectElement
+    const reportType = select.value
+    if (!reportType || !this.activeEventDetails) return
+
+    this.isExportingReport = true
+    const eventId = this.activeEventDetails.id
+    const eventTitle = this.activeEventDetails.title || 'evento'
+
+    this.certificatesService.exportEventReport(eventId, reportType).subscribe({
+      next: (blob) => {
+        this.isExportingReport = false
+        select.value = ''
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const cleanTitle = eventTitle.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30)
+        a.download = `relatorio_${reportType}_${cleanTitle}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        this.successMessage = `Relatório de ${reportType} exportado com sucesso!`
+        setTimeout(() => (this.successMessage = ''), 3500)
+      },
+      error: (err) => {
+        this.isExportingReport = false
+        select.value = ''
+        this.errorMessage = err.error?.message || 'Falha ao exportar relatório em Excel.'
+      },
+    })
+  }
+
+  selectDrawerTab(tab: 'participantes' | 'ingressos' | 'workshops' | 'artigos' | 'financas' | 'feedbacks'): void {
+    this.activeDrawerTab = tab
+    if (!this.activeEventDetails) return
+
+    if (tab === 'ingressos') {
+      this.loadEventTickets()
+    } else if (tab === 'workshops') {
+      this.loadEventWorkshops()
+    } else if (tab === 'artigos') {
+      this.loadEventArticles()
+    } else if (tab === 'financas') {
+      this.loadFinancialSummary()
+    } else if (tab === 'feedbacks') {
+      this.loadEventFeedbacks()
+    }
+  }
+
+  // Bilheteria & Ingressos
+  loadEventTickets(): void {
+    if (!this.activeEventDetails) return
+    this.isLoadingTickets = true
+    this.certificatesService
+      .getEventTickets(this.activeEventDetails.id, this.ticketStatusFilter)
+      .pipe(finalize(() => (this.isLoadingTickets = false)))
+      .subscribe({
+        next: (tickets) => (this.tickets = tickets),
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao carregar ingressos.'),
+      })
+  }
+
+  filterTicketsByStatus(status: string): void {
+    this.ticketStatusFilter = status
+    this.loadEventTickets()
+  }
+
+  validateTicket(ticketId: string, status: 'pago' | 'rejeitado', isMonitor = false): void {
+    this.certificatesService.validateTicket(ticketId, { status, isMonitor }).subscribe({
+      next: () => {
+        this.successMessage = `Ingresso ${status === 'pago' ? 'aprovado' : 'rejeitado'} com sucesso!`
+        this.loadEventTickets()
+        if (this.activeEventDetails) {
+          this.certificatesService.getCustomEventById(this.activeEventDetails.id).subscribe((d) => (this.activeEventDetails = d))
+        }
+        setTimeout(() => (this.successMessage = ''), 3000)
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao validar ingresso.'),
+    })
+  }
+
+  cronExpireTickets(): void {
+    this.isExpiringTickets = true
+    this.certificatesService
+      .cronExpireTickets()
+      .pipe(finalize(() => (this.isExpiringTickets = false)))
+      .subscribe({
+        next: (res) => {
+          this.successMessage = `Verificação concluída: ${res.canceledCount} ingresso(s) vencido(s) cancelados e vagas liberadas.`
+          this.loadEventTickets()
+          this.loadEventWorkshops()
+          setTimeout(() => (this.successMessage = ''), 4000)
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao expirar ingressos vencidos.'),
+      })
+  }
+
+  openSwitchWorkshop(ticket: EventTicket): void {
+    this.selectedTicketForWorkshop = ticket
+    this.selectedNewWorkshopId = ''
+    this.loadEventWorkshops()
+  }
+
+  closeSwitchWorkshop(): void {
+    this.selectedTicketForWorkshop = null
+    this.selectedNewWorkshopId = ''
+  }
+
+  confirmSwitchWorkshop(): void {
+    if (!this.selectedTicketForWorkshop || !this.selectedNewWorkshopId) return
+    this.certificatesService
+      .switchWorkshop(this.selectedTicketForWorkshop.id, this.selectedNewWorkshopId)
+      .subscribe({
+        next: () => {
+          this.successMessage = 'Workshop alterado com sucesso!'
+          this.closeSwitchWorkshop()
+          this.loadEventTickets()
+          this.loadEventWorkshops()
+          setTimeout(() => (this.successMessage = ''), 3000)
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao transferir workshop.'),
+      })
+  }
+
+  viewReceipt(url: string): void {
+    this.viewingReceiptUrl = url
+  }
+
+  closeReceiptModal(): void {
+    this.viewingReceiptUrl = null
+  }
+
+  // Workshops & Vagas
+  loadEventWorkshops(): void {
+    if (!this.activeEventDetails) return
+    this.isLoadingWorkshops = true
+    this.certificatesService
+      .getEventWorkshops(this.activeEventDetails.id)
+      .pipe(finalize(() => (this.isLoadingWorkshops = false)))
+      .subscribe({
+        next: (ws) => (this.workshops = ws),
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao carregar workshops.'),
+      })
+  }
+
+  openNewWorkshopModal(): void {
+    this.isEditingWorkshop = false
+    this.editingWorkshopId = null
+    this.workshopForm = {
+      title: '',
+      courseName: this.activeEventDetails?.courseName || '',
+      description: '',
+      vacancies: 30,
+    }
+    this.isWorkshopModalOpen = true
+  }
+
+  openEditWorkshopModal(w: EventWorkshop): void {
+    this.isEditingWorkshop = true
+    this.editingWorkshopId = w.id
+    this.workshopForm = {
+      title: w.title,
+      courseName: w.courseName || '',
+      description: w.description || '',
+      vacancies: w.vacancies,
+    }
+    this.isWorkshopModalOpen = true
+  }
+
+  closeWorkshopModal(): void {
+    this.isWorkshopModalOpen = false
+    this.isEditingWorkshop = false
+    this.editingWorkshopId = null
+  }
+
+  saveWorkshop(): void {
+    if (!this.activeEventDetails || !this.workshopForm.title.trim()) return
+
+    const payload: CreateEventWorkshop = {
+      title: this.workshopForm.title.trim(),
+      courseName: this.workshopForm.courseName.trim() || undefined,
+      description: this.workshopForm.description.trim() || undefined,
+      vacancies: Number(this.workshopForm.vacancies) || 30,
+    }
+
+    const req$ = this.isEditingWorkshop && this.editingWorkshopId
+      ? this.certificatesService.updateWorkshop(this.editingWorkshopId, payload)
+      : this.certificatesService.createWorkshop(this.activeEventDetails.id, payload)
+
+    req$.subscribe({
+      next: () => {
+        this.successMessage = this.isEditingWorkshop ? 'Workshop atualizado!' : 'Workshop criado!'
+        this.closeWorkshopModal()
+        this.loadEventWorkshops()
+        setTimeout(() => (this.successMessage = ''), 3000)
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao salvar workshop.'),
+    })
+  }
+
+  deleteWorkshop(w: EventWorkshop): void {
+    if (!confirm(`Deseja excluir o workshop "${w.title}"?`)) return
+    this.certificatesService.deleteWorkshop(w.id).subscribe({
+      next: () => {
+        this.successMessage = 'Workshop excluído com sucesso.'
+        this.loadEventWorkshops()
+        setTimeout(() => (this.successMessage = ''), 3000)
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao excluir workshop.'),
+    })
+  }
+
+  // Artigos Científicos
+  loadEventArticles(): void {
+    if (!this.activeEventDetails) return
+    this.isLoadingArticles = true
+    this.certificatesService
+      .listEventArticles(this.activeEventDetails.id, this.articleStatusFilter)
+      .pipe(finalize(() => (this.isLoadingArticles = false)))
+      .subscribe({
+        next: (articles) => (this.articles = articles),
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao carregar artigos.'),
+      })
+  }
+
+  filterArticlesByStatus(status: string): void {
+    this.articleStatusFilter = status
+    this.loadEventArticles()
+  }
+
+  toggleArticleLock(a: EventArticle): void {
+    const lock = !a.currentLockId
+    this.certificatesService.lockArticle(a.id, lock).subscribe({
+      next: (res) => {
+        a.currentLockId = res.locked ? 'lock-active' : null
+        this.loadEventArticles()
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao alterar trava do artigo.'),
+    })
+  }
+
+  openReviewModal(a: EventArticle): void {
+    this.selectedArticleForReview = a
+    this.reviewForm = {
+      status: (a.status as any) || 'aprovado',
+      score: 10,
+      feedbackNotes: '',
+    }
+    this.selectedPlagioFile = null
+    this.selectedCorrecaoFile = null
+  }
+
+  closeReviewModal(): void {
+    this.selectedArticleForReview = null
+    this.selectedPlagioFile = null
+    this.selectedCorrecaoFile = null
+  }
+
+  onPlagioFileSelected(e: Event): void {
+    const input = e.target as HTMLInputElement
+    if (input.files?.length) {
+      this.selectedPlagioFile = input.files[0]
+    }
+  }
+
+  onCorrecaoFileSelected(e: Event): void {
+    const input = e.target as HTMLInputElement
+    if (input.files?.length) {
+      this.selectedCorrecaoFile = input.files[0]
+    }
+  }
+
+  submitArticleReview(): void {
+    if (!this.selectedArticleForReview) return
+    this.isSubmittingReview = true
+    this.certificatesService
+      .reviewArticle(
+        this.selectedArticleForReview.id,
+        this.reviewForm,
+        this.selectedPlagioFile || undefined,
+        this.selectedCorrecaoFile || undefined,
+      )
+      .pipe(finalize(() => (this.isSubmittingReview = false)))
+      .subscribe({
+        next: () => {
+          this.successMessage = 'Avaliação do artigo salva com sucesso!'
+          this.closeReviewModal()
+          this.loadEventArticles()
+          setTimeout(() => (this.successMessage = ''), 3000)
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao avaliar artigo.'),
+      })
+  }
+
+  // Finanças, Despesas e Patrocinadores
+  loadFinancialSummary(): void {
+    if (!this.activeEventDetails) return
+    this.isLoadingFinances = true
+    this.certificatesService
+      .getFinancialSummary(this.activeEventDetails.id)
+      .pipe(finalize(() => (this.isLoadingFinances = false)))
+      .subscribe({
+        next: (summary) => {
+          this.financialSummary = summary
+          this.expenses = summary.expenses || []
+          this.sponsors = summary.sponsors || []
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao carregar dados financeiros.'),
+      })
+  }
+
+  openNewExpenseModal(): void {
+    this.expenseForm = {
+      description: '',
+      category: 'Geral',
+      amount: 0,
+      expenseDate: new Date().toISOString().split('T')[0],
+    }
+    this.selectedExpenseFile = null
+    this.isExpenseModalOpen = true
+  }
+
+  closeExpenseModal(): void {
+    this.isExpenseModalOpen = false
+    this.selectedExpenseFile = null
+  }
+
+  onExpenseFileSelected(e: Event): void {
+    const input = e.target as HTMLInputElement
+    if (input.files?.length) {
+      this.selectedExpenseFile = input.files[0]
+    }
+  }
+
+  saveExpense(): void {
+    if (!this.activeEventDetails || !this.expenseForm.description.trim()) return
+    this.isSubmittingExpense = true
+    this.certificatesService
+      .addExpense(this.activeEventDetails.id, this.expenseForm, this.selectedExpenseFile || undefined)
+      .pipe(finalize(() => (this.isSubmittingExpense = false)))
+      .subscribe({
+        next: () => {
+          this.successMessage = 'Despesa lançada com sucesso!'
+          this.closeExpenseModal()
+          this.loadFinancialSummary()
+          setTimeout(() => (this.successMessage = ''), 3000)
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao lançar despesa.'),
+      })
+  }
+
+  deleteExpense(e: EventExpense): void {
+    if (!confirm(`Deseja remover a despesa "${e.description}"?`)) return
+    this.certificatesService.deleteExpense(e.id).subscribe({
+      next: () => {
+        this.successMessage = 'Despesa removida com sucesso.'
+        this.loadFinancialSummary()
+        setTimeout(() => (this.successMessage = ''), 3000)
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao remover despesa.'),
+    })
+  }
+
+  openNewSponsorModal(): void {
+    this.sponsorForm = { name: '', contact: '' }
+    this.isSponsorModalOpen = true
+  }
+
+  closeSponsorModal(): void {
+    this.isSponsorModalOpen = false
+  }
+
+  saveSponsor(): void {
+    if (!this.activeEventDetails || !this.sponsorForm.name.trim()) return
+    this.certificatesService.addSponsor(this.activeEventDetails.id, this.sponsorForm).subscribe({
+      next: () => {
+        this.successMessage = 'Patrocinador adicionado com sucesso!'
+        this.closeSponsorModal()
+        this.loadFinancialSummary()
+        setTimeout(() => (this.successMessage = ''), 3000)
+      },
+      error: (err) => (this.errorMessage = err.error?.message || 'Erro ao cadastrar patrocinador.'),
+    })
+  }
+
+  openSponsorMovementModal(sp: EventSponsor): void {
+    this.selectedSponsorForMovement = sp
+    this.sponsorMovementForm = {
+      type: 'entrada',
+      nature: 'Financeiro',
+      description: '',
+      amount: 0,
+      quantity: 1,
+    }
+  }
+
+  closeSponsorMovementModal(): void {
+    this.selectedSponsorForMovement = null
+  }
+
+  saveSponsorMovement(): void {
+    if (!this.selectedSponsorForMovement || !this.sponsorMovementForm.description.trim()) return
+    this.certificatesService
+      .addSponsorMovement(this.selectedSponsorForMovement.id, this.sponsorMovementForm)
+      .subscribe({
+        next: () => {
+          this.successMessage = 'Movimentação de patrocínio registrada!'
+          this.closeSponsorMovementModal()
+          this.loadFinancialSummary()
+          setTimeout(() => (this.successMessage = ''), 3000)
+        },
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao registrar movimento.'),
+      })
+  }
+
+  // Feedbacks
+  loadEventFeedbacks(): void {
+    if (!this.activeEventDetails) return
+    this.isLoadingFeedbacks = true
+    this.certificatesService
+      .getEventFeedbacks(this.activeEventDetails.id)
+      .pipe(finalize(() => (this.isLoadingFeedbacks = false)))
+      .subscribe({
+        next: (fbs) => (this.feedbacks = fbs),
+        error: (err) => (this.errorMessage = err.error?.message || 'Erro ao carregar feedbacks.'),
+      })
+  }
+
+  getAverageRating(): number {
+    if (!this.feedbacks.length) return 5
+    const sum = this.feedbacks.reduce((acc, f) => acc + f.rating, 0)
+    return sum / this.feedbacks.length
   }
 
   toggleAddParticipantForm(): void {

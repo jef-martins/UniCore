@@ -41,6 +41,45 @@ export class TicketsService {
     })
   }
 
+  async getUnattendedSummary(user: UserAuthContext) {
+    const userRole = user.role.toUpperCase() as AccessRole
+    if (userRole !== AccessRole.MASTER) {
+      return { count: 0, tickets: [] }
+    }
+
+    const [tickets, count] = await Promise.all([
+      this.prisma.ticket.findMany({
+        where: {
+          status: TicketStatus.ABERTO,
+        },
+        include: {
+          user: { select: { id: true, username: true, role: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      this.prisma.ticket.count({
+        where: {
+          status: TicketStatus.ABERTO,
+        },
+      }),
+    ])
+
+    return {
+      count,
+      tickets: tickets.map((t) => ({
+        id: t.id,
+        code: t.code,
+        title: t.title,
+        priority: t.priority,
+        sector: t.sector,
+        sectorLabel: SECTOR_LABELS[t.sector] || t.sector,
+        createdAt: t.createdAt,
+        user: t.user,
+      })),
+    }
+  }
+
   private async saveFile(file: Express.Multer.File): Promise<{ fileName: string; filePath: string; size: number; mimeType: string }> {
     if (!existsSync(this.uploadDir)) {
       await fs.mkdir(this.uploadDir, { recursive: true })
