@@ -688,6 +688,31 @@ export interface LayoutFooterLink {
       .active-context-banner {
         padding: 0.5rem 1rem;
       }
+      .page-main {
+        padding: 1rem 0.75rem 2.5rem;
+      }
+      .top-bar {
+        padding: 0 0.85rem;
+        height: 48px;
+      }
+      .top-bar-actions {
+        gap: 0.4rem;
+      }
+      .top-bar-btn {
+        padding: 0.3rem 0.55rem;
+        font-size: 0.75rem;
+      }
+      .top-bar-actions .role-badge {
+        display: none;
+      }
+      .notification-dropdown {
+        position: fixed;
+        top: 48px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: calc(100vw - 16px);
+      }
     }
     .menu-toggle { display: none; }
   `]

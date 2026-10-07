@@ -1183,20 +1183,72 @@ export interface StreetCreationResult {
     }
 
     @media (max-width: 640px) {
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
       .modal-card {
         border-radius: 16px 16px 0 0;
-        max-height: calc(100vh - 1rem);
-        max-height: calc(100dvh - 1rem);
+        max-width: 100%;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .modal-title {
+        font-size: 1.15rem;
+      }
+      .modal-body-scroll {
+        padding: 1rem 1.25rem 1.5rem;
+      }
+      .mode-tabs {
+        gap: 4px;
+        padding: 3px;
+      }
+      .mode-tab {
+        padding: 6px 4px;
+        font-size: 0.75rem;
+        gap: 3px;
+      }
+      .tab-icon {
+        font-size: 0.85rem;
+      }
+      .street-mini-map-canvas {
+        height: 180px;
       }
       .form-grid { grid-template-columns: 1fr; }
       .full-width { grid-column: span 1; }
       .new-neighborhood-fields { grid-template-columns: 1fr; }
       .modal-footer {
-        flex-direction: column-reverse;
+        padding: 0.75rem 1rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+        background: #18181b;
       }
       .modal-footer .btn {
-        width: 100%;
-        min-height: 44px;
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.925rem;
+      }
+      .modal-footer .btn-secondary {
+        flex: 0 0 auto;
+        min-width: 90px;
+        padding: 0.65rem 0.85rem;
+      }
+      .modal-footer .btn-primary {
+        flex: 1;
+        padding: 0.65rem 0.85rem;
+        text-align: center;
       }
     }
   `],

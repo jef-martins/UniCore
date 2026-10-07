@@ -212,6 +212,13 @@ interface ImportResponse {
     .badge.bg-warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
     .badge.bg-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
     .badge.bg-secondary { background: rgba(255, 255, 255, 0.1); color: #e4e4e7; }
+
+    @media (max-width: 640px) {
+      .admin-page { padding: 1rem 0.75rem; }
+      .admin-section { padding: 1.25rem 1rem; }
+      .page-title { font-size: 1.6rem; }
+      .summary-cards { grid-template-columns: repeat(2, 1fr); }
+    }
   `]
 })
 export class AdminPageComponent {

@@ -1968,6 +1968,109 @@ import {
       padding-top: 1rem;
       border-top: 1px solid var(--border-color, #3f3f46);
     }
+
+    @media (max-width: 768px) {
+      .territory-page {
+        padding: 1rem 0.75rem 2rem;
+      }
+      .page-header-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .page-title {
+        font-size: 1.6rem;
+      }
+      .header-actions {
+        width: 100%;
+      }
+      .header-actions .button {
+        flex: 1;
+        justify-content: center;
+        min-height: 44px;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .stat-card {
+        padding: 1rem;
+      }
+      .stat-value {
+        font-size: 1.5rem;
+      }
+      .territories-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .residences-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .section-container {
+        padding: 1rem;
+      }
+      .section-header-box {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .section-header-box .button {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+      }
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-dialog {
+        max-width: 100%;
+        width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 90vh;
+        max-height: 90dvh;
+        overflow-y: auto;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .modal-body {
+        padding: 1rem 1.25rem;
+      }
+      .form-grid-2 {
+        grid-template-columns: 1fr;
+      }
+      .parity-pill-group {
+        grid-template-columns: 1fr;
+      }
+      .step-chips-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .modal-footer {
+        padding: 0.75rem 1.25rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+      }
+      .modal-footer .button {
+        width: 100%;
+        min-height: 48px;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .card-metrics {
+        grid-template-columns: 1fr;
+      }
+    }
   `],
 })
 export class TerritoryManagementPageComponent implements OnInit {

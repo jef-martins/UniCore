@@ -1929,6 +1929,110 @@ import {
       margin: 0 auto 1rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 1rem 0.75rem 2rem;
+      }
+      .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .dashboard-title {
+        font-size: 1.5rem;
+      }
+      .header-actions {
+        width: 100%;
+      }
+      .header-actions .btn {
+        flex: 1;
+        justify-content: center;
+        min-height: 44px;
+      }
+      .dashboard-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+      }
+      .filter-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+      }
+      .period-pills {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+      }
+      .pill-btn {
+        flex: 1;
+        text-align: center;
+        padding: 0.5rem 0.25rem;
+      }
+      .sector-dropdown {
+        width: 100%;
+        min-height: 42px;
+      }
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      .kpi-value {
+        font-size: 1.5rem;
+      }
+      .report-container-card {
+        padding: 1rem 0.75rem;
+      }
+      .report-section-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .report-actions-bar {
+        width: 100%;
+      }
+      .report-actions-bar .btn {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+      }
+      .report-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+      }
+      .code-filter-box {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .report-search-box {
+        min-width: 100%;
+        width: 100%;
+      }
+      .report-filter-controls {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .report-filter-select {
+        width: 100%;
+        min-height: 42px;
+      }
+      .report-active-status-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `]
 })
 export class TicketDashboardPageComponent implements OnInit {

@@ -623,6 +623,42 @@ import {
     @media (max-width: 900px) {
       .filters-grid { grid-template-columns: 1fr; }
     }
+
+    @media (max-width: 640px) {
+      .page-header-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .page-title {
+        font-size: 1.6rem;
+      }
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .header-actions .button {
+        flex: 1;
+        justify-content: center;
+        min-height: 44px;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .filters-card {
+        padding: 1rem;
+      }
+      .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .btn-clear-box .btn-clear {
+        width: 100%;
+        min-height: 42px;
+      }
+    }
   `],
 })
 export class LeadsPageComponent implements OnInit, OnDestroy {

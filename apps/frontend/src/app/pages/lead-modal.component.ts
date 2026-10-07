@@ -1065,6 +1065,12 @@ export interface ResidenceContextInfo {
       .full-width { grid-column: span 1; }
       .status-selector { grid-template-columns: repeat(2, 1fr); }
       .rating-levels-bar { grid-template-columns: repeat(2, 1fr); }
+      .btn-addon-street {
+        height: 44px;
+        width: 44px;
+        min-width: 44px;
+        font-size: 1.25rem;
+      }
     }
   `],
 })

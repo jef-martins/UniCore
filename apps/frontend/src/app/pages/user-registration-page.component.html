@@ -86,70 +86,72 @@
   @if (isLoading) {
     <p>Carregando usuários...</p>
   } @else {
-    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-      <thead>
-        <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
-          <th style="padding: 0.75rem;">Usuário</th>
-          <th style="padding: 0.75rem;">E-mail</th>
-          <th style="padding: 0.75rem;">Setor</th>
-          <th style="padding: 0.75rem;">Status do E-mail</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (user of users; track user.id) {
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 540px;">
+        <thead>
           <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
-            <td style="padding: 0.75rem; font-weight: 500;">{{ user.username }}</td>
-            <td style="padding: 0.75rem;">{{ user.email }}</td>
-            <td style="padding: 0.75rem;"><span class="role-badge" style="margin: 0;">{{ authService.roleLabel(user.role) }}</span></td>
-            <td style="padding: 0.75rem;">
-              @if (user.emailVerified) {
-                <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
-                  ✓ Verificado
-                </span>
-              } @else {
-                <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
-                    ⏳ Pendente
+            <th style="padding: 0.75rem;">Usuário</th>
+            <th style="padding: 0.75rem;">E-mail</th>
+            <th style="padding: 0.75rem;">Setor</th>
+            <th style="padding: 0.75rem;">Status do E-mail</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users; track user.id) {
+            <tr style="border-bottom: 1px solid var(--border-color, #3f3f46);">
+              <td style="padding: 0.75rem; font-weight: 500;">{{ user.username }}</td>
+              <td style="padding: 0.75rem;">{{ user.email }}</td>
+              <td style="padding: 0.75rem;"><span class="role-badge" style="margin: 0;">{{ authService.roleLabel(user.role) }}</span></td>
+              <td style="padding: 0.75rem;">
+                @if (user.emailVerified) {
+                  <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
+                    ✓ Verificado
                   </span>
-                  @if (user.validationUrl) {
-                    <a
-                      [href]="user.validationUrl"
-                      target="_blank"
-                      class="button button-outline"
-                      style="font-size: 0.75rem; padding: 2px 8px; text-decoration: none;"
-                      title="Abrir página de validação"
-                    >
-                      🔗 Validar
-                    </a>
+                } @else {
+                  <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: 500;">
+                      ⏳ Pendente
+                    </span>
+                    @if (user.validationUrl) {
+                      <a
+                        [href]="user.validationUrl"
+                        target="_blank"
+                        class="button button-outline"
+                        style="font-size: 0.75rem; padding: 2px 8px; text-decoration: none;"
+                        title="Abrir página de validação"
+                      >
+                        🔗 Validar
+                      </a>
+                      <button
+                        class="button button-outline"
+                        type="button"
+                        (click)="copyLink(user.validationUrl)"
+                        style="font-size: 0.75rem; padding: 2px 8px; cursor: pointer;"
+                        title="Copiar link de validação"
+                      >
+                        📋 Copiar
+                      </button>
+                    }
                     <button
                       class="button button-outline"
                       type="button"
-                      (click)="copyLink(user.validationUrl)"
+                      (click)="resend(user.email)"
+                      [disabled]="resendingEmail === user.email"
                       style="font-size: 0.75rem; padding: 2px 8px; cursor: pointer;"
-                      title="Copiar link de validação"
                     >
-                      📋 Copiar
+                      {{ resendingEmail === user.email ? 'Enviando...' : 'Reenviar Link' }}
                     </button>
-                  }
-                  <button
-                    class="button button-outline"
-                    type="button"
-                    (click)="resend(user.email)"
-                    [disabled]="resendingEmail === user.email"
-                    style="font-size: 0.75rem; padding: 2px 8px; cursor: pointer;"
-                  >
-                    {{ resendingEmail === user.email ? 'Enviando...' : 'Reenviar Link' }}
-                  </button>
-                </div>
-              }
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="4" style="padding: 1rem; text-align: center;">Nenhum usuário encontrado.</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+                  </div>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" style="padding: 1rem; text-align: center;">Nenhum usuário encontrado.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   }
 </section>

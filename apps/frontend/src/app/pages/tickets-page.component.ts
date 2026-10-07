@@ -1961,6 +1961,112 @@ interface SelectedUploadFile {
       border: 1px solid rgba(239, 68, 68, 0.4);
       color: #FCA5A5;
     }
+
+    @media (max-width: 768px) {
+      .tickets-container {
+        padding: 1rem 0.75rem 2rem;
+      }
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .page-title {
+        font-size: 1.5rem;
+      }
+      .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+      }
+      .summary-value {
+        font-size: 1.5rem;
+      }
+      .search-box {
+        min-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .filter-controls {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .filter-select {
+        width: 100%;
+        min-height: 42px;
+      }
+      .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-box,
+      .modal-detail {
+        max-width: 100%;
+        width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 90vh;
+        max-height: 90dvh;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .modal-body {
+        padding: 1rem 1.25rem;
+      }
+      .form-row {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .priority-selector {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+      }
+      .modal-footer {
+        padding: 0.75rem 1.25rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+      }
+      .modal-footer .btn {
+        width: 100%;
+        min-height: 48px;
+        justify-content: center;
+      }
+      .owner-btn-group {
+        flex-direction: column;
+      }
+      .owner-btn-group .btn {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+      }
+      .msg-form-bottom {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+      .msg-bottom-right {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .msg-bottom-right .btn {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .summary-cards {
+        grid-template-columns: 1fr;
+      }
+    }
   `]
 })
 export class TicketsPageComponent implements OnInit {

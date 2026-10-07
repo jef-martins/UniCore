@@ -368,6 +368,38 @@ interface MapMarkerItem {
         }
       }
 
+      @media (max-width: 640px) {
+        .page-header-container {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 1rem;
+          margin-bottom: 1.25rem;
+        }
+        .header-actions {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+        .header-actions .button {
+          flex: 1;
+          justify-content: center;
+          min-height: 44px;
+        }
+        .map-sidebar {
+          max-height: 340px;
+        }
+        .map-canvas {
+          min-height: 380px;
+          height: 380px;
+        }
+        .map-floating-legend {
+          bottom: 10px;
+          right: 10px;
+          padding: 8px 10px;
+          font-size: 0.72rem;
+          gap: 4px;
+        }
+      }
+
       .map-sidebar {
         background: var(--color-surface, #1e293b);
         border: 1px solid var(--color-border, #334155);

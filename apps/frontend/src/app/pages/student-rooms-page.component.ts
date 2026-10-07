@@ -1346,6 +1346,62 @@ export interface RoomSummary {
       from { opacity: 0; }
       to { opacity: 1; }
     }
+
+    @media (max-width: 768px) {
+      .rooms-page {
+        gap: 16px;
+        padding-bottom: 32px;
+      }
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .rooms-grid,
+      .items-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .room-banner {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px;
+      }
+      .banner-filter {
+        min-width: 100%;
+        width: 100%;
+      }
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-dialog {
+        max-width: 100%;
+        width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 90vh;
+        max-height: 90dvh;
+        overflow-y: auto;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .modal-body {
+        padding: 1rem 1.25rem;
+      }
+      .modal-footer {
+        padding: 0.75rem 1.25rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+      }
+      .modal-footer .btn {
+        width: 100%;
+        min-height: 48px;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class StudentRoomsPageComponent implements OnInit {

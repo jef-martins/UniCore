@@ -108,6 +108,15 @@ import { AuthService } from '../services/auth.service'
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    @media (max-width: 640px) {
+      .auth-page {
+        padding: 1rem !important;
+      }
+      .card {
+        padding: 1.5rem 1.25rem !important;
+        border-radius: 12px !important;
+      }
+    }
   `]
 })
 export class VerifyEmailPageComponent implements OnInit {

@@ -539,6 +539,44 @@ import { AuthService, AuthUser } from '../services/auth.service'
       padding: 4px 10px;
       font-size: 0.75rem;
     }
+
+    @media (max-width: 640px) {
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-dialog {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 90vh;
+        max-height: 90dvh;
+      }
+      .modal-header {
+        padding: 1rem 1.25rem 0.75rem;
+      }
+      .search-section {
+        padding: 0.75rem 1.25rem;
+      }
+      .modal-body {
+        padding: 0.75rem 1.25rem 1rem;
+      }
+      .modal-footer {
+        padding: 0.75rem 1.25rem max(0.85rem, env(safe-area-inset-bottom, 0.85rem));
+        flex-direction: column-reverse;
+        gap: 8px;
+      }
+      .modal-footer .button {
+        width: 100%;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class SectorUserSelectModalComponent implements OnChanges {
