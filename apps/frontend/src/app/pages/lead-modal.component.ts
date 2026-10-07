@@ -19,6 +19,10 @@ import {
   TerritoryItem,
   TerritoryService,
 } from '../services/territory.service'
+import {
+  StreetCreationResult,
+  StreetModalComponent,
+} from './street-modal.component'
 
 export interface ResidenceContextInfo {
   residenceId: string
@@ -32,7 +36,7 @@ export interface ResidenceContextInfo {
 @Component({
   selector: 'app-lead-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, StreetModalComponent],
   template: `
     @if (isOpen) {
       <div class="modal-backdrop" (click)="onBackdropClick($event)">
@@ -139,21 +143,48 @@ export interface ResidenceContextInfo {
 
                   <!-- Rua -->
                   <div class="form-group">
-                    <label for="lead-sel-street">Rua / Logradouro *</label>
-                    <select
-                      id="lead-sel-street"
-                      class="form-control"
-                      [(ngModel)]="selectedStreetId"
-                      (change)="onStreetChange()"
-                      name="selStreet"
-                      [disabled]="!streetList.length"
-                      required
-                    >
-                      <option value="" disabled selected>Selecione uma Rua...</option>
-                      @for (s of streetList; track s.id) {
-                        <option [value]="s.id">{{ s.name }}</option>
-                      }
-                    </select>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label for="lead-sel-street">Rua / Logradouro *</label>
+                      <button
+                        type="button"
+                        class="btn-street-add-link"
+                        (click)="openStreetModal()"
+                      >
+                        ＋ Cadastrar Rua
+                      </button>
+                    </div>
+                    <div class="street-input-container">
+                      <select
+                        id="lead-sel-street"
+                        class="form-control"
+                        [(ngModel)]="selectedStreetId"
+                        (change)="onStreetChange()"
+                        name="selStreet"
+                        [disabled]="!streetList.length"
+                        required
+                      >
+                        <option value="" disabled selected>
+                          {{ streetList.length ? 'Selecione uma Rua...' : 'Nenhuma rua cadastrada neste bairro' }}
+                        </option>
+                        @for (s of streetList; track s.id) {
+                          <option [value]="s.id">{{ s.name }}</option>
+                        }
+                      </select>
+                      <button
+                        type="button"
+                        class="btn-addon-street"
+                        (click)="openStreetModal()"
+                        title="Cadastrar rua via CEP, GPS ou manual"
+                        aria-label="Cadastrar nova rua"
+                      >
+                        ＋
+                      </button>
+                    </div>
+                    @if (streetSuccessNotice) {
+                      <div class="street-feedback-notice">
+                        ✓ {{ streetSuccessNotice }}
+                      </div>
+                    }
                   </div>
 
                   <!-- Residência / Número -->
@@ -461,6 +492,15 @@ export interface ResidenceContextInfo {
         </div>
       </div>
     }
+
+    <app-street-modal
+      [isOpen]="isStreetModalOpen"
+      [territoryId]="selectedTerritoryId"
+      [subterritoryId]="selectedSubterritoryId"
+      [neighborhoodId]="selectedNeighborhoodId"
+      (close)="closeStreetModal()"
+      (streetCreated)="onStreetCreated($event)"
+    ></app-street-modal>
   `,
   styles: [`
     .modal-backdrop {
@@ -913,6 +953,57 @@ export interface ResidenceContextInfo {
       text-overflow: ellipsis;
       max-width: 100%;
     }
+    .btn-street-add-link {
+      background: none;
+      border: none;
+      color: #60a5fa;
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      transition: color 0.15s;
+    }
+    .btn-street-add-link:hover {
+      color: #93c5fd;
+    }
+    .street-input-container {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .street-input-container select {
+      flex: 1;
+    }
+    .btn-addon-street {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      height: 38px;
+      width: 38px;
+      min-width: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-addon-street:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    .street-feedback-notice {
+      font-size: 0.775rem;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin-top: 4px;
+    }
     @media (max-width: 640px) {
       .modal-backdrop {
         padding: 0;
@@ -1035,11 +1126,16 @@ export class LeadModalComponent implements OnChanges {
   isCustomNumber = false
   customResidenceNumber = ''
 
+  isStreetModalOpen = false
+  streetSuccessNotice = ''
+
   constructor(private readonly territoryService: TerritoryService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['isOpen'] && this.isOpen) {
       this.errorMessage = ''
+      this.streetSuccessNotice = ''
+      this.isStreetModalOpen = false
       if (this.leadToEdit) {
         this.formData = {
           name: this.leadToEdit.name,
@@ -1149,6 +1245,42 @@ export class LeadModalComponent implements OnChanges {
     if (this.isCustomNumber) {
       this.selectedResidenceId = ''
     }
+  }
+
+  openStreetModal(): void {
+    this.isStreetModalOpen = true
+  }
+
+  closeStreetModal(): void {
+    this.isStreetModalOpen = false
+  }
+
+  onStreetCreated(result: StreetCreationResult): void {
+    this.streetSuccessNotice = result.isNewNeighborhood
+      ? `Bairro "${result.neighborhood.name}" e rua "${result.street.name}" cadastrados com sucesso!`
+      : `Rua "${result.street.name}" cadastrada com sucesso!`
+
+    this.selectedTerritoryId = result.territoryId
+
+    this.territoryService.getTerritoryHierarchy(result.territoryId).subscribe({
+      next: (hierarchy: TerritoryHierarchy) => {
+        this.subterritoryList = hierarchy.subterritories || []
+        this.selectedSubterritoryId = result.subterritoryId
+
+        const sub = this.subterritoryList.find((s) => s.id === result.subterritoryId)
+        if (sub) {
+          this.neighborhoodList = sub.neighborhoods || []
+          this.selectedNeighborhoodId = result.neighborhood.id
+
+          const neigh = this.neighborhoodList.find((n) => n.id === result.neighborhood.id)
+          if (neigh) {
+            this.streetList = neigh.streets || []
+            this.selectedStreetId = result.street.id
+            this.onStreetChange()
+          }
+        }
+      },
+    })
   }
 
   get isValid(): boolean {

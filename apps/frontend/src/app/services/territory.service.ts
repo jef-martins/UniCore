@@ -297,6 +297,26 @@ export interface ViaCepResponse {
   erro?: boolean | string
 }
 
+export interface ReverseGeocodeResponse {
+  road: string
+  neighbourhood: string
+  city: string
+  state: string
+  zipCode: string
+  displayName: string
+}
+
+export interface AddressSearchResult {
+  displayName: string
+  road: string
+  neighbourhood: string
+  city: string
+  state: string
+  zipCode: string
+  lat: number
+  lng: number
+}
+
 @Injectable({ providedIn: 'root' })
 export class TerritoryService {
   private readonly baseUrl = '/api/territories'
@@ -307,6 +327,18 @@ export class TerritoryService {
   lookupCep(rawCep: string): Observable<ViaCepResponse> {
     const clean = rawCep.replace(/\D/g, '')
     return this.http.get<ViaCepResponse>(`https://viacep.com.br/ws/${clean}/json/`)
+  }
+
+  // Geocodificação reversa por coordenadas (GPS)
+  reverseGeocode(lat: number, lng: number): Observable<ReverseGeocodeResponse> {
+    const params = new HttpParams().set('lat', lat.toString()).set('lng', lng.toString())
+    return this.http.get<ReverseGeocodeResponse>(`${this.baseUrl}/reverse-geocode`, { params })
+  }
+
+  // Busca rápida de endereço/logradouro
+  searchAddress(query: string): Observable<AddressSearchResult[]> {
+    const params = new HttpParams().set('query', query)
+    return this.http.get<AddressSearchResult[]>(`${this.baseUrl}/search-address`, { params })
   }
 
   // Territórios

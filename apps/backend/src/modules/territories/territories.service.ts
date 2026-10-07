@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -1280,6 +1282,133 @@ export class TerritoriesService {
           l.residenceNumber.street.neighborhood.subterritory.territory.name,
         createdByName: l.createdBy?.username || 'Sistema',
       })),
+    }
+  }
+
+  async reverseGeocode(lat: number, lng: number) {
+    if (isNaN(lat) || isNaN(lng)) {
+      throw new BadRequestException('Latitude e longitude inválidas.')
+    }
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'UniCoreApp/1.0 (contact@faip.edu.br)',
+          'Accept': 'application/json',
+        },
+      })
+
+      if (!res.ok) {
+        throw new Error(`Nominatim retornou status ${res.status}`)
+      }
+
+      const data = (await res.json()) as any
+      const addr = data.address || {}
+
+      const road =
+        addr.road ||
+        addr.pedestrian ||
+        addr.street ||
+        addr.footway ||
+        addr.residential ||
+        addr.path ||
+        data.name ||
+        ''
+      const neighbourhood =
+        addr.neighbourhood ||
+        addr.suburb ||
+        addr.quarter ||
+        addr.city_district ||
+        addr.district ||
+        ''
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.municipality ||
+        addr.village ||
+        addr.county ||
+        ''
+      const state = addr.state || ''
+      const zipCode = addr.postcode ? addr.postcode.replace(/\D/g, '') : ''
+
+      return {
+        road,
+        neighbourhood,
+        city,
+        state,
+        zipCode,
+        displayName: data.display_name || '',
+      }
+    } catch (error) {
+      throw new HttpException(
+        'Falha ao obter localização reversa.',
+        HttpStatus.BAD_GATEWAY,
+      )
+    }
+  }
+
+  async searchAddress(query: string) {
+    if (!query || query.trim().length < 2) {
+      return []
+    }
+
+    try {
+      const trimmed = query.trim()
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&addressdetails=1&countrycodes=br&limit=6`
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'UniCoreApp/1.0 (contact@faip.edu.br)',
+          'Accept': 'application/json',
+        },
+      })
+
+      if (!res.ok) {
+        throw new Error(`Nominatim retornou status ${res.status}`)
+      }
+
+      const results = (await res.json()) as any[]
+      if (!Array.isArray(results)) return []
+
+      return results.map((item) => {
+        const addr = item.address || {}
+        const road =
+          addr.road ||
+          addr.pedestrian ||
+          addr.street ||
+          addr.footway ||
+          addr.residential ||
+          item.name ||
+          ''
+        const neighbourhood =
+          addr.neighbourhood ||
+          addr.suburb ||
+          addr.quarter ||
+          addr.city_district ||
+          addr.district ||
+          ''
+        const city =
+          addr.city ||
+          addr.town ||
+          addr.municipality ||
+          addr.village ||
+          ''
+        const state = addr.state || ''
+        const zipCode = addr.postcode ? addr.postcode.replace(/\D/g, '') : ''
+
+        return {
+          displayName: item.display_name || '',
+          road,
+          neighbourhood,
+          city,
+          state,
+          zipCode,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+        }
+      })
+    } catch {
+      return []
     }
   }
 

@@ -54,6 +54,16 @@ export class TerritoriesController {
     return this.territoriesService.getLeads(query)
   }
 
+  @Get('reverse-geocode')
+  reverseGeocode(@Query('lat') lat: string, @Query('lng') lng: string) {
+    return this.territoriesService.reverseGeocode(Number(lat), Number(lng))
+  }
+
+  @Get('search-address')
+  searchAddress(@Query('query') query: string) {
+    return this.territoriesService.searchAddress(query)
+  }
+
   @Get(':id/hierarchy')
   getTerritoryHierarchy(@Param('id', ParseUUIDPipe) id: string) {
     return this.territoriesService.getTerritoryHierarchy(id)
