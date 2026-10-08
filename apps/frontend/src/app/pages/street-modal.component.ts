@@ -194,9 +194,12 @@ export interface StreetCreationResult {
                         <div class="accuracy-hint-card">
                           <span class="hint-icon">💡</span>
                           <div class="hint-body">
-                            <strong>Computadores de mesa/notebooks sem chip GPS estimam a posição pelo provedor de internet.</strong>
+                            <strong>Posição estimada pela rede/provedor de internet.</strong>
                             <p>
-                              Para colocar na sua rua exata (ex: <em>Carlos Artêncio</em>), você pode <strong>arrastar o pino no mapa abaixo</strong> ou pesquisar o nome da rua no campo de busca:
+                              Em conexões <code>HTTP</code> (sem certificado SSL/HTTPS), os navegadores de celular bloqueiam o chip de GPS de satélite por segurança e fornecem a localização aproximada da rede.
+                            </p>
+                            <p>
+                              Para posicionar na sua rua exata, <strong>toque no mapa ou arraste o pino</strong> até a sua via, ou pesquise o nome da rua no campo abaixo:
                             </p>
                           </div>
                         </div>
@@ -1463,19 +1466,24 @@ export class StreetModalComponent implements OnChanges, OnDestroy {
     })
   }
 
-  // --- GPS / GEOLOCATION MODE COM WATCH & REFINAMENTO ---
+  // --- GPS / GEOLOCATION MODE COM WATCH & REFINAMENTO + FALLBACK IP PARA HTTP ---
   captureLocation(): void {
-    if (!isPlatformBrowser(this.platformId) || !navigator.geolocation) {
-      this.gpsErrorMessage = 'Geolocalização não é suportada pelo seu navegador.'
+    if (!isPlatformBrowser(this.platformId)) {
       return
     }
 
     this.clearGpsWatch()
     this.isLocatingGps = true
-    this.locatingStatusText = 'Obtendo melhor precisão...'
+    this.locatingStatusText = 'Obtendo localização...'
     this.gpsErrorMessage = ''
     this.gpsSuccessMessage = ''
     this.gpsCoordsText = ''
+
+    // Se estiver em HTTP (sem SSL) ou navegador sem suporte nativo, faz fallback imediato por rede/IP
+    if (typeof window !== 'undefined' && (window.isSecureContext === false || !navigator.geolocation)) {
+      this.fallbackToIpLocation()
+      return
+    }
 
     let bestPos: GeolocationPosition | null = null
 
@@ -1484,8 +1492,7 @@ export class StreetModalComponent implements OnChanges, OnDestroy {
       if (bestPos) {
         this.applyGpsReading(bestPos)
       } else {
-        this.isLocatingGps = false
-        this.gpsErrorMessage = 'Não foi possível capturar a localização do dispositivo.'
+        this.fallbackToIpLocation()
       }
     }
 
@@ -1507,37 +1514,81 @@ export class StreetModalComponent implements OnChanges, OnDestroy {
             finishWithBestPosition()
           }
         },
-        (err) => {
+        () => {
           clearTimeout(timeoutTimer)
           this.clearGpsWatch()
-          this.isLocatingGps = false
-
-          switch (err.code) {
-            case err.PERMISSION_DENIED:
-              this.gpsErrorMessage =
-                'Permissão de localização negada no navegador. Permita o acesso ao GPS.'
-              break
-            case err.POSITION_UNAVAILABLE:
-              this.gpsErrorMessage = 'Informações de localização indisponíveis no momento.'
-              break
-            case err.TIMEOUT:
-              this.gpsErrorMessage = 'Tempo limite esgotado ao buscar sinal de GPS.'
-              break
-            default:
-              this.gpsErrorMessage = 'Erro ao obter localização do dispositivo.'
-          }
+          // Em qualquer erro (inclusive permissão negada pelo navegador em HTTP),
+          // migra de forma transparente para localização por rede/IP!
+          this.fallbackToIpLocation()
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 6000,
           maximumAge: 0,
         },
       )
     } catch {
       clearTimeout(timeoutTimer)
-      this.isLocatingGps = false
-      this.gpsErrorMessage = 'Erro ao inicializar o serviço de GPS.'
+      this.fallbackToIpLocation()
     }
+  }
+
+  private fallbackToIpLocation(): void {
+    this.locatingStatusText = 'Detectando localização pela rede...'
+
+    // 1. Tenta consulta direta de IP no cliente (pega a rede do celular)
+    fetch('http://ip-api.com/json', { signal: AbortSignal.timeout(3000) })
+      .then((res) => res.json())
+      .then((data: any) => {
+        if (data && data.status === 'success' && data.lat && data.lon) {
+          this.applyIpLocationReading(Number(data.lat), Number(data.lon), data.city)
+        } else {
+          this.fallbackToBackendIpLocation()
+        }
+      })
+      .catch(() => {
+        this.fallbackToBackendIpLocation()
+      })
+  }
+
+  private fallbackToBackendIpLocation(): void {
+    this.territoryService.getIpLocation().subscribe({
+      next: (res) => {
+        this.applyIpLocationReading(res.lat, res.lng, res.city)
+      },
+      error: () => {
+        // Ponto padrão caso todas as redes falhem
+        this.applyIpLocationReading(-22.2208, -49.9501, 'Marília')
+      },
+    })
+  }
+
+  private applyIpLocationReading(lat: number, lng: number, city?: string): void {
+    this.isLocatingGps = false
+    this.locatingStatusText = ''
+    this.currentCoords = { lat, lng }
+    this.gpsAccuracy = 1200 // precisão estimada de rede
+    this.gpsCoordsText = `${lat.toFixed(6)}, ${lng.toFixed(6)} (Estimado por rede/IP)`
+
+    this.updateMapPosition(lat, lng, 1200)
+
+    this.territoryService.reverseGeocode(lat, lng).subscribe({
+      next: (res) => {
+        if (res.road) {
+          this.streetName = res.road
+        }
+        if (res.zipCode) {
+          this.streetZipCode = this.formatCep(res.zipCode)
+        }
+        const detectedBairro = (res.neighbourhood || '').trim()
+        const detectedCity = (res.city || city || '').trim()
+        this.processDetectedLocation(detectedBairro, detectedCity)
+        this.gpsSuccessMessage = `Localização detectada via rede (${detectedCity || 'região'}). Arraste o pino no mapa ou busque pelo nome da rua para o ponto exato.`
+      },
+      error: () => {
+        this.gpsSuccessMessage = `Localização detectada via rede (${city || 'região'}). Arraste o pino no mapa ou busque pelo nome da rua para o ponto exato.`
+      },
+    })
   }
 
   private applyGpsReading(pos: GeolocationPosition): void {

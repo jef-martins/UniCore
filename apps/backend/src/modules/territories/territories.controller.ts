@@ -64,6 +64,13 @@ export class TerritoriesController {
     return this.territoriesService.searchAddress(query)
   }
 
+  @Get('ip-location')
+  getIpLocation(@Req() req: any) {
+    const forwarded = req.headers['x-forwarded-for']
+    const clientIp = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket?.remoteAddress
+    return this.territoriesService.getIpLocation(clientIp)
+  }
+
   @Get(':id/hierarchy')
   getTerritoryHierarchy(@Param('id', ParseUUIDPipe) id: string) {
     return this.territoriesService.getTerritoryHierarchy(id)

@@ -1412,6 +1412,41 @@ export class TerritoriesService {
     }
   }
 
+  async getIpLocation(clientIp?: string) {
+    try {
+      const isPrivateOrLocal =
+        !clientIp ||
+        clientIp === '127.0.0.1' ||
+        clientIp === '::1' ||
+        clientIp.startsWith('192.168.') ||
+        clientIp.startsWith('10.') ||
+        clientIp.startsWith('172.16.')
+      const queryIp = isPrivateOrLocal ? '' : clientIp.trim()
+      const url = queryIp ? `http://ip-api.com/json/${queryIp}` : 'http://ip-api.com/json'
+      const res = await fetch(url, { signal: AbortSignal.timeout(3500) })
+      if (res.ok) {
+        const data = (await res.json()) as any
+        if (data && data.status === 'success' && data.lat && data.lon) {
+          return {
+            lat: Number(data.lat),
+            lng: Number(data.lon),
+            city: data.city || 'Marília',
+            state: data.region || 'SP',
+          }
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    return {
+      lat: -22.2208,
+      lng: -49.9501,
+      city: 'Marília',
+      state: 'SP',
+    }
+  }
+
   private async ensureTerritoryExists(id: string) {
     const territory = await this.prisma.territory.findUnique({ where: { id } })
     if (!territory) {

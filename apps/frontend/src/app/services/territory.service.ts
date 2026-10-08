@@ -341,6 +341,13 @@ export class TerritoryService {
     return this.http.get<AddressSearchResult[]>(`${this.baseUrl}/search-address`, { params })
   }
 
+  // Localização aproximada por IP (fallback para conexões HTTP)
+  getIpLocation(): Observable<{ lat: number; lng: number; city?: string; state?: string }> {
+    return this.http.get<{ lat: number; lng: number; city?: string; state?: string }>(
+      `${this.baseUrl}/ip-location`,
+    )
+  }
+
   // Territórios
   getTerritories(): Observable<TerritoryItem[]> {
     return this.http.get<TerritoryItem[]>(this.baseUrl)

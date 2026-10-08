@@ -11,7 +11,7 @@
     "test": "vitest run",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "ng build",
-    "build:backend": "tsc -p tsconfig.backend.json && cp apps/backend/package.json dist/apps/backend/package.json",
+    "build:backend": "tsc -p tsconfig.backend.json && node scripts/copy-backend-pkg.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
