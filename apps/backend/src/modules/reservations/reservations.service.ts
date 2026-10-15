@@ -120,11 +120,6 @@ export class ReservationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getItems(search?: string, category?: string, status?: ItemStatus, condition?: ItemCondition) {
-    const totalCount = await this.prisma.reservableItem.count()
-    if (totalCount === 0) {
-      await this.seedDefaultItems()
-    }
-
     const where: Prisma.ReservableItemWhereInput = {}
 
     if (search) {
@@ -375,11 +370,6 @@ export class ReservationsService {
   // --- CONSULTA DE SALAS / LABS E AVALIAÇÃO DE ITENS POR ALUNOS ---
 
   async getRoomsWithStats() {
-    const totalCount = await this.prisma.reservableItem.count()
-    if (totalCount === 0) {
-      await this.seedDefaultItems()
-    }
-
     const items = await this.prisma.reservableItem.findMany({
       include: {
         evaluations: {
